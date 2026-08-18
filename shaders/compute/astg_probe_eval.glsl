@@ -70,7 +70,7 @@ void main() {
         }
 
         vec3 l_pos = ld.pos_range.xyz;
-        float l_range = ld.pos_range.w;
+        float l_range = max(0.01, ld.pos_range.w);
         vec3 to_light = l_pos - p_pos;
         float dist_sq = dot(to_light, to_light);
         float r_sq = l_range * l_range;

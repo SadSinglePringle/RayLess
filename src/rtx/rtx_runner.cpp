@@ -372,9 +372,9 @@ void run_full_bistro_benchmark(BenchmarkManifest& manifest) {
         offsets[p] = (uint32_t)contribs.size();
         uint32_t probe_contrib_count = 24; // 24 sparse couplings
         counts[p] = probe_contrib_count;
-
+        uint32_t valid_hits = std::max(1u, disc_timings.hits_recorded);
         for (uint32_t c = 0; c < probe_contrib_count; ++c) {
-            uint32_t hit_idx = (p * 24 + c) % disc_timings.hits_recorded;
+            uint32_t hit_idx = (p * 24 + c) % valid_hits;
             ProbeLightContribution plc;
             plc.light_id = (p * 97 + c * 13) % 128000;
 

@@ -1373,6 +1373,7 @@ RTX_API void rtx_shutdown() {
     g_rtx.command_list.Reset();
     g_rtx.command_allocator.Reset();
     g_rtx.command_queue.Reset();
+    g_rtx.fence.Reset();
     g_rtx.device.Reset();
     g_rtx.adapter.Reset();
     g_rtx.dxgi_factory.Reset();

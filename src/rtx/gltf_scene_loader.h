@@ -270,9 +270,16 @@ private:
 
                         if (norm_bv && norm_start + vi * norm_stride + 12 <= bin_data.size()) {
                             const float* nf = (const float*)&bin_data[norm_start + vi * norm_stride];
-                            v.nx = nf[0];
-                            v.ny = nf[1];
-                            v.nz = nf[2];
+                            float nx = nf[0], ny = nf[1], nz = nf[2];
+                            float len_sq = nx * nx + ny * ny + nz * nz;
+                            if (std::isnan(nx) || std::isnan(ny) || std::isnan(nz) || len_sq < 0.001f) {
+                                v.nx = 0.0f; v.ny = 1.0f; v.nz = 0.0f;
+                            } else {
+                                float inv_len = 1.0f / std::sqrt(len_sq);
+                                v.nx = nx * inv_len;
+                                v.ny = ny * inv_len;
+                                v.nz = nz * inv_len;
+                            }
                         } else {
                             v.nx = 0.0f; v.ny = 1.0f; v.nz = 0.0f;
                         }

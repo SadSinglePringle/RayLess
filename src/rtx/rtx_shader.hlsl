@@ -121,12 +121,12 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID) {
             PrimitiveMetadata meta = g_primitive_metadata[prim_id];
             out_hit.mesh_id = meta.mesh_id;
             out_hit.surface_cluster_id = meta.surface_cluster_id;
-            out_hit.destruction_chunk_id = (instance_id != 0) ? instance_id : meta.destruction_chunk_id;
+            out_hit.destruction_chunk_id = meta.destruction_chunk_id;
             out_hit.material_id = meta.material_id;
         } else {
             out_hit.mesh_id = instance_id;
-            out_hit.surface_cluster_id = instance_id;
-            out_hit.destruction_chunk_id = instance_id;
+            out_hit.surface_cluster_id = 0;
+            out_hit.destruction_chunk_id = 0;
             out_hit.material_id = 0;
         }
 
