@@ -1,0 +1,315 @@
+[
+  {
+    "assertions": [
+      "PASS: DisplayServer runtime active",
+      "PASS: Headless engine environment verified"
+    ],
+    "category": "INTEGRATION",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {
+      "display_server": "headless",
+      "mode": "Headless / Command-line"
+    },
+    "name": "boot_rendering_device",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Bistro glTF exists at assets/bistro/bistro.gltf",
+      "PASS: Bistro BIN exists at assets/bistro/bistro.bin"
+    ],
+    "category": "INTEGRATION",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "boot_bistro_asset_presence",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: ASTG Probe Eval GLSL compute shader exists"
+    ],
+    "category": "INTEGRATION",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "boot_glsl_compute_shader",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Extracted mesh count is 1",
+      "PASS: Extracted triangle count is 12",
+      "PASS: Extracted vertex count is 24",
+      "PASS: Zero modulo cluster aliasing"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "scene_extractor_hierarchy",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native triangle count > 500k",
+      "PASS: Native mesh count == 551",
+      "PASS: Native material count == 552",
+      "PASS: Native AABB bounds valid"
+    ],
+    "category": "INTEGRATION",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "native_materials": 552,
+      "native_meshes": 551,
+      "native_triangles": 1753630
+    },
+    "name": "scene_godot_native_agreement",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Reverse dependency unit test passed"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "transport_reverse_dependencies",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Priority repair queue unit test passed"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "transport_priority_repair_scheduler",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Energy propagation unit test passed"
+    ],
+    "category": "NUMERICAL",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "transport_energy_propagation",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Allocated >= 140 initial surface seeds"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {
+      "allocated_probes": 160
+    },
+    "name": "probes_surface_area_seeding",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Doorway/corner probe score > 0.65"
+    ],
+    "category": "NUMERICAL",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {
+      "complexity_score": 0.8875
+    },
+    "name": "probes_astg_complexity_score",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Adaptive split increased probe count on high complexity",
+      "PASS: Redundant probes collapsed into compact set"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "probes_adaptive_split_merge",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Initial probe confidence == 0.0",
+      "PASS: Confidence grows after validation sample"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "probes_confidence_progression",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: 3 Energy state update events emitted",
+      "PASS: ZERO topology invalidation events emitted"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "INTEGRATION",
+    "metrics": {
+      "energy_events": 3,
+      "lights_changed": 3,
+      "topology_rays": 0
+    },
+    "name": "late_bound_zero_topology_invariant",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Spatial translation emitted topology invalidation event"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "INTEGRATION",
+    "metrics": {},
+    "name": "late_bound_movement_topology_event",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Chunk 4 is masked in bitfield",
+      "PASS: Chunk 3 is NOT masked in bitfield"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "destruction_chunk_masking",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Invalidated exactly 10 nodes for chunk 5",
+      "PASS: Locality preserved: >95% of topology remained intact"
+    ],
+    "category": "CORRECTNESS",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {
+      "invalidated_nodes": 10,
+      "preserved_ratio": 0.96875,
+      "total_nodes": 320
+    },
+    "name": "destruction_repair_locality",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Godot SDFGI disabled by ASTG Compositor"
+    ],
+    "category": "INTEGRATION",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {},
+    "name": "reconstruction_double_gi_prevention",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Linear HDR composition exact within 1e-4"
+    ],
+    "category": "NUMERICAL",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 0.0,
+    "errors": [],
+    "evidence_level": "UNIT",
+    "metrics": {
+      "delta_b": 0.0,
+      "delta_g": 0.0000000149011611938477,
+      "delta_r": 0.0000000298023223876953
+    },
+    "name": "reconstruction_linear_composition",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 1438.608,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 15.0,
+      "bounce1_nodes": 5.0,
+      "chaos_mean_ms": 0.0302165,
+      "couplings": 4800.0,
+      "fps": 32552.1,
+      "lights": 32.0,
+      "static_mean_ms": 0.0263339,
+      "transport_edges": 4800.0
+    },
+    "name": "native_bistro_dxr_32_lights",
+    "status": "PASS",
+    "warnings": []
+  }
+]

@@ -14,11 +14,11 @@
     "triangle_count": 1753630,
     "instance_count": 551,
     "material_count": 552,
-    "light_count": 128000,
+    "light_count": 32,
     "probe_count": 1200,
-    "transport_node_count": 215,
-    "transport_edge_count": 38400,
-    "angular_leaf_count": 8192000,
+    "transport_node_count": 20,
+    "transport_edge_count": 4800,
+    "angular_leaf_count": 2048,
     "max_bounce_depth": 3,
     "angular_subdivision_depth": 4,
     "energy_pruning_threshold": 0.005,
@@ -29,13 +29,13 @@
     "synthetic_probe_contributions": false
   },
   "metrics": {
-    "lights": 128000,
-    "bounce0_nodes": 171,
-    "bounce1_nodes": 44,
-    "transport_edges": 38400,
-    "couplings": 38400,
-    "static_mean_ms": 0.0793771,
-    "chaos_mean_ms": 0.916002,
-    "fps": 1020.44
+    "lights": 32,
+    "bounce0_nodes": 15,
+    "bounce1_nodes": 5,
+    "transport_edges": 4800,
+    "couplings": 4800,
+    "static_mean_ms": 0.0263339,
+    "chaos_mean_ms": 0.0302165,
+    "fps": 32552.1
   }
 }
