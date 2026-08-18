@@ -1,2 +1,2 @@
 # RayLess
-Lets optimize raytracing, by not having to Raytrace!
+What if you could bake raytracing, and still keep all the benefits?
