@@ -55,6 +55,8 @@ $runner_args = @(
     "/I$WIN_SDK_INC\shared",
     "/I$WIN_SDK_INC\ucrt",
     "/I$WIN_SDK_INC\winrt",
+    "/Isrc",
+    "/Isrc\astg",
     "/Isrc\rtx",
     "src\rtx\rtx_runner.cpp",
     "/link",

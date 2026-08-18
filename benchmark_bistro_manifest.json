@@ -16,9 +16,9 @@
     "material_count": 552,
     "light_count": 128000,
     "probe_count": 1200,
-    "transport_node_count": 0,
-    "transport_edge_count": 0,
-    "angular_leaf_count": 0,
+    "transport_node_count": 215,
+    "transport_edge_count": 38400,
+    "angular_leaf_count": 8192000,
     "max_bounce_depth": 3,
     "angular_subdivision_depth": 4,
     "energy_pruning_threshold": 0.005,
@@ -29,12 +29,13 @@
     "synthetic_probe_contributions": false
   },
   "metrics": {
-    "static_mean_ms": 0.0571904,
-    "static_p50_ms": 0.05632,
-    "static_p99_ms": 0.06656,
-    "chaos_mean_ms": 0.683674,
-    "chaos_p50_ms": 0.669696,
-    "chaos_p99_ms": 0.833536,
-    "fps": 1493.21
+    "lights": 128000,
+    "bounce0_nodes": 171,
+    "bounce1_nodes": 44,
+    "transport_edges": 38400,
+    "couplings": 38400,
+    "static_mean_ms": 0.0793771,
+    "chaos_mean_ms": 0.916002,
+    "fps": 1020.44
   }
 }
