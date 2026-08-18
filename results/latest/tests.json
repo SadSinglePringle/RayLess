@@ -289,26 +289,231 @@
   },
   {
     "assertions": [
+      "PASS: Native Kernel microbenchmarks completed with code 0",
+      "PASS: Kernel throughput reported"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 772.36,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {},
+    "name": "native_kernel_dxr_microbenchmarks",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Subsystem testbed completed with code 0",
+      "PASS: Invalidation latency measured"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 302.475,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {},
+    "name": "native_subsystem_repair_and_invalidation",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
       "PASS: Native Bistro executable completed with code 0",
       "PASS: Authentic validation block generated",
       "PASS: Zero topology rays on light energy change"
     ],
     "category": "PERFORMANCE",
     "diagnosis": "OK: No issues detected.",
-    "duration_ms": 1438.608,
+    "duration_ms": 1373.057,
     "errors": [],
     "evidence_level": "GPU_END_TO_END",
     "metrics": {
       "bounce0_nodes": 15.0,
       "bounce1_nodes": 5.0,
-      "chaos_mean_ms": 0.0302165,
+      "chaos_mean_ms": 0.0192427,
       "couplings": 4800.0,
-      "fps": 32552.1,
+      "fps": 51398.0,
       "lights": 32.0,
-      "static_mean_ms": 0.0263339,
+      "static_mean_ms": 0.0157355,
       "transport_edges": 4800.0
     },
     "name": "native_bistro_dxr_32_lights",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 1379.388,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 43.0,
+      "bounce1_nodes": 12.0,
+      "chaos_mean_ms": 0.0369749,
+      "couplings": 15600.0,
+      "fps": 27126.7,
+      "lights": 128.0,
+      "static_mean_ms": 0.0329472,
+      "transport_edges": 15600.0
+    },
+    "name": "native_bistro_dxr_128_lights",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 1392.672,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 122.0,
+      "bounce1_nodes": 32.0,
+      "chaos_mean_ms": 0.0833024,
+      "couplings": 38400.0,
+      "fps": 12207.0,
+      "lights": 512.0,
+      "static_mean_ms": 0.0769195,
+      "transport_edges": 38400.0
+    },
+    "name": "native_bistro_dxr_512_lights",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 1370.775,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 142.0,
+      "bounce1_nodes": 48.0,
+      "chaos_mean_ms": 0.086528,
+      "couplings": 38400.0,
+      "fps": 11765.8,
+      "lights": 1024.0,
+      "static_mean_ms": 0.0777216,
+      "transport_edges": 38400.0
+    },
+    "name": "native_bistro_dxr_1024_lights",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 1443.566,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 159.0,
+      "bounce1_nodes": 56.0,
+      "chaos_mean_ms": 0.0920405,
+      "couplings": 38400.0,
+      "fps": 10972.6,
+      "lights": 4096.0,
+      "static_mean_ms": 0.0751445,
+      "transport_edges": 38400.0
+    },
+    "name": "native_bistro_dxr_4096_lights",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 1818.73,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 168.0,
+      "bounce1_nodes": 60.0,
+      "chaos_mean_ms": 0.137165,
+      "couplings": 38400.0,
+      "fps": 7342.58,
+      "lights": 16384.0,
+      "static_mean_ms": 0.0846592,
+      "transport_edges": 38400.0
+    },
+    "name": "native_bistro_dxr_16384_lights",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 3592.714,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 171.0,
+      "bounce1_nodes": 46.0,
+      "chaos_mean_ms": 0.414029,
+      "couplings": 38400.0,
+      "fps": 2529.95,
+      "lights": 64000.0,
+      "static_mean_ms": 0.0778064,
+      "transport_edges": 38400.0
+    },
+    "name": "native_bistro_dxr_64000_lights",
+    "status": "PASS",
+    "warnings": []
+  },
+  {
+    "assertions": [
+      "PASS: Native Bistro executable completed with code 0",
+      "PASS: Authentic validation block generated",
+      "PASS: Zero topology rays on light energy change"
+    ],
+    "category": "PERFORMANCE",
+    "diagnosis": "OK: No issues detected.",
+    "duration_ms": 6233.506,
+    "errors": [],
+    "evidence_level": "GPU_END_TO_END",
+    "metrics": {
+      "bounce0_nodes": 171.0,
+      "bounce1_nodes": 44.0,
+      "chaos_mean_ms": 0.697771,
+      "couplings": 38400.0,
+      "fps": 1448.91,
+      "lights": 128000.0,
+      "static_mean_ms": 0.0821248,
+      "transport_edges": 38400.0
+    },
+    "name": "native_bistro_dxr_128000_lights",
     "status": "PASS",
     "warnings": []
   }

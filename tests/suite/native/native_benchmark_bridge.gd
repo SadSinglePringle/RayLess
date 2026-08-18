@@ -9,7 +9,7 @@ extends RefCounted
 const TestResultScript = preload("res://tests/suite/test_result.gd")
 
 static func run_native_bistro(light_count: int = 32) -> RefCounted:
-	var res = TestResultScript.create("native_bistro_dxr_%d_lights" % light_count, TestResultScript.Category.PERFORMANCE, "GPU_END_TO_END")
+	var res = TestResultScript.create("native_bistro_dxr_%d_lights" % light_count, 1, "GPU_END_TO_END")
 	var runner_path = ProjectSettings.globalize_path("res://bin/astg_rtx_runner.exe")
 
 	if not FileAccess.file_exists("res://bin/astg_rtx_runner.exe"):
@@ -54,4 +54,40 @@ static func run_native_bistro(light_count: int = 32) -> RefCounted:
 	if is_synthetic:
 		res.invalidate_test("Native benchmark executed with synthetic shortcuts!")
 
+	return res
+
+static func run_native_kernel() -> RefCounted:
+	var res = TestResultScript.create("native_kernel_dxr_microbenchmarks", 1, "GPU_END_TO_END")
+	var runner_path = ProjectSettings.globalize_path("res://bin/astg_rtx_runner.exe")
+
+	if not FileAccess.file_exists("res://bin/astg_rtx_runner.exe"):
+		res.skip_test("Native executable not found at bin/astg_rtx_runner.exe")
+		return res
+
+	var output = []
+	var start_t = Time.get_ticks_usec()
+	var exit_code = OS.execute(runner_path, ["--benchmark", "kernel"], output, true)
+	res.duration_ms = float(Time.get_ticks_usec() - start_t) / 1000.0
+
+	var out_str = "".join(output)
+	res.add_assertion("Native Kernel microbenchmarks completed with code 0", exit_code == 0)
+	res.add_assertion("Kernel throughput reported", out_str.contains("Hardware Throughput"))
+	return res
+
+static func run_native_subsystem() -> RefCounted:
+	var res = TestResultScript.create("native_subsystem_repair_and_invalidation", 1, "GPU_END_TO_END")
+	var runner_path = ProjectSettings.globalize_path("res://bin/astg_rtx_runner.exe")
+
+	if not FileAccess.file_exists("res://bin/astg_rtx_runner.exe"):
+		res.skip_test("Native executable not found at bin/astg_rtx_runner.exe")
+		return res
+
+	var output = []
+	var start_t = Time.get_ticks_usec()
+	var exit_code = OS.execute(runner_path, ["--benchmark", "subsystem"], output, true)
+	res.duration_ms = float(Time.get_ticks_usec() - start_t) / 1000.0
+
+	var out_str = "".join(output)
+	res.add_assertion("Native Subsystem testbed completed with code 0", exit_code == 0)
+	res.add_assertion("Invalidation latency measured", out_str.contains("Invalidation latency"))
 	return res

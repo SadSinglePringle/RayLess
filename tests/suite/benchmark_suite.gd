@@ -90,17 +90,51 @@ func _execute_suite(config: RefCounted) -> void:
 	if not has_failures or not config.fail_fast:
 		if config.level >= SuiteConfigScript.SuiteLevel.STANDARD:
 			print("\n▶ Running Group: Native D3D12 / DXR Hardware Benchmarks...")
-			var native_res = NativeBridgeScript.run_native_bistro(32)
-			all_results.append(native_res)
-			native_res.diagnosis = DiagnosisEngineScript.diagnose(native_res)
-			if native_res.status == TestResultScript.Status.PASS:
+			
+			# Kernel & Subsystem benchmarks
+			var k_res = NativeBridgeScript.run_native_kernel()
+			all_results.append(k_res)
+			k_res.diagnosis = DiagnosisEngineScript.diagnose(k_res)
+			if k_res.status == TestResultScript.Status.PASS:
 				passed_count += 1
-				print("  ✅ [PASS]: %s (%.2f ms)" % [native_res.name, native_res.duration_ms])
+				print("  ✅ [PASS]: %s (%.2f ms)" % [k_res.name, k_res.duration_ms])
 			else:
 				failed_count += 1
 				has_failures = true
-				print("  ❌ [FAIL]: %s" % native_res.name)
-				print("     ↳ %s" % native_res.diagnosis)
+				print("  ❌ [FAIL]: %s" % k_res.name)
+
+			var sub_res = NativeBridgeScript.run_native_subsystem()
+			all_results.append(sub_res)
+			sub_res.diagnosis = DiagnosisEngineScript.diagnose(sub_res)
+			if sub_res.status == TestResultScript.Status.PASS:
+				passed_count += 1
+				print("  ✅ [PASS]: %s (%.2f ms)" % [sub_res.name, sub_res.duration_ms])
+			else:
+				failed_count += 1
+				has_failures = true
+				print("  ❌ [FAIL]: %s" % sub_res.name)
+
+			# Multi-tier full scene benchmarks
+			var tiers = [32]
+			if config.level >= SuiteConfigScript.SuiteLevel.FULL:
+				tiers = [32, 128, 512, 1024]
+			if config.level >= SuiteConfigScript.SuiteLevel.STRESS:
+				tiers = [32, 128, 512, 1024, 4096, 16384, 64000, 128000]
+
+			for t in tiers:
+				var native_res = NativeBridgeScript.run_native_bistro(t)
+				all_results.append(native_res)
+				native_res.diagnosis = DiagnosisEngineScript.diagnose(native_res)
+				if native_res.status == TestResultScript.Status.PASS:
+					passed_count += 1
+					print("  ✅ [PASS]: %s (%.2f ms)" % [native_res.name, native_res.duration_ms])
+				else:
+					failed_count += 1
+					has_failures = true
+					print("  ❌ [FAIL]: %s" % native_res.name)
+					print("     ↳ %s" % native_res.diagnosis)
+					if config.fail_fast:
+						break
 
 	var total_time_ms = float(Time.get_ticks_usec() - start_time_us) / 1000.0
 
