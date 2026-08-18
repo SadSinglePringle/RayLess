@@ -110,9 +110,7 @@ func initialize(
 
 func generate_contributions_for_probes(probes: Array) -> void:
 	contribution_table.clear()
-	var max_sample_lights = min(lights.size(), 8000)
-	for i in range(max_sample_lights):
-		var sl = lights[i]
+	for sl in lights:
 		if sl.is_occluded:
 			continue
 		var r_sq = sl.range * sl.range
@@ -127,12 +125,19 @@ func generate_contributions_for_probes(probes: Array) -> void:
 
 			var l_dir = (sl.position - p_pos) / max(0.001, dist)
 			var ndotl = max(0.0, p_norm.dot(l_dir))
-			if ndotl < 0.1:
+			if ndotl < 0.2:
 				continue
 
 			var atten = (1.0 - (dist / sl.range)) * ndotl / (dist_sq + 1.0)
 			var w = atten * 0.15
-			contribution_table.add_contribution(p_id, sl.id, Color(w, w, w))
+			var importance = w * ndotl
+			if contribution_table.has_method("add_candidate"):
+				contribution_table.add_candidate(p_id, sl.id, Color(w, w, w), 0, importance)
+			else:
+				contribution_table.add_contribution(p_id, sl.id, Color(w, w, w))
+
+	if contribution_table.has_method("finalize_top_k_contributions"):
+		contribution_table.finalize_top_k_contributions()
 
 func animate_lights_cpu(time_sec: float, anim_mode: int, frame_idx: int) -> int:
 	var writes = 0

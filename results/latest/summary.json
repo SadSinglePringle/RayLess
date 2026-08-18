@@ -1,11 +1,11 @@
 {
-  "duration_ms": 28841.725,
+  "duration_ms": 7871.293,
   "failed": 0,
   "invalid": 0,
-  "level": "STRESS",
-  "passed": 28,
+  "level": "FULL",
+  "passed": 24,
   "skipped": 0,
   "status": "PASS",
-  "timestamp": "2026-08-18T14:40:38",
-  "total_tests": 28
+  "timestamp": "2026-08-18T14:50:44",
+  "total_tests": 24
 }

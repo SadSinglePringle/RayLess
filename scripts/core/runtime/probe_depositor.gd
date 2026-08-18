@@ -54,6 +54,9 @@ func deposit_direct_transport(
 		)
 		total_deposits += deposited
 
+	if contribution_table != null and contribution_table.has_method("finalize_top_k_contributions"):
+		contribution_table.finalize_top_k_contributions()
+
 	return total_deposits
 
 func trace_and_deposit_diffuse_bounces(
@@ -146,6 +149,9 @@ func trace_and_deposit_diffuse_bounces(
 				)
 				total_diffuse_deposits += dep
 
+	if contribution_table != null and contribution_table.has_method("finalize_top_k_contributions"):
+		contribution_table.finalize_top_k_contributions()
+
 	return total_diffuse_deposits
 
 func _record_transfer_to_probes(
@@ -166,12 +172,16 @@ func _record_transfer_to_probes(
 		if dist > 2.5:
 			continue
 		var ndot = probe.normal.dot(normal)
-		if ndot < 0.2:
+		if ndot < 0.8: # Phase 6: Normal cone compatibility (approx 37 deg)
 			continue
 
 		var w = (1.0 - (dist / 2.5)) * ndot
 		var final_transfer = transfer_weight * w
-		contribution_table.add_contribution(probe.id, light_id, final_transfer)
+		var importance = final_transfer.get_luminance() * ndot
+		if contribution_table.has_method("add_candidate"):
+			contribution_table.add_candidate(probe.id, light_id, final_transfer, 0, importance)
+		else:
+			contribution_table.add_contribution(probe.id, light_id, final_transfer)
 
 func _find_closest_cluster(pos: Vector3, normal: Vector3) -> int:
 	var best_id = -1
