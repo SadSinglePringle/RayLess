@@ -29,12 +29,12 @@
     "synthetic_probe_contributions": false
   },
   "metrics": {
-    "static_mean_ms": 0.103825,
-    "static_p50_ms": 0.103424,
-    "static_p99_ms": 0.105472,
-    "chaos_mean_ms": 0.951689,
-    "chaos_p50_ms": 0.949248,
-    "chaos_p99_ms": 0.990208,
-    "fps": 1053.47
+    "static_mean_ms": 0.0568405,
+    "static_p50_ms": 0.05632,
+    "static_p99_ms": 0.062464,
+    "chaos_mean_ms": 0.712747,
+    "chaos_p50_ms": 0.703488,
+    "chaos_p99_ms": 0.851968,
+    "fps": 1421.49
   }
 }
