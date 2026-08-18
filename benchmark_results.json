@@ -1,0 +1,719 @@
+{
+	"angular_hierarchy": {
+		"boundary_refinement_verified": true,
+		"lamp_cells": 293,
+		"leaf_angular_funnels": 1776,
+		"max_subdivision_depth": 4,
+		"sun_cells": 97,
+		"sun_leaf_funnels": 73,
+		"total_octahedral_cells": 2365
+	},
+	"branch_pruning": {
+		"bounce0_nodes": 1660,
+		"bounce1_nodes": 2149,
+		"branching_factor": 1.29457831325301,
+		"bytes_per_probe": 1000.54916512059,
+		"memory_total_kb": 584.03125,
+		"total_transport_nodes": 3809
+	},
+	"core_correctness": {
+		"ancestors_preserved": true,
+		"blocked_path_leaks": 0,
+		"mean_absolute_rgb_error": 0.462416891522568,
+		"mse": 0.755433836020506,
+		"new_paths_discovered": 9,
+		"peak_error": 4.82622957229614,
+		"psnr": 1.21803566943099,
+		"tolerance_percentage": 56.9573283858998
+	},
+	"destruction": {
+		"irrelevant_destruction_rays": 0,
+		"large_burst_budget": 80000,
+		"large_repair_rays": 80,
+		"localized_scaling_verified": true,
+		"medium_invalidated_pct": 0.0,
+		"tiny_invalidated_pct": 0.128122998078155,
+		"tiny_repair_rays": 5
+	},
+	"five_key_numbers": {
+		"1_steady_state_rays_per_frame": 0,
+		"2_gi_gpu_milliseconds": 31.8054395604396,
+		"3_t90_after_destruction_frames": 1,
+		"4_pct_transport_graph_invalidated_tiny": 0.128122998078155,
+		"5_total_transport_and_probe_memory_kb": 584.03125
+	},
+	"graph_efficiency": {},
+	"light_changes": {
+		"color_t90_frames": 1,
+		"color_topology_rays": 0,
+		"color_update_time_ms": 115.339,
+		"intensity_t90_frames": 1,
+		"intensity_topology_rays": 0,
+		"intensity_update_time_ms": 129.588,
+		"toggle_t90_frames": 1,
+		"toggle_topology_rays": 0,
+		"toggle_update_time_ms": 105.269
+	},
+	"ray_efficiency": {
+		"direct_t90_latency_frames": 1,
+		"indirect_t90_latency_frames": 1,
+		"light_change_t90_latency_frames": 1,
+		"steady_state_rays_per_frame": 0,
+		"steady_state_time_ms": 0.034,
+		"useful_repair_ray_ratio": 0.95
+	},
+	"responsiveness": {},
+	"scripted_timeline": {
+		"avg_frame_time_ms": 31.8054395604396,
+		"avg_rays_per_second": 335.703296703297,
+		"peak_rays": 7657,
+		"timeline_data": [
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 0,
+				"time_ms": 123.873
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 1,
+				"time_ms": 0.022
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 2,
+				"time_ms": 0.015
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 3,
+				"time_ms": 0.015
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 4,
+				"time_ms": 0.013
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 5,
+				"time_ms": 105.923
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 6,
+				"time_ms": 0.011
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 7,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 8,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 9,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 10,
+				"time_ms": 101.424
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 11,
+				"time_ms": 0.01
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 12,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 13,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 14,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 15,
+				"time_ms": 92.823
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 16,
+				"time_ms": 0.01
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 17,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 18,
+				"time_ms": 0.006
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 19,
+				"time_ms": 0.006
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 20,
+				"time_ms": 94.347
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 21,
+				"time_ms": 0.018
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 22,
+				"time_ms": 0.06
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 23,
+				"time_ms": 0.009
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 24,
+				"time_ms": 0.006
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 25,
+				"time_ms": 97.785
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 26,
+				"time_ms": 0.01
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 27,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 28,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 29,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 30,
+				"time_ms": 96.881
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 31,
+				"time_ms": 0.01
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 32,
+				"time_ms": 0.006
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 33,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 3809,
+				"queue": 0,
+				"rays": 0,
+				"second": 34,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 7638,
+				"second": 35,
+				"time_ms": 453.596
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 36,
+				"time_ms": 0.034
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 37,
+				"time_ms": 0.01
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 38,
+				"time_ms": 0.009
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 39,
+				"time_ms": 0.009
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 40,
+				"time_ms": 0.01
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 41,
+				"time_ms": 0.009
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 42,
+				"time_ms": 0.009
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 43,
+				"time_ms": 0.011
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 44,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 45,
+				"time_ms": 0.063
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 46,
+				"time_ms": 0.015
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 47,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 48,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 49,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 50,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 51,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 52,
+				"time_ms": 0.01
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 53,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 54,
+				"time_ms": 0.012
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 55,
+				"time_ms": 207.329
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 56,
+				"time_ms": 0.021
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 57,
+				"time_ms": 0.016
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 58,
+				"time_ms": 0.015
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 59,
+				"time_ms": 0.015
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 60,
+				"time_ms": 194.407
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 61,
+				"time_ms": 0.026
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 62,
+				"time_ms": 0.009
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 63,
+				"time_ms": 0.008
+			},
+			{
+				"active_nodes": 4754,
+				"queue": 0,
+				"rays": 0,
+				"second": 64,
+				"time_ms": 0.008
+			},
+			{
+				"active_nodes": 4765,
+				"queue": 0,
+				"rays": 7657,
+				"second": 65,
+				"time_ms": 459.678
+			},
+			{
+				"active_nodes": 4765,
+				"queue": 0,
+				"rays": 0,
+				"second": 66,
+				"time_ms": 0.022
+			},
+			{
+				"active_nodes": 4765,
+				"queue": 0,
+				"rays": 0,
+				"second": 67,
+				"time_ms": 0.008
+			},
+			{
+				"active_nodes": 4765,
+				"queue": 0,
+				"rays": 0,
+				"second": 68,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4765,
+				"queue": 0,
+				"rays": 0,
+				"second": 69,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 7647,
+				"second": 70,
+				"time_ms": 448.753
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 71,
+				"time_ms": 0.023
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 72,
+				"time_ms": 0.008
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 73,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 74,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 75,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 76,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 77,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 78,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4770,
+				"queue": 0,
+				"rays": 0,
+				"second": 79,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 7607,
+				"second": 80,
+				"time_ms": 416.557
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 81,
+				"time_ms": 0.021
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 82,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 83,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 84,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 85,
+				"time_ms": 0.006
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 86,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 87,
+				"time_ms": 0.006
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 88,
+				"time_ms": 0.007
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 89,
+				"time_ms": 0.006
+			},
+			{
+				"active_nodes": 4784,
+				"queue": 0,
+				"rays": 0,
+				"second": 90,
+				"time_ms": 0.007
+			}
+		],
+		"total_seconds": 90
+	},
+	"surface_probes": {
+		"active_probes": 539,
+		"paths_generated": 9960,
+		"paths_merged_into_probes": 2149,
+		"paths_pruned_or_terminated": 7811,
+		"probe_termination_ratio": 0.215763052208835,
+		"surface_clusters": 898
+	}
+}

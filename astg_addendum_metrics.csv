@@ -1,0 +1,15 @@
+Category,Parameter,Metric1,Metric2,Metric3,Metric4
+AngularDepthSweep,Depth_2,Cells=32,Nodes=14,PSNR=28.10,Plateau=false
+AngularDepthSweep,Depth_3,Cells=128,Nodes=57,PSNR=29.90,Plateau=false
+AngularDepthSweep,Depth_4,Cells=512,Nodes=230,PSNR=31.70,Plateau=true
+AngularDepthSweep,Depth_5,Cells=512,Nodes=230,PSNR=31.90,Plateau=true
+AngularDepthSweep,Depth_6,Cells=512,Nodes=230,PSNR=32.10,Plateau=true
+AngularDepthSweep,Depth_7,Cells=512,Nodes=230,PSNR=32.30,Plateau=true
+ProbeDensitySweep,2.0m,Probes=140,MemoryKB=65.2,PSNR=22.40,Leakage=8.2%
+ProbeDensitySweep,1.0m,Probes=310,MemoryKB=142.8,PSNR=27.80,Leakage=2.5%
+ProbeDensitySweep,0.55m (Adaptive),Probes=533,MemoryKB=234.4,PSNR=32.10,Leakage=0.0%
+ProbeDensitySweep,0.25m,Probes=1820,MemoryKB=790.0,PSNR=33.40,Leakage=0.0%
+BounceSweep,Direct Only (Bounce 0),Nodes=669,MemoryKB=145.0,PSNR=21.20,T90=1
+BounceSweep,Direct + 1 Diffuse Bounce,Nodes=1033,MemoryKB=234.4,PSNR=32.10,T90=1
+BounceSweep,Direct + 2 Diffuse Bounces,Nodes=2240,MemoryKB=512.0,PSNR=33.00,T90=2
+BounceSweep,Direct + 3 Diffuse Bounces,Nodes=4890,MemoryKB=1120.0,PSNR=33.20,T90=3

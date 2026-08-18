@@ -1,0 +1,16 @@
+# Godot engine cache & temp files
+.godot/
+*.tmp
+*.log
+
+# C++ Build outputs and object files
+*.obj
+*.exp
+*.lib
+bin/*.ilk
+bin/*.pdb
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+.DS_Store

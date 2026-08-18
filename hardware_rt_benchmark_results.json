@@ -1,0 +1,16 @@
+{
+	"astg_repair_cpu_us": 60,
+	"astg_repair_gpu_us": 82,
+	"benchmark": "ASTG Hardware RT Core Evaluation",
+	"cpu_throughput_mrays_sec": 0.407319013524264,
+	"cpu_time_ms": 2.514,
+	"ddgi_14400_cpu_ms": 0.464,
+	"ddgi_14400_gpu_ms": 0.498,
+	"device": "NVIDIA GeForce RTX 4070 (Ada Lovelace RT Cores)",
+	"gpu_throughput_mrays_sec": 0.493731918997107,
+	"gpu_time_ms": 2.074,
+	"hardware_rt_cores_active": true,
+	"speedup_factor": 1.21215043394407,
+	"stress_rays": 1024,
+	"triangles": 486594
+}

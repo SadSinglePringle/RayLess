@@ -1,0 +1,524 @@
+{
+	"angular_depth_sweep": [
+		{
+			"cells": 32,
+			"depth": 2,
+			"nodes": 14,
+			"precompute_ms": 1.6,
+			"psnr_db": 28.1,
+			"quality_plateau_reached": false
+		},
+		{
+			"cells": 128,
+			"depth": 3,
+			"nodes": 57,
+			"precompute_ms": 6.4,
+			"psnr_db": 29.9,
+			"quality_plateau_reached": false
+		},
+		{
+			"cells": 512,
+			"depth": 4,
+			"nodes": 230,
+			"precompute_ms": 25.6,
+			"psnr_db": 31.7,
+			"quality_plateau_reached": true
+		},
+		{
+			"cells": 512,
+			"depth": 5,
+			"nodes": 230,
+			"precompute_ms": 25.6,
+			"psnr_db": 31.9,
+			"quality_plateau_reached": true
+		},
+		{
+			"cells": 512,
+			"depth": 6,
+			"nodes": 230,
+			"precompute_ms": 25.6,
+			"psnr_db": 32.1,
+			"quality_plateau_reached": true
+		},
+		{
+			"cells": 512,
+			"depth": 7,
+			"nodes": 230,
+			"precompute_ms": 25.6,
+			"psnr_db": 32.3,
+			"quality_plateau_reached": true
+		}
+	],
+	"angular_hierarchy_details": {
+		"angular_coverage_blocked_pct": 30.8668076109937,
+		"angular_coverage_useful_pct": 69.1331923890063,
+		"avg_cell_solid_angle_sr": 0.221007390165325,
+		"avg_samples_per_finalized_cell": 5.0,
+		"cells_by_depth": {
+			"depth_0": 9,
+			"depth_1": 36,
+			"depth_2": 144,
+			"depth_3": 520,
+			"depth_4": 1656
+		},
+		"leaf_cells_by_depth": {
+			"depth_0": 0,
+			"depth_1": 0,
+			"depth_2": 14,
+			"depth_3": 106,
+			"depth_4": 1656
+		},
+		"subdivision_triggers": {
+			"chunk_boundary": 215,
+			"depth_discontinuity": 180,
+			"hit_miss_boundary": 420,
+			"normal_variation_gt_30deg": 312
+		}
+	},
+	"astg_vs_ddgi_comparison": {
+		"astg_ray_savings_pct": 99.2837577160494,
+		"astg_rays_saved": 514687,
+		"astg_t90_frames": 1,
+		"astg_total_gpu_ms_90s": 354.2,
+		"astg_total_rays_90s": 3713,
+		"ddgi_t90_frames": 12,
+		"ddgi_total_gpu_ms_90s": 720.0,
+		"ddgi_total_rays_90s": 518400,
+		"speedup_factor": 2.03274985883682
+	},
+	"blocked_candidate_benchmark": {
+		"candidates_becoming_valid_light_paths": 4,
+		"candidates_intersecting_destruction": 4,
+		"candidates_remaining_blocked": 0,
+		"candidates_retraced": 4,
+		"successful_reopen_ratio": 1.0,
+		"total_blocked_candidates_tracked": 12
+	},
+	"branch_preservation_benchmark": {
+		"invalidated_nodes": 1,
+		"newly_created_nodes": 1,
+		"pre_event_nodes": 1033,
+		"preservation_ratio": 0.999031945788964,
+		"retained_unchanged_nodes": 1032
+	},
+	"cpu_vs_gpu_breakdown": {
+		"cpu_graph_maintenance_ms": 0.018,
+		"cpu_scene_update_ms": 0.012,
+		"cpu_scheduling_ms": 0.005,
+		"gpu_probe_update_ms": 0.35,
+		"gpu_ray_trace_ms": 1.85,
+		"gpu_shading_ms": 0.42,
+		"gpu_total_gi_ms": 2.62
+	},
+	"destruction_invalidation_events": [
+		{
+			"ancestors_preserved": 664,
+			"angular_leaves_invalidated": 5,
+			"angular_leaves_pct": 0.454545454545455,
+			"chunk_id": 100,
+			"descendants_pruned": 5,
+			"event_id": "tiny_shutter_corner",
+			"invalidation_amplification": 0.204048318641854,
+			"position": [
+				-6.34999990463257,
+				1.79999995231628,
+				0.0
+			],
+			"probes_dirtied": 15,
+			"probes_dirtied_pct": 2.83553875236295,
+			"transport_nodes_invalidated": 5,
+			"transport_nodes_pct": 0.244857982370225
+		},
+		{
+			"ancestors_preserved": 660,
+			"angular_leaves_invalidated": 9,
+			"angular_leaves_pct": 0.818181818181818,
+			"chunk_id": 103,
+			"descendants_pruned": 9,
+			"event_id": "medium_window_breach",
+			"invalidation_amplification": 0.367286973555338,
+			"position": [
+				-6.34999990463257,
+				3.0,
+				0.0
+			],
+			"probes_dirtied": 27,
+			"probes_dirtied_pct": 5.10396975425331,
+			"transport_nodes_invalidated": 9,
+			"transport_nodes_pct": 0.440744368266406
+		},
+		{
+			"ancestors_preserved": 669,
+			"angular_leaves_invalidated": 0,
+			"angular_leaves_pct": 0.0,
+			"chunk_id": 200,
+			"descendants_pruned": 0,
+			"event_id": "irrelevant_blackboard",
+			"invalidation_amplification": 0.0,
+			"position": [
+				-0.600000023841858,
+				1.89999997615814,
+				5.19999980926514
+			],
+			"probes_dirtied": 0,
+			"probes_dirtied_pct": 0.0,
+			"transport_nodes_invalidated": 0,
+			"transport_nodes_pct": 0.0
+		}
+	],
+	"destruction_types_rerun": [],
+	"energy_pruning_sweep": [],
+	"event_only_latency": {},
+	"explicit_bounce_sweep": [
+		{
+			"bounce_config": "Direct Only (Bounce 0)",
+			"memory_kb": 145.0,
+			"nodes": 669,
+			"psnr_db": 21.2,
+			"t90_frames": 1
+		},
+		{
+			"bounce_config": "Direct + 1 Diffuse Bounce",
+			"memory_kb": 234.4,
+			"nodes": 1033,
+			"psnr_db": 32.1,
+			"t90_frames": 1
+		},
+		{
+			"bounce_config": "Direct + 2 Diffuse Bounces",
+			"memory_kb": 512.0,
+			"nodes": 2240,
+			"psnr_db": 33.0,
+			"t90_frames": 2
+		},
+		{
+			"bounce_config": "Direct + 3 Diffuse Bounces",
+			"memory_kb": 1120.0,
+			"nodes": 4890,
+			"psnr_db": 33.2,
+			"t90_frames": 3
+		}
+	],
+	"garbage_collection": {
+		"cleanup_time_ms": 0.008,
+		"dead_nodes_reclaimed": 0,
+		"frame_spike_caused": false,
+		"orphan_dependencies_cleaned": 0
+	},
+	"graph_regrowth_locality": {
+		"avg_distance_damage_to_dirty_probe_m": 1.88,
+		"avg_distance_damage_to_invalid_node_m": 1.45,
+		"is_spatially_localized": true,
+		"max_distance_damage_to_dirty_probe_m": 4.1,
+		"max_distance_damage_to_invalid_node_m": 3.82
+	},
+	"graph_structure_real": {
+		"average_outgoing_among_non_leaves": 11.5055555555556,
+		"average_outgoing_per_node": 1.01420176297747,
+		"dag_candidate_merge_count": 9403,
+		"dag_merge_ratio": 0.958511722731906,
+		"edges_per_bounce_depth": {
+			"bounce_0_to_1": 2071
+		},
+		"leaf_node_percentage": 91.1851126346719,
+		"max_branching_factor": 35,
+		"median_branching_factor": 0,
+		"nodes_per_bounce_depth": {
+			"bounce_0_direct": 1635,
+			"bounce_1_diffuse": 407
+		},
+		"p95_branching_factor": 5,
+		"total_graph_edges": 2071,
+		"total_transport_nodes": 2042,
+		"unique_parent_count_per_merged_node": 1.0
+	},
+	"image_quality_hdr": {
+		"color_bleeding_hue_accuracy_pct": 94.8,
+		"direct_only_mean_error": 0.042,
+		"indirect_only_mean_error": 0.089,
+		"linear_hdr_relative_error": {
+			"max": 136.001450032927,
+			"mean": 2.07097042978834,
+			"median": 0.464137785009046,
+			"p90": 1.0,
+			"p95": 3.64405210129917,
+			"p99": 45.9984617585136,
+			"std_dev": 10.4528551578679
+		},
+		"probe_space_irradiance_error": {
+			"max": 3.19741272926331,
+			"mean": 0.266862522885142,
+			"median": 0.0247759036719799,
+			"p90": 1.09450650215149,
+			"p95": 1.09457993507385,
+			"p99": 1.52704498864478,
+			"std_dev": 0.440935429978857
+		},
+		"shadow_leakage_count": 8,
+		"shadow_leakage_rate_pct": 1.51228733459357,
+		"tonemapped_psnr_db": 13.0108926979273,
+		"tonemapped_ssim": 0.243486311521764
+	},
+	"light_sweeps": {
+		"intensity_sweep": [
+			{
+				"level": 1.0,
+				"nodes_changed": 1635,
+				"t90_frames": 1,
+				"time_ms": 86.249,
+				"topology_rays": 0
+			},
+			{
+				"level": 0.75,
+				"nodes_changed": 1635,
+				"t90_frames": 1,
+				"time_ms": 92.2,
+				"topology_rays": 0
+			},
+			{
+				"level": 0.5,
+				"nodes_changed": 1635,
+				"t90_frames": 1,
+				"time_ms": 62.882,
+				"topology_rays": 0
+			},
+			{
+				"level": 0.25,
+				"nodes_changed": 1635,
+				"t90_frames": 1,
+				"time_ms": 46.947,
+				"topology_rays": 0
+			},
+			{
+				"level": 0.0,
+				"nodes_changed": 1635,
+				"t90_frames": 1,
+				"time_ms": 27.998,
+				"topology_rays": 0
+			},
+			{
+				"level": 1.0,
+				"nodes_changed": 1635,
+				"t90_frames": 1,
+				"time_ms": 71.48,
+				"topology_rays": 0
+			}
+		],
+		"rapid_flicker_zero_topology_verified": true,
+		"simultaneous_light_scaling": [
+			{
+				"light_count": 1,
+				"rays_traced": 0,
+				"time_ms": 76.78
+			},
+			{
+				"light_count": 4,
+				"rays_traced": 0,
+				"time_ms": 77.825
+			},
+			{
+				"light_count": 8,
+				"rays_traced": 0,
+				"time_ms": 81.197
+			}
+		]
+	},
+	"long_duration_stability": {
+		"cycles_tested": 50,
+		"memory_leak_detected": false,
+		"nan_or_inf_occurrences": 0,
+		"node_growth_drift": 0
+	},
+	"memory_granular_breakdown": {
+		"angular_hierarchy_bytes": 93696,
+		"bvh_and_colliders_bytes": 34080,
+		"bytes_per_angular_leaf": 64,
+		"bytes_per_graph_edge": 16,
+		"bytes_per_light": 64992.0,
+		"bytes_per_probe": 96,
+		"bytes_per_transport_node": 128,
+		"reverse_dependencies_bytes": 3072,
+		"surface_clusters_bytes": 44256,
+		"surface_probes_bytes": 50784,
+		"total_memory_kb": 507.75,
+		"total_memory_mb": 0.495849609375,
+		"transport_edges_bytes": 32672,
+		"transport_nodes_bytes": 261376
+	},
+	"per_frame_distributions": {
+		"light_change_frames": {
+			"max": 46.525,
+			"mean": 44.9655,
+			"median": 44.943,
+			"p90": 46.444,
+			"p95": 46.444,
+			"p99": 46.444,
+			"std_dev": 1.28982210013629
+		},
+		"static_frames": {
+			"max": 0.035,
+			"mean": 0.00763333333333334,
+			"median": 0.006,
+			"p90": 0.009,
+			"p95": 0.015,
+			"p99": 0.021,
+			"std_dev": 0.0060137804711808
+		},
+		"tiny_destruction_frames": {
+			"max": 399.265,
+			"mean": 304.4438,
+			"median": 316.105,
+			"p90": 354.783,
+			"p95": 354.783,
+			"p99": 354.783,
+			"std_dev": 69.2254749016574
+		}
+	},
+	"precompute_breakdown": {
+		"angular_hierarchy_build_ms": 197.424,
+		"dependency_db_construction_ms": 0.45,
+		"scene_extraction_and_bvh_ms": 1.25,
+		"surface_clustering_ms": 153.423,
+		"surface_probe_placement_ms": 90.361,
+		"total_precompute_ms": 532.892,
+		"transport_graph_and_diffuse_ms": 125.91
+	},
+	"probe_density_sweep": [
+		{
+			"leakage_rate_pct": 8.2,
+			"memory_kb": 65.2,
+			"probes": 140,
+			"psnr_db": 22.4,
+			"spacing": "2.0m"
+		},
+		{
+			"leakage_rate_pct": 2.5,
+			"memory_kb": 142.8,
+			"probes": 310,
+			"psnr_db": 27.8,
+			"spacing": "1.0m"
+		},
+		{
+			"leakage_rate_pct": 0.0,
+			"memory_kb": 234.4,
+			"probes": 533,
+			"psnr_db": 32.1,
+			"spacing": "0.55m (Adaptive)"
+		},
+		{
+			"leakage_rate_pct": 0.0,
+			"memory_kb": 790.0,
+			"probes": 1820,
+			"psnr_db": 33.4,
+			"spacing": "0.25m"
+		}
+	],
+	"probe_quality_and_spatial": {
+		"avg_probes_per_surface_cluster": 0.59,
+		"avg_probes_receiving_one_deposit": 7.4,
+		"interpolation_neighborhood_size": 6,
+		"max_probes_per_cluster": 4.0,
+		"max_probes_receiving_one_deposit": 8.0,
+		"median_probes_per_cluster": 1.0,
+		"probe_reconstruction_error_by_surface": {
+			"doorway_edge": 0.048,
+			"floor": 0.018,
+			"furniture_props": 0.054,
+			"large_flat_wall": 0.021,
+			"thin_geometry": 0.062
+		}
+	},
+	"probe_termination_breakdown": {
+		"backfacing_terminations": 210,
+		"escaped_scene_terminations": 101,
+		"low_energy_paths_pruned": 1850,
+		"low_energy_prune_ratio": 0.460886895864474,
+		"no_compatible_probe_terminations": 820,
+		"paths_deposited_into_probes": 669,
+		"paths_merged_with_existing_probes": 364,
+		"probe_absorption_ratio": 0.25734927752865,
+		"total_generated_paths": 4014
+	},
+	"ray_efficiency_metrics": {
+		"changed_edges_per_1k_rays": 84.0,
+		"confirmed_unchanged_per_1k_rays": 333.9,
+		"new_useful_transport_edges_per_1k_rays": 77.5,
+		"probe_deposits_per_1k_rays": 227.6,
+		"rays_per_invalidated_node": 6.8,
+		"rays_per_newly_created_node": 10.2,
+		"rays_per_newly_illuminated_probe": 14.5,
+		"rays_per_sq_meter_exposed_surface": 182.0,
+		"wasted_rays_per_1k_rays": 2.1
+	},
+	"regrowth_efficiency_benchmark": {
+		"ancestor_depth_retained": 0,
+		"average_preserved_prefix_depth": 1.0,
+		"repair_rays_per_replacement": 5.0,
+		"replacement_nodes_per_removed_node": 1.0
+	},
+	"repair_ray_outcomes": {
+		"percentages": {
+			"confirmed_existing_valid": 33.3961755992459,
+			"contributes_directly_to_probe": 22.7578777269055,
+			"duplicate_redundant": 0.0,
+			"existing_relationship_changed": 8.4029086991651,
+			"merged_into_existing_node": 4.30918394828979,
+			"new_blocker_discovered": 3.77053595475357,
+			"newly_discovered_transport_branch": 7.75653110692163,
+			"no_useful_contribution": 0.21545919741449,
+			"previously_blocked_became_visible": 13.0622138432534,
+			"terminated_low_energy": 3.82440075410719,
+			"terminated_max_bounce": 0.403985995152168,
+			"terminated_probe_merge": 2.10072717479127
+		},
+		"raw_counts": {
+			"confirmed_existing_valid": 1240,
+			"contributes_directly_to_probe": 845,
+			"duplicate_redundant": 0,
+			"existing_relationship_changed": 312,
+			"merged_into_existing_node": 160,
+			"new_blocker_discovered": 140,
+			"newly_discovered_transport_branch": 288,
+			"no_useful_contribution": 8,
+			"previously_blocked_became_visible": 485,
+			"terminated_low_energy": 142,
+			"terminated_max_bounce": 15,
+			"terminated_probe_merge": 78
+		},
+		"total_classified_rays": 3713
+	},
+	"repeatability_5_runs": {
+		"deterministic_behavior_verified": true,
+		"event_time_stats": {
+			"max": 726.38,
+			"mean": 665.6896,
+			"median": 647.494,
+			"p90": 696.865,
+			"p95": 696.865,
+			"p99": 696.865,
+			"std_dev": 39.363095724803
+		},
+		"iterations": 5,
+		"psnr_mean": 32.1,
+		"repair_rays_mean": 5.0,
+		"repair_rays_std_dev": 0.0
+	},
+	"scaling_tests": {},
+	"thirteen_headline_metrics": {
+		"10_graph_bytes_per_transport_node": 128,
+		"11_p99_gi_frame_time_ms": 0.021,
+		"12_hdr_relative_irradiance_error": 2.07097042978834,
+		"13_total_gi_gpu_time_over_full_benchmark_ms": 354.2,
+		"1_steady_state_rays_per_frame": 0,
+		"2_gi_gpu_milliseconds": 2.62,
+		"3_t90_after_destruction_frames": 1,
+		"4_pct_transport_graph_invalidated_tiny": 0.244857982370225,
+		"5_total_transport_and_probe_memory_kb": 507.75,
+		"6_branch_preservation_ratio": 0.999031945788964,
+		"7_repair_rays_per_invalidated_node": 6.8,
+		"8_successful_blocked_branch_reopen_ratio": 1.0,
+		"9_probe_terminated_path_ratio": 0.25734927752865
+	},
+	"timing_breakdown": {},
+	"worst_frame_analysis": {}
+}

@@ -1,0 +1,66 @@
+{
+	"benchmark": "ASTG D3D12 Native GPU Massive Stationary-Light Benchmark",
+	"device": "NVIDIA GeForce RTX 4070 Laptop GPU",
+	"tiers": {
+		"1k": {
+			"light_count": 1000,
+			"vram_mb": 28.0447,
+			"contributions": 10000,
+			"static_gpu_ms": 0.0248381,
+			"static_fps": 40260.7,
+			"animated_gpu_ms": 0.0319775,
+			"animated_fps": 31272,
+			"overhead_ms": 0.00713933,
+			"ns_per_light": 7.13933,
+			"drift_passed": true
+		},
+		"4k": {
+			"light_count": 4000,
+			"vram_mb": 28.7771,
+			"contributions": 40000,
+			"static_gpu_ms": 0.114678,
+			"static_fps": 8720.09,
+			"animated_gpu_ms": 0.127042,
+			"animated_fps": 7871.44,
+			"overhead_ms": 0.0123638,
+			"ns_per_light": 3.09094,
+			"drift_passed": true
+		},
+		"16k": {
+			"light_count": 16000,
+			"vram_mb": 31.7068,
+			"contributions": 64000,
+			"static_gpu_ms": 0.200208,
+			"static_fps": 4994.8,
+			"animated_gpu_ms": 0.272919,
+			"animated_fps": 3664.1,
+			"overhead_ms": 0.0727101,
+			"ns_per_light": 4.54438,
+			"drift_passed": true
+		},
+		"64k": {
+			"light_count": 64000,
+			"vram_mb": 43.4255,
+			"contributions": 64000,
+			"static_gpu_ms": 0.214968,
+			"static_fps": 4651.85,
+			"animated_gpu_ms": 0.493478,
+			"animated_fps": 2026.43,
+			"overhead_ms": 0.27851,
+			"ns_per_light": 4.35172,
+			"drift_passed": true
+		},
+		"128k": {
+			"light_count": 128000,
+			"vram_mb": 59.0505,
+			"contributions": 64000,
+			"static_gpu_ms": 0.202453,
+			"static_fps": 4939.42,
+			"animated_gpu_ms": 0.783841,
+			"animated_fps": 1275.77,
+			"overhead_ms": 0.581388,
+			"ns_per_light": 4.5421,
+			"drift_passed": true
+		}
+	}
+}

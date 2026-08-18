@@ -1,0 +1,26 @@
+{
+	"backend": "HardwareRT (NVIDIA DXR 1.1 RT Cores)",
+	"comparison": {
+		"ddgi_speedup_factor": 1.3588269120184,
+		"destruction_speedup_factor": 0.760207015526164,
+		"hardware_destruction_ms": 1.739,
+		"software_destruction_ms": 1.322
+	},
+	"cost_stack_breakdown": {
+		"as_maintenance_ms": 0.5895,
+		"ddgi_baseline_frame_ms": 2.363,
+		"destruction_event_total_ms": 1.739,
+		"light_update_ms": 0.333,
+		"pure_rt_traversal_ms": 2.988,
+		"rt_mrays_sec": 0.342704149933066,
+		"stable_frame_total_ms": 0.052
+	},
+	"graph_metrics": {
+		"active_probes": 497,
+		"bounce0_nodes": 0,
+		"bounce1_nodes": 0,
+		"destruction_repair_rays": 0
+	},
+	"scene": "ASTG Photorealistic Classroom",
+	"scene_triangles": 486594
+}

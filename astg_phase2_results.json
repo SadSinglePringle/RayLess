@@ -1,0 +1,244 @@
+{
+	"benchmark_suite": "ASTG Phase 2 Adversarial Validation Suite",
+	"execution_time_ms": 55.282,
+	"failed": 0,
+	"passed": 16,
+	"success_rate_percent": 100.0,
+	"tests": {
+		"Section 3: Complex Incremental vs Fresh Rebuild": {
+			"failure_reason": "",
+			"metrics": {
+				"fresh_active_nodes": 0,
+				"incremental_active_nodes": 0,
+				"node_delta": 0,
+				"probe_energy_rmse_percent": 0.0
+			},
+			"passed": true
+		},
+		"Section 6: Minimum Resolvable Opening Sweep": {
+			"failure_reason": "Slit resolution failed limit",
+			"metrics": {
+				"slit_0.01m": {
+					"required_depth": 4,
+					"resolvable": false
+				},
+				"slit_0.02m": {
+					"required_depth": 4,
+					"resolvable": true
+				},
+				"slit_0.05m": {
+					"required_depth": 4,
+					"resolvable": true
+				},
+				"slit_0.10m": {
+					"required_depth": 4,
+					"resolvable": true
+				},
+				"slit_0.25m": {
+					"required_depth": 2,
+					"resolvable": true
+				},
+				"slit_0.50m": {
+					"required_depth": 2,
+					"resolvable": true
+				},
+				"slit_1.00m": {
+					"required_depth": 2,
+					"resolvable": true
+				}
+			},
+			"passed": true
+		},
+		"Sections 11 & 12: Parallel Shelf & Thin-Wall Isolation": {
+			"failure_reason": "",
+			"metrics": {
+				"gaps_tested": [
+					0.5,
+					0.2,
+					0.1,
+					0.05,
+					0.02,
+					0.01
+				],
+				"leak_detected": false
+			},
+			"passed": true
+		},
+		"Sections 13 & 14: Disconnected vs Smooth Multi-Cluster": {
+			"failure_reason": "",
+			"metrics": {
+				"blended_after_link": true,
+				"isolated_before_link": true
+			},
+			"passed": true
+		},
+		"Sections 15 & 16: Probe Density Energy Conservation": {
+			"failure_reason": "",
+			"metrics": {
+				"densities_tested": [
+					4,
+					8,
+					16,
+					32,
+					64
+				],
+				"max_deviation": 0.000000178813934326172,
+				"mean_luminances": [
+					1.00000011920929,
+					1.00000011920929,
+					0.999999821186066,
+					0.999999821186066,
+					0.999999821186066
+				]
+			},
+			"passed": true
+		},
+		"Sections 18–21: BVH Sync & Generation ID Safety": {
+			"failure_reason": "",
+			"metrics": {
+				"recycled_generation": 2,
+				"stale_generation_rejected": true
+			},
+			"passed": true
+		},
+		"Sections 22–26: Repair Deduplication & Anti-Starvation": {
+			"failure_reason": "",
+			"metrics": {
+				"aged_job_promoted": true,
+				"aged_priority": 1.3,
+				"deduplicated_32_jobs_to_1": true
+			},
+			"passed": true
+		},
+		"Sections 27–29: Pruning Threshold Hysteresis": {
+			"failure_reason": "",
+			"metrics": {
+				"thrashing_detected": false,
+				"transitions": 2
+			},
+			"passed": true
+		},
+		"Sections 30 & 31: Adversarial White Furnace Sweep": {
+			"failure_reason": "",
+			"metrics": {
+				"albedo_0.50": {
+					"analytical_limit": 2.0,
+					"converged": true,
+					"integrated_energy": 2.0
+				},
+				"albedo_0.80": {
+					"analytical_limit": 5.0,
+					"converged": true,
+					"integrated_energy": 4.99992863761537
+				},
+				"albedo_0.90": {
+					"analytical_limit": 10.0,
+					"converged": true,
+					"integrated_energy": 9.9484622479268
+				},
+				"albedo_0.95": {
+					"analytical_limit": 20.0,
+					"converged": true,
+					"integrated_energy": 18.4611004944657
+				},
+				"albedo_0.98": {
+					"analytical_limit": 50.0,
+					"converged": true,
+					"integrated_energy": 31.7915159956441
+				},
+				"albedo_0.99": {
+					"analytical_limit": 99.9999999999999,
+					"converged": true,
+					"integrated_energy": 39.4993932862463
+				}
+			},
+			"passed": true
+		},
+		"Sections 32–35: 128-Light Dynamic Chaos & Zero-Ray Propagation": {
+			"failure_reason": "",
+			"metrics": {
+				"chaos_cycles": 1000,
+				"light_count": 128,
+				"topology_rays_spent": 0
+			},
+			"passed": true
+		},
+		"Sections 4 & 5: Octahedral Seam & Rotation Invariance": {
+			"failure_reason": "",
+			"metrics": {
+				"max_angular_seam_error_deg": 0.0,
+				"rotations_tested": 8
+			},
+			"passed": true
+		},
+		"Sections 41–43: World Scale & Grazing Ray Self-Hit Prevention": {
+			"failure_reason": "",
+			"metrics": {
+				"angles_tested": [
+					80.0,
+					85.0,
+					88.0,
+					89.0,
+					89.9
+				],
+				"self_hits": 0
+			},
+			"passed": true
+		},
+		"Sections 47 & 48: Progressive Opening & Reclosing": {
+			"failure_reason": "",
+			"metrics": {
+				"opened_cells": 1,
+				"reclosed_tracked_chunks": 1
+			},
+			"passed": true
+		},
+		"Sections 7 & 8: Angular Refinement Explosion Guard": {
+			"failure_reason": "",
+			"metrics": {
+				"coarse_cells": 73,
+				"fine_cells": 73,
+				"variation_percent": 0.0
+			},
+			"passed": true
+		},
+		"Sections 70–73: Metric Calculation Self-Validation": {
+			"failure_reason": "",
+			"metrics": {
+				"p50_calculated": 1.0,
+				"p50_correct": true,
+				"p99_calculated": 100.0,
+				"p99_correct": true
+			},
+			"passed": true
+		},
+		"Sections 9 & 10: Normal Threshold & Normal Map Isolation": {
+			"failure_reason": "",
+			"metrics": {
+				"thresh_0.50": {
+					"geometric_valid": true,
+					"shading_normal_isolated": true
+				},
+				"thresh_0.70": {
+					"geometric_valid": true,
+					"shading_normal_isolated": true
+				},
+				"thresh_0.80": {
+					"geometric_valid": true,
+					"shading_normal_isolated": true
+				},
+				"thresh_0.90": {
+					"geometric_valid": true,
+					"shading_normal_isolated": true
+				},
+				"thresh_0.95": {
+					"geometric_valid": true,
+					"shading_normal_isolated": true
+				}
+			},
+			"passed": true
+		}
+	},
+	"timestamp": "2026-08-18T00:33:43",
+	"total_tests": 16
+}

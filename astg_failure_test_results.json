@@ -1,0 +1,129 @@
+{
+	"benchmark_suite": "ASTG Bug-Hunting & Failure-Test Suite",
+	"execution_time_ms": 35.828,
+	"failed": 0,
+	"passed": 16,
+	"success_rate_percent": 100.0,
+	"tests": {
+		"Section 74: Gold-Standard Incremental vs Fresh Rebuild": {
+			"details": {
+				"energy_difference": 0.0,
+				"fresh_rebuild_nodes": 0,
+				"incremental_nodes": 0,
+				"node_difference": 0
+			},
+			"passed": true
+		},
+		"Test 10: Graph Cycle Detection": {
+			"details": {
+				"cycle_detected_correctly": true,
+				"dag_accepted_correctly": true
+			},
+			"passed": true
+		},
+		"Test 11: Duplicate Edge Rejection": {
+			"details": {
+				"edge_count": 2,
+				"edges": "[5, 8]"
+			},
+			"passed": true
+		},
+		"Test 12: Orphan Probe Invalidation": {
+			"details": {
+				"probe_active": false,
+				"residual_luminance": 0.0
+			},
+			"passed": true
+		},
+		"Test 13: White Furnace & Energy Conservation": {
+			"details": {
+				"energy_stable": true,
+				"theoretical_limit": 6.66666666666667,
+				"total_accumulated_energy": 5.35417063772851
+			},
+			"passed": true
+		},
+		"Test 14: Black Room Zero-Bounce": {
+			"details": {
+				"reflected_radiance": "(0.0, 0.0, 0.0, 1.0)"
+			},
+			"passed": true
+		},
+		"Test 15: Extreme Irradiance & NaN Safety": {
+			"details": {
+				"dim_valid": true,
+				"hdr_valid": true
+			},
+			"passed": true
+		},
+		"Test 1: Stale Branch After Destruction": {
+			"details": {
+				"dependent_nodes_before": 2,
+				"nodes_invalidated": 2,
+				"nodes_still_referencing_destroyed_chunk": 0
+			},
+			"passed": true
+		},
+		"Test 2: Shared DAG Child Deletion": {
+			"details": {
+				"incoming_reference_count": 1,
+				"node_alive": true
+			},
+			"passed": true
+		},
+		"Test 3: Shared Node Energy Double-Counting": {
+			"details": {
+				"actual_energy": 3.0,
+				"expected_energy": 3.0,
+				"max_drift_100_cycles": 0.0
+			},
+			"passed": true
+		},
+		"Test 4: Light Toggle Drift (10,000 Cycles)": {
+			"details": {
+				"cycles_tested": 10000,
+				"max_off_drift": 0.0,
+				"max_on_drift": 0.0
+			},
+			"passed": true
+		},
+		"Test 5: Light Color Drift": {
+			"details": {
+				"color_drift": 0.0,
+				"final_color": "(1.0, 1.0, 1.0, 1.0)"
+			},
+			"passed": true
+		},
+		"Test 6: Destroy / Restore Drift": {
+			"details": {
+				"drift": 0,
+				"final_nodes": 100,
+				"initial_nodes": 100
+			},
+			"passed": true
+		},
+		"Test 7: Multiple Blocker Dependency": {
+			"details": {
+				"step_a_cells": 1,
+				"step_b_cells": 1
+			},
+			"passed": true
+		},
+		"Test 8: Partial Wall Destruction": {
+			"details": {
+				"center_invalidated": true,
+				"left_preserved": true
+			},
+			"passed": true
+		},
+		"Test 9: Tiny Opening Discovery": {
+			"details": {
+				"subdivided_quads": 4,
+				"total_cells": 5
+			},
+			"passed": true
+		}
+	},
+	"timestamp": "2026-08-18T00:11:21",
+	"total_tests": 16
+}

@@ -1,0 +1,70 @@
+{
+	"benchmark": "ASTG Late-Bound Lighting & Lazy Probe Evaluation",
+	"chaos_128_lights": {
+		"light_updates_per_sec": 265294.871104,
+		"lights_count": 128,
+		"p50_latency_ms": 1.013,
+		"p95_latency_ms": 1.755,
+		"p99_latency_ms": 2.062,
+		"topology_rays": 0,
+		"total_frames": 500,
+		"total_lightstate_writes": 192000
+	},
+	"cycle_100k_drift_test": {
+		"numerical_drift": 0.0,
+		"passed": true,
+		"total_time_ms": 64.703,
+		"total_toggles": 100000,
+		"us_per_toggle": 647.03
+	},
+	"fan_in_scaling": {
+		"1": {
+			"eval_500_probes_ms": 0.943,
+			"evaluations_per_ms": 530.222693531283,
+			"fan_in_lights": 1,
+			"us_per_probe": 1.886
+		},
+		"128": {
+			"eval_500_probes_ms": 86.508,
+			"evaluations_per_ms": 739.815970777269,
+			"fan_in_lights": 128,
+			"us_per_probe": 173.016
+		},
+		"16": {
+			"eval_500_probes_ms": 16.769,
+			"evaluations_per_ms": 477.07078537778,
+			"fan_in_lights": 16,
+			"us_per_probe": 33.538
+		},
+		"2": {
+			"eval_500_probes_ms": 1.445,
+			"evaluations_per_ms": 692.04152249135,
+			"fan_in_lights": 2,
+			"us_per_probe": 2.89
+		},
+		"32": {
+			"eval_500_probes_ms": 21.757,
+			"evaluations_per_ms": 735.395504894976,
+			"fan_in_lights": 32,
+			"us_per_probe": 43.514
+		},
+		"4": {
+			"eval_500_probes_ms": 2.499,
+			"evaluations_per_ms": 800.32012805122,
+			"fan_in_lights": 4,
+			"us_per_probe": 4.998
+		},
+		"64": {
+			"eval_500_probes_ms": 45.927,
+			"evaluations_per_ms": 696.757898403989,
+			"fan_in_lights": 64,
+			"us_per_probe": 91.854
+		},
+		"8": {
+			"eval_500_probes_ms": 5.621,
+			"evaluations_per_ms": 711.617149973314,
+			"fan_in_lights": 8,
+			"us_per_probe": 11.242
+		}
+	}
+}

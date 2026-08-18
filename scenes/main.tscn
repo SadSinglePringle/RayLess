@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3 uid="uid://c5q3x7u2jnm1v"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+
+[sub_resource type="Environment" id="Environment_env"]
+background_mode = 1
+background_color = Color(0.02, 0.02, 0.03, 1)
+ambient_light_source = 1
+ambient_light_color = Color(0.01, 0.01, 0.01, 1)
+reflected_light_source = 1
+tonemap_mode = 3
+tonemap_exposure = 1.0
+tonemap_white = 2.0
+glow_enabled = false
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_env")
