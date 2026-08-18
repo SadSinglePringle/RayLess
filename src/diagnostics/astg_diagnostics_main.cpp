@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv) {
     std::cout << "================================================================================\n";
-    std::cout << "🚀 ASTG TRANSPORT SCALING DIAGNOSTIC SUITE (TEST GROUPS A–T)\n";
+    std::cout << "🚀 ASTG TRANSPORT SCALING DIAGNOSTIC & VERIFICATION SUITE\n";
     std::cout << "================================================================================\n\n";
 
     if (!rtx_init()) {
@@ -21,31 +21,25 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // 1. Run full 8-tier scaling diagnostics (Test Groups A, B, C, D1, D2, E, F, G, H, O, P, Q)
+    // 1. Run full 8-tier scaling ladder with Scene-Valid Lights & Top-32 Ranking
     diag.run_full_tier_scaling_diagnostics();
 
-    // 2. Run Test Group D3: Fan-In Sweep
-    diag.run_fan_in_sweep();
+    // 2. Run Phase 33: Probe Locality Test
+    diag.test_probe_locality();
 
-    // 3. Run Test Group I: Light Range Sweep
-    diag.run_range_sweep();
+    // 3. Run Phase 34: Source Isolation Test
+    diag.test_source_isolation();
 
-    // 4. Run Test Group J: Discovery Ray Count Sweep
-    diag.run_ray_count_sweep();
+    // 4. Run Phase 35: Provenance Test
+    diag.test_provenance();
 
-    // 5. Run Test Group T: Probe Pool Count Sweep
-    diag.run_probe_count_sweep();
+    // 5. Run Phases 36 & 37: Fan-In Sweep & 512-Light Spatial Variation Test
+    diag.test_fan_in_variations();
 
-    // 6. Run Test Groups L & M: Provenance & Real Coefficient Validation
-    diag.verify_provenance_and_coefficients();
-
-    // 7. Run Test Group N: Late-Bound Source Isolation
-    diag.verify_late_bound_source_isolation();
-
-    // 8. Export all required CSV & JSON deliverable files
+    // 6. Export all clean telemetry deliverables
     diag.export_all_diagnostics_files();
 
-    // 9. Output final formatted diagnostic summary
+    // 7. Output Definition of Done verification summary
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

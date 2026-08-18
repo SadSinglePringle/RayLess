@@ -36,11 +36,19 @@ static func run_native_bistro(light_count: int = 32) -> RefCounted:
 			var json_data = JSON.parse_string(json_str)
 			if json_data is Dictionary:
 				res.metrics = json_data.get("metrics", {})
-				var b_cat = json_data.get("category", "")
-				if b_cat == "BENCHMARK_FULL_SCENE":
+				var b_cat = json_data.get("manifest", {}).get("benchmark_category", "")
+				if b_cat == "BENCHMARK_FULL_SCENE" or b_cat == "FULL_SCENE":
 					res.metrics["benchmark_type"] = "FULL_SCENE"
-					res.metrics["transport_node_count"] = json_data.get("transport_nodes", 0)
-					res.metrics["transport_edge_count"] = json_data.get("transport_edges", 0)
+					res.metrics["bounce0_nodes"] = json_data.get("metrics", {}).get("bounce0_nodes", 0)
+					res.metrics["bounce1_nodes"] = json_data.get("metrics", {}).get("bounce1_nodes", 0)
+					res.metrics["dag_edges"] = json_data.get("metrics", {}).get("dag_edges", 0)
+					res.metrics["probe_deposition_links"] = json_data.get("metrics", {}).get("probe_deposition_links", 0)
+					res.metrics["couplings"] = json_data.get("metrics", {}).get("couplings", 0)
+					res.metrics["candidate_contributions"] = json_data.get("metrics", {}).get("candidate_contributions", 0)
+					res.metrics["retained_contributions"] = json_data.get("metrics", {}).get("retained_contributions", 0)
+					res.metrics["pruned_contributions"] = json_data.get("metrics", {}).get("pruned_contributions", 0)
+					res.metrics["mean_candidate_fanin"] = json_data.get("metrics", {}).get("mean_candidate_fanin", 0.0)
+					res.metrics["mean_retained_fanin"] = json_data.get("metrics", {}).get("mean_retained_fanin", 0.0)
 
 	# Verify Invariants
 	var has_valid_output = out_str.contains("ASTG AUTHENTIC BISTRO VALIDATION")

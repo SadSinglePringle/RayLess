@@ -28,7 +28,7 @@ static func parse_args() -> RefCounted:
 	var i = 0
 	while i < args.size():
 		var a = args[i]
-		if a == "--suite" and i + 1 < args.size():
+		if (a == "--suite" or a == "--level") and i + 1 < args.size():
 			var s = args[i + 1].to_lower()
 			if s == "standard": cfg.level = SuiteLevel.STANDARD
 			elif s == "full": cfg.level = SuiteLevel.FULL

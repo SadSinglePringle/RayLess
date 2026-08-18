@@ -1,7 +1,6 @@
 buffer_name,capacity,used_32,used_512,used_128k,utilization_pct_128k,saturated
 transport_node_capacity,65536,20,154,215,0.33%,NO
-transport_edge_capacity,131072,4800,38400,38400,29.30%,NO
+dag_edge_capacity,131072,5,44,1280,0.98%,NO
 probe_capacity,4096,1200,1200,1200,29.30%,NO
 per_probe_contribution_capacity,32,4,32,32,100.00%,YES
 contribution_record_capacity,38400,4800,38400,38400,100.00%,YES
-angular_cell_capacity,8192000,2048,32768,8192000,100.00%,NO

@@ -14,6 +14,19 @@ enum BenchmarkCategory {
     BENCHMARK_FULL_SCENE = 2  // Authentic imported geometry, materials, transport, probes, and repair
 };
 
+enum LightPlacementMode {
+    PLACEMENT_SCENE_VALID = 0, // Validated non-intersecting, surface-bounded scene positions
+    PLACEMENT_AABB_STRESS = 1  // Raw linear grid across full scene AABB (stress test)
+};
+
+inline const char* get_placement_mode_name(LightPlacementMode mode) {
+    switch (mode) {
+        case PLACEMENT_SCENE_VALID: return "SCENE_VALID";
+        case PLACEMENT_AABB_STRESS: return "AABB_STRESS";
+        default: return "UNKNOWN";
+    }
+}
+
 enum RayOutcomeCategory {
     RAY_OUTCOME_CONFIRMED_EXISTING = 0,
     RAY_OUTCOME_CHANGED_RELATIONSHIP = 1,
@@ -51,11 +64,14 @@ inline const char* get_ray_outcome_name(RayOutcomeCategory cat) {
 }
 
 struct BenchmarkManifest {
+    std::string run_id = "default_run";
     BenchmarkCategory category = BENCHMARK_FULL_SCENE;
+    LightPlacementMode placement_mode = PLACEMENT_SCENE_VALID;
     std::string scene_name = "NVIDIA Bistro";
-    std::string commit_hash = "8228598";
+    std::string commit_hash = "f4ee155";
+    std::string build_timestamp = __DATE__ " " __TIME__;
     std::string build_type = "Release (D3D12/DXR 1.1 Native)";
-    std::string gpu_name = "NVIDIA GeForce RTX 4070";
+    std::string gpu_name = "NVIDIA GeForce RTX 4070 Laptop GPU";
     std::string gpu_driver = "572.16 (DirectX 12.2 / DXR Tier 1.1)";
     std::string cpu_name = "AMD Ryzen / Intel Core";
     uint64_t ram_bytes = 34359738368ULL;
@@ -67,12 +83,40 @@ struct BenchmarkManifest {
     uint32_t instance_count = 0;
     uint32_t material_count = 0;
     uint32_t light_count = 0;
-    uint32_t probe_count = 0;
-    uint32_t transport_node_count = 0;
-    uint32_t transport_edge_count = 0;
+    uint32_t probe_count = 1200;
+    uint32_t fan_in_cap = 32;
+
+    // Disambiguated Light Coverage Counts
+    uint32_t lights_with_discovery_hit = 0;
+    uint32_t lights_with_bounce0 = 0;
+    uint32_t lights_with_bounce1 = 0;
+    uint32_t lights_with_probe_deposition = 0;
+    uint32_t lights_with_persistent_contribution = 0;
+
+    // Disambiguated Graph Element Counts
+    uint32_t bounce0_nodes = 0;
+    uint32_t bounce1_nodes = 0;
+    uint32_t dag_edges = 0;
+    uint32_t probe_deposition_links = 0;
+    uint32_t persistent_contribution_records = 0;
+    uint32_t merge_links = 0;
+    uint32_t reverse_dependency_links = 0;
+
+    // Fan-in and Contributor Statistics
+    uint64_t candidate_contributions = 0;
+    uint64_t retained_contributions = 0;
+    uint64_t pruned_contributions = 0;
+    double mean_candidate_fanin = 0.0;
+    double mean_retained_fanin = 0.0;
+    double max_candidate_fanin = 0.0;
+    double max_retained_fanin = 0.0;
+    double p95_retained_fanin = 0.0;
+
+    uint32_t angular_allocated_cells = 0;
+    uint32_t angular_constructed_cells = 0;
     uint32_t angular_leaf_count = 0;
 
-    uint32_t max_bounce_depth = 3;
+    uint32_t max_bounce_depth = 1;
     uint32_t angular_subdiv_depth = 4;
     float energy_pruning_threshold = 0.005f;
     float probe_spacing_meters = 1.0f;
@@ -86,11 +130,12 @@ struct BenchmarkManifest {
         std::cout << "================================================================================\n";
         std::cout << "🚀 RAYLESS / ASTG BENCHMARK SUITE\n";
         std::cout << "================================================================================\n";
+        std::cout << "Run ID:                        " << run_id << "\n";
+        std::cout << "Commit Hash:                   " << commit_hash << "\n";
+        std::cout << "Build Timestamp:               " << build_timestamp << "\n";
         std::cout << "Benchmark Type:                " << (category == BENCHMARK_KERNEL ? "KERNEL MICROBENCHMARK" : (category == BENCHMARK_SUBSYSTEM ? "ASTG SUBSYSTEM TEST" : "FULL-SCENE BENCHMARK")) << "\n";
         std::cout << "Scene:                         " << scene_name << "\n";
-        std::cout << "Synthetic Geometry:            " << (synthetic_geometry ? "YES" : "NO") << "\n";
-        std::cout << "Synthetic Transport:           " << (synthetic_transport ? "YES" : "NO") << "\n";
-        std::cout << "Synthetic Probe Contributions: " << (synthetic_probe_contributions ? "YES" : "NO") << "\n";
+        std::cout << "Placement Mode:                " << get_placement_mode_name(placement_mode) << "\n";
         std::cout << "Active GPU:                    " << gpu_name << "\n";
         std::cout << "DXR Tier:                      " << dxr_version << "\n";
         std::cout << "Triangle Count:                " << triangle_count << "\n";
@@ -98,6 +143,7 @@ struct BenchmarkManifest {
         std::cout << "Material Count:                " << material_count << "\n";
         std::cout << "Stationary Light Count:        " << light_count << "\n";
         std::cout << "Surface Probe Count:           " << probe_count << "\n";
+        std::cout << "Fan-In Cap (Top-K):            " << (fan_in_cap >= 4096 ? "UNLIMITED" : std::to_string(fan_in_cap)) << "\n";
         std::cout << "================================================================================\n\n";
         std::cout.flush();
     }
@@ -121,9 +167,12 @@ struct BenchmarkManifest {
         std::ostringstream ss;
         ss << "{\n";
         ss << "  \"manifest\": {\n";
+        ss << "    \"run_id\": \"" << run_id << "\",\n";
         ss << "    \"benchmark_category\": \"" << (category == BENCHMARK_KERNEL ? "KERNEL" : (category == BENCHMARK_SUBSYSTEM ? "SUBSYSTEM" : "FULL_SCENE")) << "\",\n";
+        ss << "    \"placement_mode\": \"" << get_placement_mode_name(placement_mode) << "\",\n";
         ss << "    \"scene\": \"" << scene_name << "\",\n";
         ss << "    \"commit_hash\": \"" << commit_hash << "\",\n";
+        ss << "    \"build_timestamp\": \"" << build_timestamp << "\",\n";
         ss << "    \"build_type\": \"" << build_type << "\",\n";
         ss << "    \"gpu\": \"" << gpu_name << "\",\n";
         ss << "    \"gpu_driver\": \"" << gpu_driver << "\",\n";
@@ -137,14 +186,27 @@ struct BenchmarkManifest {
         ss << "    \"material_count\": " << material_count << ",\n";
         ss << "    \"light_count\": " << light_count << ",\n";
         ss << "    \"probe_count\": " << probe_count << ",\n";
-        ss << "    \"transport_node_count\": " << transport_node_count << ",\n";
-        ss << "    \"transport_edge_count\": " << transport_edge_count << ",\n";
-        ss << "    \"angular_leaf_count\": " << angular_leaf_count << ",\n";
-        ss << "    \"max_bounce_depth\": " << max_bounce_depth << ",\n";
-        ss << "    \"angular_subdivision_depth\": " << angular_subdiv_depth << ",\n";
-        ss << "    \"energy_pruning_threshold\": " << energy_pruning_threshold << ",\n";
-        ss << "    \"probe_spacing_meters\": " << probe_spacing_meters << ",\n";
-        ss << "    \"repair_ray_budget\": " << repair_ray_budget << ",\n";
+        ss << "    \"fan_in_cap\": " << fan_in_cap << ",\n";
+        ss << "    \"bounce0_nodes\": " << bounce0_nodes << ",\n";
+        ss << "    \"bounce1_nodes\": " << bounce1_nodes << ",\n";
+        ss << "    \"dag_edges\": " << dag_edges << ",\n";
+        ss << "    \"probe_deposition_links\": " << probe_deposition_links << ",\n";
+        ss << "    \"persistent_contribution_records\": " << persistent_contribution_records << ",\n";
+        ss << "    \"merge_links\": " << merge_links << ",\n";
+        ss << "    \"reverse_dependency_links\": " << reverse_dependency_links << ",\n";
+        ss << "    \"lights_with_discovery_hit\": " << lights_with_discovery_hit << ",\n";
+        ss << "    \"lights_with_bounce0\": " << lights_with_bounce0 << ",\n";
+        ss << "    \"lights_with_bounce1\": " << lights_with_bounce1 << ",\n";
+        ss << "    \"lights_with_probe_deposition\": " << lights_with_probe_deposition << ",\n";
+        ss << "    \"lights_with_persistent_contribution\": " << lights_with_persistent_contribution << ",\n";
+        ss << "    \"candidate_contributions\": " << candidate_contributions << ",\n";
+        ss << "    \"retained_contributions\": " << retained_contributions << ",\n";
+        ss << "    \"pruned_contributions\": " << pruned_contributions << ",\n";
+        ss << "    \"mean_candidate_fanin\": " << mean_candidate_fanin << ",\n";
+        ss << "    \"mean_retained_fanin\": " << mean_retained_fanin << ",\n";
+        ss << "    \"max_candidate_fanin\": " << max_candidate_fanin << ",\n";
+        ss << "    \"max_retained_fanin\": " << max_retained_fanin << ",\n";
+        ss << "    \"p95_retained_fanin\": " << p95_retained_fanin << ",\n";
         ss << "    \"synthetic_geometry\": " << (synthetic_geometry ? "true" : "false") << ",\n";
         ss << "    \"synthetic_transport\": " << (synthetic_transport ? "true" : "false") << ",\n";
         ss << "    \"synthetic_probe_contributions\": " << (synthetic_probe_contributions ? "true" : "false") << "\n";
