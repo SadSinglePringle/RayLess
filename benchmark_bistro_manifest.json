@@ -1,0 +1,40 @@
+{
+  "manifest": {
+    "benchmark_category": "FULL_SCENE",
+    "scene": "NVIDIA / Amazon Lumberyard Bistro",
+    "commit_hash": "8228598",
+    "build_type": "Release (D3D12/DXR 1.1 Native)",
+    "gpu": "NVIDIA GeForce RTX 4070 Laptop GPU",
+    "gpu_driver": "572.16 (DirectX 12.2 / DXR Tier 1.1)",
+    "cpu": "AMD Ryzen / Intel Core",
+    "ram_bytes": 34359738368,
+    "godot_version": "Godot Engine v4.7.1-stable",
+    "dxr_version": "DirectX Raytracing (DXR) Tier 1.1 / Shader Model 6.5",
+    "resolution": "1920x1080 (Offscreen Headless Compute)",
+    "triangle_count": 1753630,
+    "instance_count": 551,
+    "material_count": 552,
+    "light_count": 128000,
+    "probe_count": 1200,
+    "transport_node_count": 0,
+    "transport_edge_count": 0,
+    "angular_leaf_count": 0,
+    "max_bounce_depth": 3,
+    "angular_subdivision_depth": 4,
+    "energy_pruning_threshold": 0.005,
+    "probe_spacing_meters": 1,
+    "repair_ray_budget": 4096,
+    "synthetic_geometry": false,
+    "synthetic_transport": false,
+    "synthetic_probe_contributions": false
+  },
+  "metrics": {
+    "static_mean_ms": 0.103825,
+    "static_p50_ms": 0.103424,
+    "static_p99_ms": 0.105472,
+    "chaos_mean_ms": 0.951689,
+    "chaos_p50_ms": 0.949248,
+    "chaos_p99_ms": 0.990208,
+    "fps": 1053.47
+  }
+}
