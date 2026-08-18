@@ -244,6 +244,7 @@ public:
         // 4. Trace Bounce 1 Rays (One Explicit Diffuse Bounce)
         if (!bounce1_rays.empty()) {
             std::vector<ASTGRayHit> b1_hits(bounce1_rays.size());
+            RTGPUTimings timings;
             rtx_trace_rays_batch_with_timings(bounce1_rays.data(), b1_hits.data(), (int32_t)bounce1_rays.size(), &timings);
 
             for (size_t i = 0; i < bounce1_rays.size(); ++i) {

@@ -1,0 +1,17 @@
+{
+  "edge_semantics_audit": {
+    "total_reported_transport_edges": 38400,
+    "node_to_node_dag_edges": 44,
+    "node_to_probe_deposition_links": 38400,
+    "persistent_contribution_records": 38400,
+    "merge_links": 0,
+    "reverse_dependency_links": 215,
+    "sampled_1000_edge_types": {
+      "node_to_probe": 1000,
+      "node_to_node": 0,
+      "light_to_probe": 0,
+      "other": 0
+    },
+    "exact_identity_explanation": "The transport_edges container currently stores probe deposition links (node->probe couplings) directly mapped 1:1 to persistent_contributions. DAG node->node edges (bounce 0 -> bounce 1) were stored in transport_nodes rather than transport_edges."
+  }
+}
