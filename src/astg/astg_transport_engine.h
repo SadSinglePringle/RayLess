@@ -1717,10 +1717,10 @@ public:
 
                     if (!stitched) {
                         ASTGTransportNode new_node;
-                        new_node.node_id = (uint32_t)bounce0_nodes.size();
+                        new_node.node_id = (uint32_t)(bounce0_nodes.size() + bounce1_nodes.size());
                         new_node.source_light_id = source_light;
                         new_node.angular_cell_id = ang_cell;
-                        new_node.bounce_depth = 0;
+                        new_node.bounce_depth = (parent_node < bounce0_nodes.size()) ? (bounce0_nodes[parent_node].bounce_depth + 1) : 1;
                         new_node.hit_primitive_id = hit.primitive_id;
                         new_node.surface_cluster_id = hit.surface_cluster_id;
                         new_node.destruction_chunk_id = hit.destruction_chunk_id;
@@ -1740,10 +1740,23 @@ public:
                         }
                         new_node.termination_reason = TERMINATION_VISIBLE_SURFACE;
                         new_node.is_active = true;
-                        bounce0_nodes.push_back(new_node);
+                        bounce1_nodes.push_back(new_node);
                         stitching_metrics.new_bridge_nodes++;
 
                         surface_cluster_to_nodes[new_node.surface_cluster_id].push_back(new_node.node_id);
+
+                        ASTGDAGEdge bridge_edge;
+                        bridge_edge.edge_id = (uint32_t)dag_edges.size();
+                        bridge_edge.parent_node_id = parent_node;
+                        bridge_edge.child_node_id = new_node.node_id;
+                        bridge_edge.source_light_id = source_light;
+                        bridge_edge.angular_cell_id = ang_cell;
+                        bridge_edge.bounce_depth = new_node.bounce_depth;
+                        bridge_edge.transfer_weight = new_node.geometric_factor;
+                        bridge_edge.is_stitch_edge = false;
+                        bridge_edge.repair_generation = geometry_generation;
+                        bridge_edge.is_active = true;
+                        dag_edges.push_back(bridge_edge);
 
                         for (size_t p = 0; p < probes.size(); ++p) {
                             if (!probes[p].is_valid) continue;

@@ -1,0 +1,35 @@
+{
+  "run_uuid": "run_20260819_124433_26fd562_evidence_hardened",
+  "test_uuid": "part_f3_path_stitching_integration",
+  "runtime_candidates_considered": 1,
+  "runtime_accepted_stitches": 1,
+  "runtime_rejected_stitches": 0,
+  "active_stitch_edges_created": 1,
+  "anchors_terminated_by_stitching": 1,
+  "reused_suffix_nodes": 3,
+  "reused_suffix_edges": 2,
+  "reused_probe_depositions": 1,
+  "mean_reused_suffix_depth": 3.00,
+  "max_reused_suffix_depth": 3,
+  "reused_suffix_states": [
+    "C (depth 1, cluster 5)",
+    "D (depth 2, cluster 5)",
+    "E (depth 3, cluster 5)"
+  ],
+  "avoided_downstream_rays": 16,
+  "ray_accounting": {
+    "stitched_scheduled": 1,
+    "stitched_dispatched": 1,
+    "stitched_completed": 1,
+    "stitched_terminated_by_stitch": 1,
+    "unstitched_scheduled": 17,
+    "unstitched_dispatched": 17,
+    "unstitched_completed": 17,
+    "closure": true
+  },
+  "spliced_contributions": 1,
+  "source_attribution_correct": true,
+  "generation_correct": true,
+  "dependency_correct": true,
+  "status": "PASS"
+}

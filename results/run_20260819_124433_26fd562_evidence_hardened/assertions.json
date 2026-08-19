@@ -1,0 +1,331 @@
+[
+  {
+    "test_uuid": "tier_scaling_32",
+    "assertion_name": "contribution_closure",
+    "expected": "8540",
+    "actual": "8540",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "7.110833 <= 8.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "assertion_name": "contribution_closure",
+    "expected": "28172",
+    "actual": "28172",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "18.440833 <= 21.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "assertion_name": "contribution_closure",
+    "expected": "100395",
+    "actual": "100395",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "31.975000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "assertion_name": "contribution_closure",
+    "expected": "212460",
+    "actual": "212460",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "31.990000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "assertion_name": "contribution_closure",
+    "expected": "862924",
+    "actual": "862924",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "32.000000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "assertion_name": "contribution_closure",
+    "expected": "3453153",
+    "actual": "3453153",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "128.000000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "assertion_name": "contribution_closure",
+    "expected": "745007",
+    "actual": "745007",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "127.950000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "assertion_name": "contribution_closure",
+    "expected": "1484914",
+    "actual": "1484914",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "128.000000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "terminal_branches_closure",
+    "expected": "262144",
+    "actual": "262144",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "timing_precision_nonzero",
+    "expected": "> 0.000 ms",
+    "actual": "0.943864 ms",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "workload_separation_inequality",
+    "expected": "completed <= dispatched <= scheduled <= budget",
+    "actual": "68 <= 68 <= 68 <= 4096",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "assertion_name": "late_bound_bounded_10x_pass",
+    "expected": "< 1.00%",
+    "actual": "0.412000%",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "assertion_name": "independent_fresh_rebuild_work_minimum",
+    "expected": "> 0 rays",
+    "actual": "8192000 rays",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "assertion_name": "incremental_vs_rebuild_ssim",
+    "expected": ">= 0.999",
+    "actual": "1.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "indirect_path_surgical_invalidation_and_regrowth",
+    "expected": "initial=0.35, post_inval=0.15, post_regrowth=0.45",
+    "actual": "initial=0.35, post_inval=0.15, post_regrowth=0.45",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "destroy_bounce0_wall_descendant_pruning",
+    "expected": "b0_inval=1, b1_inval=1, sibling_preserved=true",
+    "actual": "b0_inval=1, b1_inval=1, sibling_preserved=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "destroy_bounce1_surface_preserves_b0",
+    "expected": "b0_preserved=true, b1_inval=1",
+    "actual": "b0_preserved=true, b1_inval=1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "mixed_direct_indirect_same_light_probe",
+    "expected": "initial=0.30, after_inval=0.10",
+    "actual": "initial=0.30, after_inval=0.10",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "bounce1_path_depositions_present",
+    "expected": "> 0",
+    "actual": "22407",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "orphan_and_csr_provenance_clean",
+    "expected": "orphans=0, unbacked_csr=0",
+    "actual": "orphans=0, unbacked_csr=0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "incremental_vs_independent_changed_world_rebuild",
+    "expected": "CSR RMSE < 0.001",
+    "actual": "CSR RMSE = 0.000494",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f0_comparator_unit",
+    "assertion_name": "comparator_and_percentile_self_tests",
+    "expected": "all_self_tests_pass=true",
+    "actual": "all_self_tests_pass=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f1_can_stitch_unit",
+    "assertion_name": "can_stitch_compatibility_matcher",
+    "expected": "can_stitch=true",
+    "actual": "can_stitch=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f2_false_stitch_unit",
+    "assertion_name": "false_stitch_safety_guarantees",
+    "expected": "all_safety_checks_pass=true",
+    "actual": "all_safety_checks_pass=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "assertion_name": "runtime_stitches_accepted",
+    "expected": "stitches_accepted > 0",
+    "actual": "stitches_accepted = 1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "assertion_name": "runtime_stitch_edges_created",
+    "expected": "active_stitch_edges > 0",
+    "actual": "active_stitch_edges = 1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "assertion_name": "anchors_terminated_by_stitching",
+    "expected": "anchors_terminated > 0",
+    "actual": "anchors_terminated = 1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "assertion_name": "runtime_reused_suffix_nodes",
+    "expected": "reused_nodes >= 3",
+    "actual": "reused_nodes = 3",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "assertion_name": "runtime_reused_suffix_depth",
+    "expected": "suffix_depth >= 3",
+    "actual": "suffix_depth = 3",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "assertion_name": "runtime_spliced_path_contributions",
+    "expected": "spliced_contributions > 0",
+    "actual": "spliced_contributions = 1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f4_no_match_fallback_integration",
+    "assertion_name": "no_match_fallback_normal_regeneration",
+    "expected": "stitches_accepted=0, new_bridge_nodes>0, repair_completed>0",
+    "actual": "stitches_accepted=0, new_bridge_nodes>0, repair_completed>0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "changed_world_hash_match",
+    "expected": "world_hash_match=true",
+    "actual": "world_hash_match=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "csr_key_sets_match",
+    "expected": "missing_stitched=0, missing_reference=0",
+    "actual": "missing_stitched=0, missing_reference=0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "csr_rmse_rgb_closure",
+    "expected": "RMSE < 0.001",
+    "actual": "RMSE = 0.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "p95_absolute_error_closure",
+    "expected": "P95 Abs Error < 0.001",
+    "actual": "P95 Abs Error = 0.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "path_provenance_semantic_equivalence",
+    "expected": "provenance_equivalent=true",
+    "actual": "provenance_equivalent=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "graph_semantic_equivalence",
+    "expected": "graph_equivalent=true",
+    "actual": "graph_equivalent=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "source_attribution_match",
+    "expected": "source_attribution_match=true",
+    "actual": "source_attribution_match=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_f5_path_stitching_ab_comparison",
+    "assertion_name": "dependency_correctness",
+    "expected": "dependency_correctness=true",
+    "actual": "dependency_correctness=true",
+    "status": "PASS"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "retention_mode": "Energy99",
+  "strongest_pruned_source_errors": {
+    "1x_error_pct": 0.04,
+    "10x_error_pct": 0.41,
+    "100x_error_pct": 4.12,
+    "1000x_error_pct": 41.25
+  },
+  "true_worst_case_error_pct": 41.25,
+  "worst_case_scenario_id": "strongest_pruned_source_1000x",
+  "unbounded_intensity_guarantee": "NOT GUARANTEED (Bounded <=10x VALIDATED; Unbounded requires guard-band)"
+}
