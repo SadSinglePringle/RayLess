@@ -97,7 +97,7 @@ func _init() -> void:
 	print("  Software BVH ASTG Precompute Time: %.2f ms" % init_sw_ms)
 	print("  Active Surface Probes:             %d" % astg_hw.probes.size())
 	print("  Direct Bounce-0 Nodes:             %d" % astg_hw.bounce0_nodes.size())
-	print("  Diffuse Bounce-1 Nodes:            %d" % astg_hw.bounce1_nodes.size())
+	print("  Diffuse Nodes (4 Bounces):         %d" % astg_hw.bounce1_nodes.size())
 
 	# ==============================================================================
 	# 3. SCENARIO A: STABLE SCENE FRAME PERFORMANCE (Section 71)
@@ -196,7 +196,7 @@ func _init() -> void:
 		"graph_metrics": {
 			"active_probes": astg_hw.probes.size(),
 			"bounce0_nodes": astg_hw.bounce0_nodes.size(),
-			"bounce1_nodes": astg_hw.bounce1_nodes.size(),
+			"diffuse_nodes_4_bounces": astg_hw.bounce1_nodes.size(),
 			"destruction_repair_rays": dest_stats_hw.rays_traced
 		},
 		"comparison": {

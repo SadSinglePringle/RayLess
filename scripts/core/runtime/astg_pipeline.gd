@@ -31,6 +31,10 @@ var radiance_evaluator: RadianceEvaluator = RadianceEvaluator.new()
 var dependency_db: GeometryDependencyDB = GeometryDependencyDB.new()
 var repair_scheduler: PriorityRepairScheduler = PriorityRepairScheduler.new()
 
+var target_probe_density: float = 3.5
+var min_probe_distance: float = 0.28
+var max_diffuse_bounces: int = 4
+
 # Late-Bound Lighting & Lazy Probe Evaluation Infrastructure
 var light_manager: RefCounted = null
 var contribution_table: RefCounted = null
@@ -68,11 +72,13 @@ func initialize(
 	print("🚀 Initializing Persistent Light Transport Graph (%s)..." % backend.backend_name)
 	print("==================================================")
 
-	# 1. Generate surface probes (Fixed quality settings: ~0.55m adaptive spacing)
-	probe_generator.target_probe_density = 1.2
-	probe_generator.min_probe_distance = 0.55
+	# 1. Generate surface probes (High-density quality settings: ~0.28m adaptive spacing)
+	probe_generator.target_probe_density = target_probe_density
+	probe_generator.min_probe_distance = min_probe_distance
 	probes = probe_generator.generate_probes_from_nodes(mesh_nodes)
-	print("[ASTG] Generated %d surface probes." % probes.size())
+	print("[ASTG] Generated %d high-density surface probes (density: %.1f, spacing: %.2fm)." % [
+		probes.size(), target_probe_density, min_probe_distance
+	])
 
 	# 2. Build surface clusters
 	clusters = cluster_builder.build_clusters_from_meshes(mesh_nodes, probes)
@@ -100,9 +106,13 @@ func initialize(
 	var direct_deps = probe_depositor.deposit_direct_transport(bounce0_nodes, lights, probes)
 	print("[ASTG] Deposited direct transport (%d probe interactions)." % direct_deps)
 
-	# 5. Trace and deposit first explicit diffuse bounce (Bounce 1)
-	var diffuse_deps = probe_depositor.trace_and_deposit_diffuse_bounces(bounce0_nodes, lights, probes, bounce1_nodes)
-	print("[ASTG] Generated %d Bounce 1 diffuse nodes (%d diffuse probe deposits)." % [bounce1_nodes.size(), diffuse_deps])
+	# 5. Trace and deposit explicit diffuse bounces (4 bounces)
+	var diffuse_deps = probe_depositor.trace_and_deposit_diffuse_bounces(
+		bounce0_nodes, lights, probes, bounce1_nodes, max_diffuse_bounces
+	)
+	print("[ASTG] Generated %d diffuse transport nodes across %d bounces (%d diffuse probe deposits)." % [
+		bounce1_nodes.size(), max_diffuse_bounces, diffuse_deps
+	])
 	print("[ASTG] Recorded %d sparse persistent transfer coefficients in Contribution Table." % contribution_table.total_contributions)
 
 	_cache_light_states()
