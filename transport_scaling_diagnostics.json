@@ -1,5 +1,5 @@
 {
-  "run_id": "20260818_190855_4aa9600_scaling_repair",
+  "run_id": "20260818_191239_4aa9600_scaling_repair",
   "scene": "NVIDIA / Amazon Lumberyard Bistro",
   "commit_hash": "4aa9600",
   "triangles": 1753630,
@@ -30,9 +30,9 @@
       "mean_retained_fanin": 4.18833,
       "max_retained_fanin": 6,
       "p95_retained_fanin": 5,
-      "static_gpu_ms": 0.019456,
-      "animated_gpu_ms": 0.004096,
-      "probe_eval_gpu_ms": 0.019456
+      "static_gpu_ms": 0.018432,
+      "animated_gpu_ms": 0.00512,
+      "probe_eval_gpu_ms": 0.018432
     },
     {
       "total_lights": 128,
@@ -53,9 +53,9 @@
       "mean_retained_fanin": 16.6358,
       "max_retained_fanin": 21,
       "p95_retained_fanin": 18,
-      "static_gpu_ms": 0.053248,
+      "static_gpu_ms": 0.041984,
       "animated_gpu_ms": 0.00512,
-      "probe_eval_gpu_ms": 0.053248
+      "probe_eval_gpu_ms": 0.041984
     },
     {
       "total_lights": 512,
@@ -76,9 +76,9 @@
       "mean_retained_fanin": 31.9758,
       "max_retained_fanin": 32,
       "p95_retained_fanin": 32,
-      "static_gpu_ms": 0.084992,
+      "static_gpu_ms": 0.08704,
       "animated_gpu_ms": 0.006144,
-      "probe_eval_gpu_ms": 0.084992
+      "probe_eval_gpu_ms": 0.08704
     },
     {
       "total_lights": 1024,
@@ -99,9 +99,9 @@
       "mean_retained_fanin": 31.99,
       "max_retained_fanin": 32,
       "p95_retained_fanin": 32,
-      "static_gpu_ms": 0.074752,
+      "static_gpu_ms": 0.072704,
       "animated_gpu_ms": 0.007168,
-      "probe_eval_gpu_ms": 0.074752
+      "probe_eval_gpu_ms": 0.072704
     },
     {
       "total_lights": 4096,
@@ -122,9 +122,9 @@
       "mean_retained_fanin": 32,
       "max_retained_fanin": 32,
       "p95_retained_fanin": 32,
-      "static_gpu_ms": 0.072704,
+      "static_gpu_ms": 0.079872,
       "animated_gpu_ms": 0.017408,
-      "probe_eval_gpu_ms": 0.072704
+      "probe_eval_gpu_ms": 0.079872
     },
     {
       "total_lights": 16384,
@@ -145,9 +145,9 @@
       "mean_retained_fanin": 32,
       "max_retained_fanin": 32,
       "p95_retained_fanin": 32,
-      "static_gpu_ms": 0.072704,
+      "static_gpu_ms": 0.080896,
       "animated_gpu_ms": 0.057344,
-      "probe_eval_gpu_ms": 0.072704
+      "probe_eval_gpu_ms": 0.080896
     },
     {
       "total_lights": 64000,
@@ -168,9 +168,9 @@
       "mean_retained_fanin": 32,
       "max_retained_fanin": 32,
       "p95_retained_fanin": 32,
-      "static_gpu_ms": 0.086016,
-      "animated_gpu_ms": 0.288768,
-      "probe_eval_gpu_ms": 0.086016
+      "static_gpu_ms": 0.0768,
+      "animated_gpu_ms": 0.274432,
+      "probe_eval_gpu_ms": 0.0768
     },
     {
       "total_lights": 128000,
@@ -191,9 +191,9 @@
       "mean_retained_fanin": 32,
       "max_retained_fanin": 32,
       "p95_retained_fanin": 32,
-      "static_gpu_ms": 0.074752,
-      "animated_gpu_ms": 0.615424,
-      "probe_eval_gpu_ms": 0.074752
+      "static_gpu_ms": 0.088064,
+      "animated_gpu_ms": 0.756736,
+      "probe_eval_gpu_ms": 0.088064
     }
   ]
 }
