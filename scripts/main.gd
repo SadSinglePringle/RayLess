@@ -117,6 +117,7 @@ func _setup_rendering_and_debug() -> void:
 	
 	debug_renderer = ASTGDebugRenderer.new()
 	debug_renderer.name = "DebugRenderer"
+	debug_renderer.show_probes = true # Sparse surface probes visible by default
 	add_child(debug_renderer)
 
 func _setup_ui() -> void:
@@ -126,6 +127,7 @@ func _setup_ui() -> void:
 	hud.gi_mode_changed.connect(_on_gi_mode_changed)
 	hud.debug_view_changed.connect(_on_debug_view_changed)
 	hud.camera_preset_changed.connect(set_camera_preset)
+	hud.toggle_probes_requested.connect(_on_toggle_probes_requested)
 	
 	hud.destroy_center_chunk_requested.connect(func():
 		if current_scene_type == SceneType.CLASSROOM:
@@ -217,7 +219,7 @@ func _process(delta: float) -> void:
 		
 		surface_interpolator.update_surfaces(current_gi_mode, astg_pipeline, ddgi_baseline, ground_truth)
 		
-		if current_debug_mode != GIEnums.DebugViewMode.NONE:
+		if debug_renderer.show_probes or current_debug_mode != GIEnums.DebugViewMode.NONE:
 			debug_renderer.update_debug_visuals(
 				astg_pipeline.probes,
 				astg_pipeline.bounce0_nodes,
@@ -252,6 +254,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_3: set_camera_preset(3)
 		elif event.keycode == KEY_4: set_camera_preset(4)
 		elif event.keycode == KEY_5: set_camera_preset(5)
+		elif event.keycode == KEY_P:
+			_on_toggle_probes_requested()
+		elif event.keycode == KEY_O:
+			# Cycle probe debug coloring mode
+			var next_mode = (current_debug_mode + 1) % 6
+			_on_debug_view_changed(next_mode)
+			if hud != null:
+				hud.set_debug_mode_index(next_mode)
 		elif event.keycode == KEY_F1:
 			_load_scene(SceneType.CLASSROOM if current_scene_type == SceneType.THREE_ROOM_LAB else SceneType.THREE_ROOM_LAB)
 			set_camera_preset(1)
@@ -279,6 +289,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		cam_rot.y -= event.relative.x * 0.3
 		cam_rot.x = clamp(cam_rot.x - event.relative.y * 0.3, -85.0, 85.0)
 		camera.rotation_degrees = Vector3(cam_rot.x, cam_rot.y, 0)
+
+func _on_toggle_probes_requested() -> void:
+	if debug_renderer != null:
+		debug_renderer.show_probes = not debug_renderer.show_probes
+		print("[Visualizer] Sparse Surface Probes: %s (%d Probes)" % [
+			"VISIBLE" if debug_renderer.show_probes else "HIDDEN",
+			astg_pipeline.probes.size()
+		])
+		if hud != null:
+			hud.set_probes_visible_state(debug_renderer.show_probes)
 
 func _on_chunk_destroyed(chunk_id: int, bounds: AABB) -> void:
 	astg_pipeline.notify_chunk_destroyed(chunk_id, bounds)

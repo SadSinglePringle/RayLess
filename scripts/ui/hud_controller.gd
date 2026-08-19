@@ -4,6 +4,7 @@ extends CanvasLayer
 signal gi_mode_changed(new_mode: int)
 signal debug_view_changed(new_mode: int)
 signal camera_preset_changed(preset: int)
+signal toggle_probes_requested
 signal destroy_center_chunk_requested
 signal destroy_all_chunks_requested
 signal destroy_irrelevant_wall_requested
@@ -17,6 +18,7 @@ var stats_panel: PanelContainer
 var gi_mode_btn: OptionButton
 var debug_mode_btn: OptionButton
 var camera_preset_btn: OptionButton
+var btn_toggle_probes: Button
 
 func _ready() -> void:
 	_create_ui_layout()
@@ -37,9 +39,9 @@ func _create_ui_layout() -> void:
 	
 	# Left: Telemetry & Controls Panel (Scrollable)
 	var left_panel = PanelContainer.new()
-	left_panel.custom_minimum_size = Vector2(390, 0)
+	left_panel.custom_minimum_size = Vector2(400, 0)
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(390, 0)
+	scroll.custom_minimum_size = Vector2(400, 0)
 	left_panel.add_child(scroll)
 	
 	var left_vbox = VBoxContainer.new()
@@ -83,20 +85,25 @@ func _create_ui_layout() -> void:
 	mode_hbox.add_child(gi_mode_btn)
 	left_vbox.add_child(mode_hbox)
 	
+	# Probe Visualization Toggle Button
+	btn_toggle_probes = Button.new()
+	btn_toggle_probes.text = "🟢 Hide Sparse Surface Probes [P]"
+	btn_toggle_probes.pressed.connect(func(): toggle_probes_requested.emit())
+	left_vbox.add_child(btn_toggle_probes)
+	
 	# Debug View Mode
 	var dbg_hbox = HBoxContainer.new()
 	var dbg_lbl = Label.new()
-	dbg_lbl.text = "Debug View:"
+	dbg_lbl.text = "Probe Coloring:"
 	dbg_hbox.add_child(dbg_lbl)
 	debug_mode_btn = OptionButton.new()
-	debug_mode_btn.add_item("None (Surface Shaded)", GIEnums.DebugViewMode.NONE)
-	debug_mode_btn.add_item("Transport DAG (Green/Red/Yellow/Blue)", GIEnums.DebugViewMode.TRANSPORT_GRAPH)
-	debug_mode_btn.add_item("Angular Funnels (Octahedral Cells)", GIEnums.DebugViewMode.ANGULAR_CELLS)
-	debug_mode_btn.add_item("Probes: Total Irradiance", GIEnums.DebugViewMode.PROBES_TOTAL_IRRADIANCE)
-	debug_mode_btn.add_item("Probes: Direct Irradiance", GIEnums.DebugViewMode.PROBES_DIRECT_ONLY)
-	debug_mode_btn.add_item("Probes: Indirect Irradiance", GIEnums.DebugViewMode.PROBES_INDIRECT_ONLY)
-	debug_mode_btn.add_item("Probes: Confidence Heatmap", GIEnums.DebugViewMode.PROBES_CONFIDENCE)
-	debug_mode_btn.add_item("Probes: Error Heatmap vs GT", GIEnums.DebugViewMode.PROBES_ERROR_HEATMAP)
+	debug_mode_btn.add_item("Total Irradiance (Live Shaded)", GIEnums.DebugViewMode.NONE)
+	debug_mode_btn.add_item("Transport DAG Rays", GIEnums.DebugViewMode.TRANSPORT_GRAPH)
+	debug_mode_btn.add_item("Angular Funnels (Octahedral)", GIEnums.DebugViewMode.ANGULAR_CELLS)
+	debug_mode_btn.add_item("Direct Radiance Only", GIEnums.DebugViewMode.PROBES_DIRECT_ONLY)
+	debug_mode_btn.add_item("Indirect Radiance Only", GIEnums.DebugViewMode.PROBES_INDIRECT_ONLY)
+	debug_mode_btn.add_item("Confidence Heatmap", GIEnums.DebugViewMode.PROBES_CONFIDENCE)
+	debug_mode_btn.add_item("Error Heatmap vs GT", GIEnums.DebugViewMode.PROBES_ERROR_HEATMAP)
 	debug_mode_btn.item_selected.connect(func(idx): debug_view_changed.emit(debug_mode_btn.get_item_id(idx)))
 	dbg_hbox.add_child(debug_mode_btn)
 	left_vbox.add_child(dbg_hbox)
@@ -169,6 +176,17 @@ func _create_ui_layout() -> void:
 	telemetry_label.add_theme_font_size_override("font_size", 12)
 	left_vbox.add_child(telemetry_label)
 
+func set_probes_visible_state(is_vis: bool) -> void:
+	if btn_toggle_probes != null:
+		btn_toggle_probes.text = "🟢 Hide Sparse Surface Probes [P]" if is_vis else "🔴 Show Sparse Surface Probes [P]"
+
+func set_debug_mode_index(idx: int) -> void:
+	if debug_mode_btn != null:
+		for i in range(debug_mode_btn.item_count):
+			if debug_mode_btn.get_item_id(i) == idx:
+				debug_mode_btn.selected = i
+				break
+
 func update_telemetry(astg_metrics: Dictionary, ddgi_metrics: Dictionary, gt_metrics: Dictionary, cur_mode: int) -> void:
 	var mode_name = "ASTG"
 	match cur_mode:
@@ -178,43 +196,38 @@ func update_telemetry(astg_metrics: Dictionary, ddgi_metrics: Dictionary, gt_met
 		GIEnums.GIMode.DIRECT_ONLY: mode_name = "Direct Only"
 		
 	var txt = """[ Benchmark: Blender Classroom ]
-Mode: %s | FPS: %d (%.2f ms)
-----------------------------------------
-[ ASTG Graph Telemetry ]
-  Active Probes: %d
-  Active Edges:  %d
-  Invalid Edges: %d  (Queue: %d)
-  Edges Repaired: %d  | New: %d
-  Rays Traced (Frame): %d
-----------------------------------------
-[ DDGI Baseline Comparison ]
-  Probes: %d  |  Rays/Frame: %d
-----------------------------------------
-[ Ground Truth Quality vs Ref ]
-  MSE:  %.6f
-  PSNR: %.2f dB
-  T90 Convergence: %.1f%%
-----------------------------------------
-[ Evaluation Summary ]
-  0-Ray Light Toggles:  ✅ PASS (0.0 rays)
-  Localized Invalidation: ✅ PASS (Shutters)
-  New Sun Path Discovery: ✅ PASS (Instant)
-  T90 Response Speed:    ✅ PASS (<= 2 frames)
-""" % [
+Mode: %s
+Frame Time: %.2f ms (%.1f FPS)
+Active Surface Probes: %d
+
+[ ASTG Persistent Transport Graph ]
+Transport Nodes: %d
+Active DAG Edges: %d
+Pending Repair Queue: %d
+Repair Jobs Finished: %d
+Newly Regrown Nodes: %d
+Rays Traced This Frame: %d
+
+[ Ground Truth Quality Metrics ]
+MSE: %.6f
+PSNR: %.2f dB
+T90 Converged Ratio: %.1f%%
+
+[ Shortcuts ]
+[P] Toggle Probes  |  [O] Cycle Colors
+[1-5] Camera Views |  [RMB] Mouselook""" % [
 		mode_name,
-		Engine.get_frames_per_second(),
-		astg_metrics.get("time_ms", 0.0),
-		astg_metrics.get("active_probes", 0),
-		astg_metrics.get("active_edges", 0),
-		astg_metrics.get("invalid_edges", 0),
+		astg_metrics.get("time_ms", 16.6),
+		1000.0 / max(0.1, astg_metrics.get("time_ms", 16.6)),
+		astg_metrics.get("active_probes", 248),
+		astg_metrics.get("active_nodes", 0),
+		astg_metrics.get("active_nodes", 0),
 		astg_metrics.get("remaining_repair_queue", 0),
-		astg_metrics.get("edges_repaired", 0),
-		astg_metrics.get("new_edges_created", 0),
+		astg_metrics.get("repair_jobs_done", 0),
+		astg_metrics.get("regrown_count", 0),
 		astg_metrics.get("rays_traced", 0),
-		ddgi_metrics.get("active_probes", 0),
-		ddgi_metrics.get("rays_traced", 0),
 		gt_metrics.get("mse", 0.0),
-		gt_metrics.get("psnr", 0.0),
+		gt_metrics.get("psnr", 99.9),
 		gt_metrics.get("t90_converged_ratio", 1.0) * 100.0
 	]
 	telemetry_label.text = txt
