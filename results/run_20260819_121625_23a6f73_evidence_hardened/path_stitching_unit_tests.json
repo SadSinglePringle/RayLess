@@ -1,0 +1,12 @@
+{
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_uuid": "part_f1_can_stitch_unit",
+  "can_stitch_compatibility": "PASS",
+  "matcher_safety": {
+    "thin_wall_rejection": "PASS",
+    "corner_rejection": "PASS",
+    "stale_generation_rejection": "PASS",
+    "dependency_conflict_rejection": "PASS"
+  },
+  "status": "PASS"
+}

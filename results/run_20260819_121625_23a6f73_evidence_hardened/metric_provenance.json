@@ -1,0 +1,1073 @@
+[
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "total_lights",
+    "value": 32.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "pruned_contributions",
+    "value": 7.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "discovery_light_coverage",
+    "value": 90.625000,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.274658,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "retained_contributions",
+    "value": 8533.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "bounce0_nodes",
+    "value": 45.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "bounce1_nodes",
+    "value": 8.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "candidate_contributions",
+    "value": 8540.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.038912,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "total_lights",
+    "value": 128.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "pruned_contributions",
+    "value": 6043.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "discovery_light_coverage",
+    "value": 90.625000,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.306702,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "retained_contributions",
+    "value": 22129.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "bounce0_nodes",
+    "value": 201.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "bounce1_nodes",
+    "value": 41.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "candidate_contributions",
+    "value": 28172.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.037888,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "total_lights",
+    "value": 512.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "pruned_contributions",
+    "value": 62025.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "discovery_light_coverage",
+    "value": 90.820312,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.310135,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "retained_contributions",
+    "value": 38370.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "bounce0_nodes",
+    "value": 813.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "bounce1_nodes",
+    "value": 159.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "candidate_contributions",
+    "value": 100395.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.039936,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "total_lights",
+    "value": 1024.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "pruned_contributions",
+    "value": 174072.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "discovery_light_coverage",
+    "value": 90.917969,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.308418,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "retained_contributions",
+    "value": 38388.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "bounce0_nodes",
+    "value": 1617.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "bounce1_nodes",
+    "value": 338.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "candidate_contributions",
+    "value": 212460.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.038912,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "total_lights",
+    "value": 4096.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "pruned_contributions",
+    "value": 824524.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "discovery_light_coverage",
+    "value": 90.991211,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.307703,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "retained_contributions",
+    "value": 38400.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "bounce0_nodes",
+    "value": 6453.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "bounce1_nodes",
+    "value": 1486.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "candidate_contributions",
+    "value": 862924.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.059392,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "total_lights",
+    "value": 16384.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "pruned_contributions",
+    "value": 3299553.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "discovery_light_coverage",
+    "value": 90.997314,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.308669,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "retained_contributions",
+    "value": 153600.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "bounce0_nodes",
+    "value": 25893.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "bounce1_nodes",
+    "value": 6104.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "candidate_contributions",
+    "value": 3453153.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.276480,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "total_lights",
+    "value": 64000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "pruned_contributions",
+    "value": 591467.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "discovery_light_coverage",
+    "value": 91.000000,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.175537,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "retained_contributions",
+    "value": 153540.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "bounce0_nodes",
+    "value": 7190.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "bounce1_nodes",
+    "value": 1542.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "candidate_contributions",
+    "value": 745007.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.070656,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "total_lights",
+    "value": 128000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "workload",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "pruned_contributions",
+    "value": 1331314.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "discovery_light_coverage",
+    "value": 91.000000,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "discovery_ray_hit_rate",
+    "value": 0.175745,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "retained_contributions",
+    "value": 153600.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "bounce0_nodes",
+    "value": 14397.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "bounce1_nodes",
+    "value": 3093.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_graph",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "candidate_contributions",
+    "value": 1484914.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "contribution_table",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "metric_name": "probe_eval_gpu_ms",
+    "value": 0.149504,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "gpu_compute_shader",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "termination_empty",
+    "value": 261331.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ray_dispatch",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "terminal_branches_total",
+    "value": 262144.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ray_dispatch",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "termination_visible",
+    "value": 631.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ray_dispatch",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "termination_blocked",
+    "value": 182.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ray_dispatch",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "terminal_branches_closure_pass",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "assertions",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "repair_intersection_gpu_ms",
+    "value": 0.012288,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "dxr_traversal",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "repair_schedule_cpu_us",
+    "value": 661.000000,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "scheduler",
+    "unit": "us",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "repair_dispatch_gpu_ms",
+    "value": 0.009100,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "dxr_dispatch",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "bytes_per_frontier",
+    "value": 136.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "memory",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "repair_process_gpu_ms",
+    "value": 0.005100,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "hit_processing",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "repair_total_ms",
+    "value": 2.406488,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "end_to_end_repair",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "repair_commit_cpu_us",
+    "value": 1719.000000,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "host_commit",
+    "unit": "us",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "anchor_payload_bytes",
+    "value": 16016.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "memory",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "total_repair_metadata_bytes",
+    "value": 24824.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "memory",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "bytes_per_light",
+    "value": 48.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "memory",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "metric_name": "error_1x_pct",
+    "value": 0.041000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "adversarial_1x",
+    "unit": "%",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "metric_name": "error_100x_pct",
+    "value": 4.125000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "adversarial_100x",
+    "unit": "%",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "metric_name": "error_10x_pct",
+    "value": 0.412000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "adversarial_10x",
+    "unit": "%",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "metric_name": "error_1000x_pct",
+    "value": 41.250000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "adversarial_1000x",
+    "unit": "%",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "metric_name": "true_worst_case_error",
+    "value": 41.250000,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce1_prechange",
+    "value": 3093.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_nodes",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "fresh_rebuild_discovery_rays",
+    "value": 8192000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "independent_rebuild",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce0_preservation_pct",
+    "value": 99.951379,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "fresh_rebuild_nodes",
+    "value": 17512.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "independent_rebuild",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "p95_error_vs_fresh",
+    "value": 0.000000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "quality",
+    "unit": "%",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce0_prechange",
+    "value": 14397.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_nodes",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce0_invalidated",
+    "value": 7.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_nodes",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce0_preserved",
+    "value": 14390.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_nodes",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce1_invalidated",
+    "value": 8.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_nodes",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce1_preserved",
+    "value": 3085.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport_nodes",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "bounce1_preservation_pct",
+    "value": 99.741351,
+    "source": "DERIVED_FORMULA",
+    "source_scope": "central_recomputation",
+    "unit": "%",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "rmse_vs_fresh",
+    "value": 0.001263,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "quality",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "ssim_vs_fresh",
+    "value": 1.000000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "quality",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "metric_name": "bounce0_nodes",
+    "value": 813.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "metric_name": "bounce1_nodes",
+    "value": 159.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "transport",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "metric_name": "bounce1_depositions",
+    "value": 22407.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "provenance",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "metric_name": "bounce0_depositions",
+    "value": 85392.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "provenance",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "metric_name": "total_depositions",
+    "value": 107799.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "provenance",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "metric_name": "probe_light_csr_records",
+    "value": 38370.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "csr_cache",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "stitch_candidates_considered",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "stitches_accepted",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "stitches_rejected",
+    "value": 0.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "csr_rmse_vs_full_regeneration",
+    "value": 0.000000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "quality",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "reused_suffix_nodes",
+    "value": 3.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "reused_probe_depositions",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "repair_rays_unstitched",
+    "value": 17.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "repair_rays_stitched",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
+    "is_measured": true
+  }
+]

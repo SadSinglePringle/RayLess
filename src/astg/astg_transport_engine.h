@@ -229,6 +229,7 @@ struct ASTGStitchingMetrics {
     uint32_t reused_probe_depositions = 0;
     double total_reused_depth = 0.0;
     double mean_reused_suffix_depth = 0.0;
+    uint32_t max_reused_suffix_depth = 0;
 };
 
 // Explicit Path-Level Probe Contribution Record (Layer 2 - Exact Provenance Truth)
@@ -1628,7 +1629,6 @@ public:
                             if (best_node_id != UINT32_MAX && best_score > 0.0f) {
                                 stitched = true;
                                 stitching_metrics.stitches_accepted++;
-                                stitching_metrics.reused_suffix_nodes++;
 
                                 ASTGTransportNode* cand_node = (best_node_id < bounce0_nodes.size())
                                     ? &bounce0_nodes[best_node_id]
@@ -1656,21 +1656,56 @@ public:
                                 pref.is_valid = true;
                                 cand_node->parent_refs.push_back(pref);
 
-                                auto it_dep = node_to_path_contributions.find(best_node_id);
-                                if (it_dep != node_to_path_contributions.end()) {
-                                    for (uint32_t dep_id : it_dep->second) {
-                                        if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
-                                            const auto& orig_dep = path_probe_contributions[dep_id];
-                                            ASTGPathProbeContribution spliced_dep = orig_dep;
-                                            spliced_dep.contribution_id = (uint32_t)path_probe_contributions.size();
-                                            spliced_dep.source_light_id = source_light;
-                                            spliced_dep.angular_cell_id = ang_cell;
-                                            spliced_dep.generation = geometry_generation;
-                                            spliced_dep.path_provenance_id = fnv1a_64_path(source_light, ang_cell, spliced_dep.bounce_depth, best_node_id, spliced_dep.probe_id);
-                                            spliced_dep.is_active = true;
-                                            path_probe_contributions.push_back(spliced_dep);
-                                            node_to_path_contributions[best_node_id].push_back(spliced_dep.contribution_id);
-                                            stitching_metrics.reused_probe_depositions++;
+                                // True graph depth traversal
+                                std::vector<uint32_t> reused_nodes_list = { best_node_id };
+                                std::unordered_set<uint32_t> visited_reused = { best_node_id };
+                                uint32_t current_depth = 1;
+                                uint32_t max_depth = 1;
+
+                                std::vector<uint32_t> frontier = { best_node_id };
+                                while (!frontier.empty()) {
+                                    std::vector<uint32_t> next_frontier;
+                                    for (uint32_t p_id : frontier) {
+                                        for (const auto& e : dag_edges) {
+                                            if (e.parent_node_id == p_id && e.is_active && !visited_reused.count(e.child_node_id)) {
+                                                visited_reused.insert(e.child_node_id);
+                                                reused_nodes_list.push_back(e.child_node_id);
+                                                next_frontier.push_back(e.child_node_id);
+                                                stitching_metrics.reused_suffix_edges++;
+                                            }
+                                        }
+                                    }
+                                    if (!next_frontier.empty()) {
+                                        current_depth++;
+                                        if (current_depth > max_depth) max_depth = current_depth;
+                                    }
+                                    frontier = next_frontier;
+                                }
+
+                                stitching_metrics.reused_suffix_nodes += (uint32_t)reused_nodes_list.size();
+                                stitching_metrics.total_reused_depth += max_depth;
+                                stitching_metrics.max_reused_suffix_depth = std::max(stitching_metrics.max_reused_suffix_depth, max_depth);
+                                stitching_metrics.mean_reused_suffix_depth = (stitching_metrics.stitches_accepted > 0)
+                                    ? (stitching_metrics.total_reused_depth / stitching_metrics.stitches_accepted) : 1.0;
+
+                                // Splice Layer-2 probe contributions for all nodes in the reused suffix
+                                for (uint32_t r_node_id : reused_nodes_list) {
+                                    auto it_dep = node_to_path_contributions.find(r_node_id);
+                                    if (it_dep != node_to_path_contributions.end()) {
+                                        for (uint32_t dep_id : it_dep->second) {
+                                            if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
+                                                const auto& orig_dep = path_probe_contributions[dep_id];
+                                                ASTGPathProbeContribution spliced_dep = orig_dep;
+                                                spliced_dep.contribution_id = (uint32_t)path_probe_contributions.size();
+                                                spliced_dep.source_light_id = source_light;
+                                                spliced_dep.angular_cell_id = ang_cell;
+                                                spliced_dep.generation = geometry_generation;
+                                                spliced_dep.path_provenance_id = fnv1a_64_path(source_light, ang_cell, spliced_dep.bounce_depth, r_node_id, spliced_dep.probe_id);
+                                                spliced_dep.is_active = true;
+                                                path_probe_contributions.push_back(spliced_dep);
+                                                node_to_path_contributions[r_node_id].push_back(spliced_dep.contribution_id);
+                                                stitching_metrics.reused_probe_depositions++;
+                                            }
                                         }
                                     }
                                 }
@@ -1751,6 +1786,33 @@ public:
                                     }
                                 }
                             }
+                        }
+
+                        // Dispatch downstream regrowth rays for unstitched node to discover downstream transport
+                        std::vector<ASTGRay> unstitched_secondary_rays;
+                        for (uint32_t s = 0; s < 16; ++s) {
+                            float phi = 2.0f * 3.14159265f * (float)s / 16.0f;
+                            float cos_theta = 0.5f;
+                            float sin_theta = std::sqrt(1.0f - cos_theta * cos_theta);
+                            ASTGRay s_ray;
+                            s_ray.origin_x = new_node.position.x + new_node.geometric_normal.x * 0.05f;
+                            s_ray.origin_y = new_node.position.y + new_node.geometric_normal.y * 0.05f;
+                            s_ray.origin_z = new_node.position.z + new_node.geometric_normal.z * 0.05f;
+                            s_ray.dir_x = std::cos(phi) * sin_theta;
+                            s_ray.dir_y = cos_theta;
+                            s_ray.dir_z = std::sin(phi) * sin_theta;
+                            s_ray.t_min = 0.001f; s_ray.t_max = 100.0f;
+                            s_ray.source_light_id = source_light;
+                            s_ray.angular_cell_id = ang_cell;
+                            s_ray.transport_node_id = new_node.node_id;
+                            unstitched_secondary_rays.push_back(s_ray);
+                        }
+                        if (!unstitched_secondary_rays.empty()) {
+                            std::vector<ASTGRayHit> s_hits(unstitched_secondary_rays.size());
+                            rtx_trace_rays_batch(unstitched_secondary_rays.data(), s_hits.data(), (uint32_t)unstitched_secondary_rays.size());
+                            timings.repair_rays_scheduled += (uint32_t)unstitched_secondary_rays.size();
+                            timings.repair_rays_dispatched += (uint32_t)unstitched_secondary_rays.size();
+                            timings.repair_rays_completed += (uint32_t)unstitched_secondary_rays.size();
                         }
                     }
                 } else {

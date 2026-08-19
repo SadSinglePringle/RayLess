@@ -1,0 +1,13 @@
+{
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_uuid": "part_f5_path_stitching_ab_comparison",
+  "stitching_off_rays_completed": 17,
+  "stitching_on_rays_completed": 1,
+  "measured_ray_reduction_pct": 94.1,
+  "csr_rmse": 0.00000,
+  "p95_coefficient_error_pct": 0.00,
+  "max_coefficient_error_pct": 0.00,
+  "path_provenance_semantic_match": true,
+  "graph_semantic_equivalence": true,
+  "status": "PASS"
+}

@@ -1,0 +1,1932 @@
+[
+{
+  "test_uuid": "tier_scaling_32",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_32",
+  "light_count": 32,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "15444409014314083232",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "17825539367661035156",
+  "contribution_hash": "9585593198216737321",
+  "repair_db_hash": "11335884147318218445",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 8533
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 45.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 8.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 8540.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 90.625000,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 29.000000,
+      "raw_denominator": 32.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.274658,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 45.000000,
+      "raw_denominator": 16384.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.038912,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 7.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 8533.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 32.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "8540",
+      "actual": "8540",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "7.110833 <= 8.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "tier_scaling_128",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_128",
+  "light_count": 128,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "7683772709448506612",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "13506465632650762115",
+  "contribution_hash": "10317472987005850387",
+  "repair_db_hash": "17517122048402073969",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 22129
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 201.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 41.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 28172.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 90.625000,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 116.000000,
+      "raw_denominator": 128.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.306702,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 201.000000,
+      "raw_denominator": 65536.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.037888,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 6043.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 22129.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 128.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "28172",
+      "actual": "28172",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "18.440833 <= 21.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "tier_scaling_512",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_512",
+  "light_count": 512,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "8076605113434018056",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "5175951104108446525",
+  "contribution_hash": "9392366195524812998",
+  "repair_db_hash": "2330559240474996298",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 38370
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 813.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 159.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 100395.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 90.820312,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 465.000000,
+      "raw_denominator": 512.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.310135,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 813.000000,
+      "raw_denominator": 262144.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.039936,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 62025.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 38370.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 512.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "100395",
+      "actual": "100395",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "31.975000 <= 32.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "tier_scaling_1024",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_1024",
+  "light_count": 1024,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "10067637989005464539",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "7447693928462773910",
+  "contribution_hash": "161595277005594968",
+  "repair_db_hash": "18382710000263938274",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 38388
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 1617.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 338.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 212460.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 90.917969,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 931.000000,
+      "raw_denominator": 1024.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.308418,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 1617.000000,
+      "raw_denominator": 524288.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.038912,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 174072.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 38388.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 1024.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "212460",
+      "actual": "212460",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "31.990000 <= 32.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "tier_scaling_4096",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_4096",
+  "light_count": 4096,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "11401010292087593850",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "17270523719711898288",
+  "contribution_hash": "9659004386139568770",
+  "repair_db_hash": "12514996281555363460",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 38400
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 6453.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 1486.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 862924.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 90.991211,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 3727.000000,
+      "raw_denominator": 4096.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.307703,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 6453.000000,
+      "raw_denominator": 2097152.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.059392,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 824524.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 38400.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 4096.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "862924",
+      "actual": "862924",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "32.000000 <= 32.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "tier_scaling_16384",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_16384",
+  "light_count": 16384,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "18127151847502688924",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "7389995998589789435",
+  "contribution_hash": "3721206398587745039",
+  "repair_db_hash": "4447538334096803505",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 153600
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 25893.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 6104.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 3453153.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 90.997314,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 14909.000000,
+      "raw_denominator": 16384.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.308669,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 25893.000000,
+      "raw_denominator": 8388608.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.276480,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 3299553.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 153600.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 16384.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "3453153",
+      "actual": "3453153",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "128.000000 <= 128.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "tier_scaling_64000",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_64000",
+  "light_count": 64000,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "10312864577477890283",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "16972530477230056844",
+  "contribution_hash": "18097609152737557455",
+  "repair_db_hash": "4921301603452021829",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 153540
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 7190.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 1542.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 745007.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 91.000000,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 58240.000000,
+      "raw_denominator": 64000.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.175537,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 7190.000000,
+      "raw_denominator": 4096000.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.070656,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 591467.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 153540.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 64000.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "745007",
+      "actual": "745007",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "127.950000 <= 128.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "tier_scaling_128000",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "TIER_SCALING_128000",
+  "light_count": 128000,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "3010618080379317301",
+  "light_static_hash": "4459736735369710927",
+  "probe_layout_hash": "7376135293138475376",
+  "transport_graph_hash": "12038958616987266946",
+  "contribution_hash": "4816488990727461299",
+  "repair_db_hash": "6977548302163514417",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 153600
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_nodes",
+      "value": 14397.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 3093.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_graph",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "candidate_contributions",
+      "value": 1484914.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "discovery_light_coverage",
+      "value": 91.000000,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 116480.000000,
+      "raw_denominator": 128000.000000
+    },
+    {
+      "name": "discovery_ray_hit_rate",
+      "value": 0.175745,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 14397.000000,
+      "raw_denominator": 8192000.000000
+    },
+    {
+      "name": "probe_eval_gpu_ms",
+      "value": 0.149504,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "gpu_compute_shader",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "pruned_contributions",
+      "value": 1331314.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "retained_contributions",
+      "value": 153600.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "contribution_table",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_lights",
+      "value": 128000.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "workload",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "contribution_closure",
+      "expected": "1484914",
+      "actual": "1484914",
+      "status": "PASS"
+    },
+    {
+      "name": "fanin_statistical_consistency",
+      "expected": "mean_fanin <= p95_fanin",
+      "actual": "128.000000 <= 128.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_a_measurement_integrity",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "MEASUREMENT_INTEGRITY",
+  "light_count": 512,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "SUBSYSTEM",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 68
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "anchor_payload_bytes",
+      "value": 16016.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "memory",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bytes_per_frontier",
+      "value": 136.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "memory",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bytes_per_light",
+      "value": 48.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "memory",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_commit_cpu_us",
+      "value": 1719.000000,
+      "source": "CPU_HIGH_RES_TIMER",
+      "scope": "host_commit",
+      "unit": "us",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_dispatch_gpu_ms",
+      "value": 0.009100,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "dxr_dispatch",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_intersection_gpu_ms",
+      "value": 0.012288,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "dxr_traversal",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_process_gpu_ms",
+      "value": 0.005100,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "hit_processing",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_schedule_cpu_us",
+      "value": 661.000000,
+      "source": "CPU_HIGH_RES_TIMER",
+      "scope": "scheduler",
+      "unit": "us",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_total_ms",
+      "value": 2.406488,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "end_to_end_repair",
+      "unit": "ms",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "terminal_branches_closure_pass",
+      "value": 1.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "assertions",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "terminal_branches_total",
+      "value": 262144.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "ray_dispatch",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "termination_blocked",
+      "value": 182.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "ray_dispatch",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "termination_empty",
+      "value": 261331.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "ray_dispatch",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "termination_visible",
+      "value": 631.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "ray_dispatch",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_repair_metadata_bytes",
+      "value": 24824.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "memory",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "terminal_branches_closure",
+      "expected": "262144",
+      "actual": "262144",
+      "status": "PASS"
+    },
+    {
+      "name": "timing_precision_nonzero",
+      "expected": "> 0.000 ms",
+      "actual": "2.406488 ms",
+      "status": "PASS"
+    },
+    {
+      "name": "workload_separation_inequality",
+      "expected": "completed <= dispatched <= scheduled <= budget",
+      "actual": "68 <= 68 <= 68 <= 4096",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_b_pruned_source_stress",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "PRUNED_SOURCE_STRESS",
+  "light_count": 512,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "STRESS",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1169
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "error_1000x_pct",
+      "value": 41.250000,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "adversarial_1000x",
+      "unit": "%",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "error_100x_pct",
+      "value": 4.125000,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "adversarial_100x",
+      "unit": "%",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "error_10x_pct",
+      "value": 0.412000,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "adversarial_10x",
+      "unit": "%",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "error_1x_pct",
+      "value": 0.041000,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "adversarial_1x",
+      "unit": "%",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "true_worst_case_error",
+      "value": 41.250000,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 41.250000,
+      "raw_denominator": 100.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "late_bound_bounded_10x_pass",
+      "expected": "< 1.00%",
+      "actual": "0.412000%",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_cd_large_scale_regeneration_128k",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "LARGE_SCALE_REGENERATION_128K",
+  "light_count": 128000,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "FULL_SCENE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 119
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_invalidated",
+      "value": 7.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_nodes",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce0_prechange",
+      "value": 14397.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_nodes",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce0_preservation_pct",
+      "value": 99.951379,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 14390.000000,
+      "raw_denominator": 14397.000000
+    },
+    {
+      "name": "bounce0_preserved",
+      "value": 14390.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_nodes",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_invalidated",
+      "value": 8.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_nodes",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_prechange",
+      "value": 3093.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_nodes",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_preservation_pct",
+      "value": 99.741351,
+      "source": "DERIVED_FORMULA",
+      "scope": "central_recomputation",
+      "unit": "%",
+      "is_measured": false,
+      "raw_numerator": 3085.000000,
+      "raw_denominator": 3093.000000
+    },
+    {
+      "name": "bounce1_preserved",
+      "value": 3085.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport_nodes",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "fresh_rebuild_discovery_rays",
+      "value": 8192000.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "independent_rebuild",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "fresh_rebuild_nodes",
+      "value": 17512.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "independent_rebuild",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "p95_error_vs_fresh",
+      "value": 0.000000,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "quality",
+      "unit": "%",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "rmse_vs_fresh",
+      "value": 0.001263,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "quality",
+      "unit": "unitless",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "ssim_vs_fresh",
+      "value": 1.000000,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "quality",
+      "unit": "unitless",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "independent_fresh_rebuild_work_minimum",
+      "expected": "> 0 rays",
+      "actual": "8192000 rays",
+      "status": "PASS"
+    },
+    {
+      "name": "incremental_vs_rebuild_ssim",
+      "expected": ">= 0.999",
+      "actual": "1.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_e_bounce1_provenance",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "BOUNCE1_PATH_PROVENANCE",
+  "light_count": 512,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "PATH_PROVENANCE",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 107799
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "bounce0_depositions",
+      "value": 85392.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "provenance",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce0_nodes",
+      "value": 813.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_depositions",
+      "value": 22407.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "provenance",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "bounce1_nodes",
+      "value": 159.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "transport",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "probe_light_csr_records",
+      "value": 38370.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "csr_cache",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "total_depositions",
+      "value": 107799.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "provenance",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "indirect_path_surgical_invalidation_and_regrowth",
+      "expected": "initial=0.35, post_inval=0.15, post_regrowth=0.45",
+      "actual": "initial=0.35, post_inval=0.15, post_regrowth=0.45",
+      "status": "PASS"
+    },
+    {
+      "name": "destroy_bounce0_wall_descendant_pruning",
+      "expected": "b0_inval=1, b1_inval=1, sibling_preserved=true",
+      "actual": "b0_inval=1, b1_inval=1, sibling_preserved=true",
+      "status": "PASS"
+    },
+    {
+      "name": "destroy_bounce1_surface_preserves_b0",
+      "expected": "b0_preserved=true, b1_inval=1",
+      "actual": "b0_preserved=true, b1_inval=1",
+      "status": "PASS"
+    },
+    {
+      "name": "mixed_direct_indirect_same_light_probe",
+      "expected": "initial=0.30, after_inval=0.10",
+      "actual": "initial=0.30, after_inval=0.10",
+      "status": "PASS"
+    },
+    {
+      "name": "bounce1_path_depositions_present",
+      "expected": "> 0",
+      "actual": "22407",
+      "status": "PASS"
+    },
+    {
+      "name": "orphan_and_csr_provenance_clean",
+      "expected": "orphans=0, unbacked_csr=0",
+      "actual": "orphans=0, unbacked_csr=0",
+      "status": "PASS"
+    },
+    {
+      "name": "incremental_vs_independent_changed_world_rebuild",
+      "expected": "CSR RMSE < 0.001",
+      "actual": "CSR RMSE = 0.000494",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_f1_can_stitch_unit",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "CAN_STITCH_UNIT",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "REGENERATION",
+    "evidence_level": "UNIT",
+    "geometry_authentic": false,
+    "transport_authentic": false,
+    "lighting_authentic": false,
+    "probe_authentic": false,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "can_stitch_compatibility_matcher",
+      "expected": "can_stitch=true",
+      "actual": "can_stitch=true",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_f2_false_stitch_unit",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "MATCHER_SAFETY_UNIT",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "REGENERATION",
+    "evidence_level": "UNIT",
+    "geometry_authentic": false,
+    "transport_authentic": false,
+    "lighting_authentic": false,
+    "probe_authentic": false,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "false_stitch_safety_guarantees",
+      "expected": "all_safety_checks_pass=true",
+      "actual": "all_safety_checks_pass=true",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_f3_path_stitching_integration",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "PATH_STITCHING_INTEGRATION",
+  "light_count": 512,
+  "probe_count": 1200,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "REGENERATION",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+    {
+      "name": "csr_rmse_vs_full_regeneration",
+      "value": 0.000000,
+      "source": "GPU_TIMESTAMP_QUERY",
+      "scope": "quality",
+      "unit": "unitless",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_rays_stitched",
+      "value": 1.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "stitching",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "repair_rays_unstitched",
+      "value": 17.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "stitching",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "reused_probe_depositions",
+      "value": 1.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "stitching",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "reused_suffix_nodes",
+      "value": 3.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "stitching",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "stitch_candidates_considered",
+      "value": 1.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "stitching",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "stitches_accepted",
+      "value": 1.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "stitching",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    },
+    {
+      "name": "stitches_rejected",
+      "value": 0.000000,
+      "source": "BUFFER_COUNTER",
+      "scope": "stitching",
+      "unit": "count",
+      "is_measured": true,
+      "raw_numerator": 0.000000,
+      "raw_denominator": 0.000000
+    }
+  ],
+  "assertions": [
+    {
+      "name": "runtime_stitches_accepted",
+      "expected": "stitches_accepted > 0",
+      "actual": "stitches_accepted = 1",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime_stitch_edges_created",
+      "expected": "active_stitch_edges > 0",
+      "actual": "active_stitch_edges = 1",
+      "status": "PASS"
+    },
+    {
+      "name": "anchors_terminated_by_stitching",
+      "expected": "anchors_terminated > 0",
+      "actual": "anchors_terminated = 1",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime_reused_suffix_nodes",
+      "expected": "reused_nodes > 0",
+      "actual": "reused_nodes = 3",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime_spliced_path_contributions",
+      "expected": "spliced_contributions > 0",
+      "actual": "spliced_contributions = 1",
+      "status": "PASS"
+    },
+    {
+      "name": "stitching_vs_full_regeneration_csr_rmse",
+      "expected": "CSR RMSE < 0.001",
+      "actual": "CSR RMSE = 0.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "part_f4_no_match_fallback_integration",
+  "run_uuid": "run_20260819_121625_23a6f73_evidence_hardened",
+  "test_name": "FALLBACK_INTEGRATION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "23a6f73",
+  "build_commit_sha": "23a6f73",
+  "binary_hash": "21d6cf9ccb69356a2561c1e1b0b1470dc007fc55673afe8ea2caef9f373e2d4a",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "REGENERATION",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "no_match_fallback_normal_regeneration",
+      "expected": "stitches_accepted=0, new_bridge_nodes>0, repair_completed>0",
+      "actual": "stitches_accepted=0, new_bridge_nodes>0, repair_completed>0",
+      "status": "PASS"
+    }
+  ]
+}
+]
