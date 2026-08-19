@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv) {
     std::cout << "================================================================================\n";
-    std::cout << "🚀 ASTG MEASUREMENT CLEANUP, LATE-BOUND STRESS & LARGE-SCALE REGENERATION\n";
+    std::cout << "🚀 ASTG EVIDENCE INTEGRITY & ANTI-OVERSTATEMENT BENCHMARK SUITE\n";
     std::cout << "================================================================================\n\n";
 
     if (!rtx_init()) {
@@ -21,22 +21,22 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // 1. Full 8-Tier Scaling Ladder with Distributed Bounce 1
+    // 1. Full 8-Tier Scaling Ladder with Immutable Result Sealing
     diag.run_full_tier_scaling_diagnostics();
 
-    // 2. PART A: Measurement Consistency, Microsecond Timings & Accounting Closure Checks
+    // 2. PART A: Measurement Integrity, Workload Separation & Memory Accounting
     diag.test_measurement_integrity_and_accounting();
 
-    // 3. PART B: Late-Bound Pruned-Source Adversarial Validation & Residual-Tail Test
+    // 3. PART B: Late-Bound Pruned-Source Adversarial Stress & Guard-Band Progression
     diag.test_late_bound_pruned_source_stress();
 
-    // 4. PART C & D: Large-Scale Safe Regeneration & 8x Discovery Optimization (128k Lights)
+    // 4. PART C & D: 128k Large-Scale Safe Regeneration & Independent Rebuild Equivalence
     diag.test_large_scale_regeneration_and_discovery();
 
-    // 5. Export Clean CSV/JSON Telemetry Deliverables
+    // 5. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
     diag.export_all_diagnostics_files();
 
-    // 6. PART H: Final Report & Definition of Done
+    // 6. PART 90: Final Evidence Integrity Report
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

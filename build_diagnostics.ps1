@@ -12,6 +12,7 @@ if (-not (Test-Path "bin")) {
 $cl = "$MSVC_DIR\cl.exe"
 $diag_args = @(
     "/O2",
+    "/std:c++17",
     "/EHsc",
     "/openmp",
     "/I$MSVC_INC",

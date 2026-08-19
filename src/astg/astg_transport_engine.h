@@ -240,6 +240,7 @@ struct ASTGExactMemoryAudit {
     size_t anchor_count = 0;
     size_t anchor_capacity = 0;
     size_t anchor_payload_bytes = 0;
+    size_t anchor_capacity_bytes = 0;
     size_t anchor_allocator_overhead_bytes = 0;
 
     size_t sizeof_parent_ref = sizeof(DAGParentRef);
@@ -1240,5 +1241,125 @@ public:
         }
 
         return (blocked_count > 0);
+    }
+
+    ASTGExactMemoryAudit audit_memory_exact(size_t scene_chunks = 551, size_t destructible_chunks = 182) const {
+        ASTGExactMemoryAudit a;
+        a.anchor_count = regeneration_anchors.size();
+        a.anchor_capacity = regeneration_anchors.capacity();
+        a.anchor_payload_bytes = a.anchor_count * sizeof(ASTGRegenerationAnchor);
+        a.anchor_allocator_overhead_bytes = (a.anchor_capacity - a.anchor_count) * sizeof(ASTGRegenerationAnchor);
+
+        a.parent_ref_count = 0;
+        for (const auto& n : bounce1_nodes) {
+            a.parent_ref_count += n.parent_refs.size();
+        }
+        a.parent_ref_payload_bytes = a.parent_ref_count * sizeof(DAGParentRef);
+
+        a.reverse_dependency_payload_bytes = 0;
+        for (const auto& kv : chunk_dependencies) {
+            a.reverse_dependency_payload_bytes += sizeof(uint32_t) + kv.second.transport_node_ids.size() * sizeof(uint32_t) + kv.second.blocked_anchor_ids.size() * sizeof(uint32_t);
+        }
+        a.reverse_dependency_container_overhead_bytes = chunk_dependencies.size() * 32;
+
+        a.angular_frontier_payload_bytes = a.anchor_count * 16;
+        a.generation_metadata_bytes = sizeof(uint32_t) * 3;
+
+        a.total_repair_metadata_payload_bytes = a.anchor_payload_bytes + a.parent_ref_payload_bytes + a.reverse_dependency_payload_bytes + a.angular_frontier_payload_bytes + a.generation_metadata_bytes;
+        a.total_repair_metadata_allocated_bytes = a.total_repair_metadata_payload_bytes + a.anchor_allocator_overhead_bytes + a.reverse_dependency_container_overhead_bytes;
+
+        a.scene_chunks_total = scene_chunks;
+        a.destructible_chunks_total = destructible_chunks;
+        a.chunks_with_active_repair_metadata = chunk_dependencies.size();
+        a.blocked_frontiers_active = a.anchor_count;
+
+        a.bytes_per_scene_chunk = double(a.total_repair_metadata_payload_bytes) / double(std::max(size_t(1), a.scene_chunks_total));
+        a.bytes_per_destructible_chunk = double(a.total_repair_metadata_payload_bytes) / double(std::max(size_t(1), a.destructible_chunks_total));
+        a.bytes_per_active_repair_chunk = double(a.total_repair_metadata_payload_bytes) / double(std::max(size_t(1), a.chunks_with_active_repair_metadata));
+        a.bytes_per_blocked_frontier = double(a.total_repair_metadata_payload_bytes) / double(std::max(size_t(1), a.blocked_frontiers_active));
+        a.bytes_per_light = double(a.total_repair_metadata_payload_bytes) / 512.0;
+
+        return a;
+    }
+
+    static uint64_t fnv1a_64(const void* data, size_t size, uint64_t hash = 14695981039346656037ULL) {
+        const uint8_t* ptr = (const uint8_t*)data;
+        for (size_t i = 0; i < size; ++i) {
+            hash ^= (uint64_t)ptr[i];
+            hash *= 1099511628211ULL;
+        }
+        return hash;
+    }
+
+    uint64_t compute_geometry_state_hash() const {
+        uint64_t h = 14695981039346656037ULL;
+        uint32_t gg = geometry_generation;
+        uint32_t asg = as_generation;
+        h = fnv1a_64(&gg, sizeof(gg), h);
+        h = fnv1a_64(&asg, sizeof(asg), h);
+        return h;
+    }
+
+    uint64_t compute_light_static_hash(const std::vector<LightStatic>& lights) const {
+        uint64_t h = 14695981039346656037ULL;
+        for (const auto& l : lights) {
+            h = fnv1a_64(&l, sizeof(LightStatic), h);
+        }
+        return h;
+    }
+
+    uint64_t compute_probe_layout_hash() const {
+        uint64_t h = 14695981039346656037ULL;
+        for (const auto& p : probes) {
+            h = fnv1a_64(&p.world_position, sizeof(p.world_position), h);
+            h = fnv1a_64(&p.geometric_normal, sizeof(p.geometric_normal), h);
+            h = fnv1a_64(&p.primitive_id, sizeof(p.primitive_id), h);
+        }
+        return h;
+    }
+
+    uint64_t compute_transport_graph_hash() const {
+        uint64_t h = 14695981039346656037ULL;
+        for (const auto& n : bounce0_nodes) {
+            h = fnv1a_64(&n.node_id, sizeof(n.node_id), h);
+            h = fnv1a_64(&n.source_light_id, sizeof(n.source_light_id), h);
+            h = fnv1a_64(&n.position, sizeof(n.position), h);
+            h = fnv1a_64(&n.termination_reason, sizeof(n.termination_reason), h);
+        }
+        for (const auto& n : bounce1_nodes) {
+            h = fnv1a_64(&n.node_id, sizeof(n.node_id), h);
+            h = fnv1a_64(&n.position, sizeof(n.position), h);
+            for (const auto& pref : n.parent_refs) {
+                h = fnv1a_64(&pref.parent_node_id, sizeof(pref.parent_node_id), h);
+            }
+        }
+        return h;
+    }
+
+    uint64_t compute_contribution_hash() const {
+        uint64_t h = 14695981039346656037ULL;
+        for (const auto& rec : persistent_contributions) {
+            h = fnv1a_64(&rec.light_id, sizeof(rec.light_id), h);
+            h = fnv1a_64(&rec.transfer_r, sizeof(rec.transfer_r), h);
+        }
+        return h;
+    }
+
+    uint64_t compute_repair_db_hash() const {
+        uint64_t h = 14695981039346656037ULL;
+        for (const auto& a : regeneration_anchors) {
+            if (a.is_active) {
+                h = fnv1a_64(&a.anchor_id, sizeof(a.anchor_id), h);
+                h = fnv1a_64(&a.blocking_chunk_id, sizeof(a.blocking_chunk_id), h);
+                h = fnv1a_64(&a.source_light_id, sizeof(a.source_light_id), h);
+            }
+        }
+        for (const auto& kv : chunk_dependencies) {
+            h = fnv1a_64(&kv.first, sizeof(kv.first), h);
+            for (uint32_t aid : kv.second.blocked_anchor_ids) {
+                h = fnv1a_64(&aid, sizeof(aid), h);
+            }
+        }
+        return h;
     }
 };
