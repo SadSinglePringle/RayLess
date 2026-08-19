@@ -33,10 +33,13 @@ int main(int argc, char** argv) {
     // 4. PART C & D: 128k Large-Scale Safe Regeneration & Independent Rebuild Equivalence
     diag.test_large_scale_regeneration_and_discovery();
 
-    // 5. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
+    // 5. PART E: Path Provenance Preservation, Surgical Invalidation & Accounting Closure
+    diag.test_path_provenance_preservation();
+
+    // 6. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
     diag.export_all_diagnostics_files();
 
-    // 6. PART 90: Final Evidence Integrity Report
+    // 7. PART 90: Final Evidence Integrity Report
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

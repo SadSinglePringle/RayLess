@@ -1,0 +1,22 @@
+{
+  "light_count": 128000,
+  "total_anchors": 1446,
+  "actual_repair_rays": 7,
+  "bounce0": {
+    "pre": 14397,
+    "invalidated": 230,
+    "preserved": 14167,
+    "preservation_pct": 98.40
+  },
+  "bounce1": {
+    "pre": 3093,
+    "invalidated": 64,
+    "preserved": 3029,
+    "preservation_pct": 97.93
+  },
+  "incremental_vs_rebuild": {
+    "rmse": 0.00000,
+    "ssim": 1.0000,
+    "p95_error_pct": 0.00
+  }
+}

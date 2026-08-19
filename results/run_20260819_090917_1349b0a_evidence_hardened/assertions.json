@@ -1,0 +1,205 @@
+[
+  {
+    "test_uuid": "tier_scaling_32",
+    "assertion_name": "contribution_closure",
+    "expected": "5026",
+    "actual": "5026",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "4.188333 <= 5.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "assertion_name": "contribution_closure",
+    "expected": "19963",
+    "actual": "19963",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "16.635833 <= 18.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "assertion_name": "contribution_closure",
+    "expected": "79387",
+    "actual": "79387",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "31.975833 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "assertion_name": "contribution_closure",
+    "expected": "161611",
+    "actual": "161611",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "31.990000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "assertion_name": "contribution_closure",
+    "expected": "652530",
+    "actual": "652530",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "32.000000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "assertion_name": "contribution_closure",
+    "expected": "2595871",
+    "actual": "2595871",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "128.000000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "assertion_name": "contribution_closure",
+    "expected": "489689",
+    "actual": "489689",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "127.947500 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "assertion_name": "contribution_closure",
+    "expected": "998551",
+    "actual": "998551",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "128.000000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "terminal_branches_closure",
+    "expected": "262144",
+    "actual": "262144",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "timing_precision_nonzero",
+    "expected": "> 0.000 ms",
+    "actual": "0.500336 ms",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "workload_separation_inequality",
+    "expected": "completed <= dispatched <= scheduled <= budget",
+    "actual": "4 <= 4 <= 4 <= 4096",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "assertion_name": "late_bound_bounded_10x_pass",
+    "expected": "< 1.00%",
+    "actual": "0.412000%",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "assertion_name": "independent_fresh_rebuild_work_minimum",
+    "expected": "> 0 rays",
+    "actual": "8192000 rays",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "assertion_name": "incremental_vs_rebuild_ssim",
+    "expected": ">= 0.999",
+    "actual": "1.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_path_provenance",
+    "assertion_name": "three_path_same_light_retention_and_csr_collapse",
+    "expected": "path_records=3, csr_records=1, transfer=0.40/0.20/0.52",
+    "actual": "path_records=3, csr_records=1, transfer=0.40/0.20/0.52",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_path_provenance",
+    "assertion_name": "multi_light_same_probe_isolation",
+    "expected": "4 paths, 2 CSR entries",
+    "actual": "4 paths, 2 CSR entries",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_path_provenance",
+    "assertion_name": "partial_path_invalidation_precision",
+    "expected": "0.35",
+    "actual": "0.350000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_path_provenance",
+    "assertion_name": "dag_multi_parent_preservation",
+    "expected": "survives=true",
+    "actual": "survives=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_path_provenance",
+    "assertion_name": "csr_rebuild_from_depositions_exact",
+    "expected": "RMSE < 0.00001",
+    "actual": "RMSE = 0.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_path_provenance",
+    "assertion_name": "orphan_deposition_and_csr_completeness",
+    "expected": "orphans=0, csr_without_provenance=0",
+    "actual": "orphans=0, csr_without_provenance=0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_path_provenance",
+    "assertion_name": "destruction_incremental_provenance_equivalence",
+    "expected": "SSIM >= 0.999",
+    "actual": "SSIM = 1.0000",
+    "status": "PASS"
+  }
+]

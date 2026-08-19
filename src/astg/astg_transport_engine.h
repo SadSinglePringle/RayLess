@@ -151,6 +151,24 @@ struct ASTGDAGEdge {
     bool is_active = true;
 };
 
+// Explicit Path-Level Probe Contribution Record (Layer 2 - Exact Provenance Truth)
+struct ASTGPathProbeContribution {
+    uint32_t contribution_id = 0;
+    uint32_t probe_id = 0;
+    uint32_t source_light_id = 0;
+    uint32_t source_node_id = 0;
+    uint32_t angular_cell_id = 0;
+    uint32_t bounce_depth = 0;
+    uint32_t surface_cluster_id = 0;
+    uint32_t destruction_chunk_id = 0;
+    float transfer_r = 0.0f;
+    float transfer_g = 0.0f;
+    float transfer_b = 0.0f;
+    float importance = 0.0f;
+    uint32_t generation = 1;
+    bool is_active = true;
+};
+
 // Node->Probe Deposition Link (Transport Arrival Event)
 struct ASTGProbeDepositionLink {
     uint32_t link_id = 0;
@@ -184,6 +202,7 @@ struct ProbeLightEntry {
     float transfer_b = 0.0f;
     float total_importance = 0.0f;
     uint32_t path_count = 0;
+    std::vector<uint32_t> underlying_deposition_ids;
 };
 
 // Pruned Source Record for Adversarial Late-Bound Testing (Part B1)
@@ -209,6 +228,41 @@ struct ChunkDependencyList {
     std::vector<uint32_t> angular_cell_ids;         // Angular cells intersected
     std::vector<uint32_t> blocked_anchor_ids;       // Regeneration anchors for BLOCKED_DESTRUCTIBLE paths
     std::vector<uint32_t> attached_probe_ids;       // Probes attached to this chunk
+};
+
+// Provenance Memory Audit Structure (Part 22)
+struct ASTGProvenanceMemoryAudit {
+    size_t dag_nodes_bytes = 0;
+    size_t dag_edges_bytes = 0;
+    size_t dag_anchors_bytes = 0;
+    size_t total_dag_bytes = 0;
+
+    size_t path_contributions_bytes = 0;
+    size_t node_to_path_index_bytes = 0;
+    size_t chunk_to_path_index_bytes = 0;
+    size_t total_path_provenance_bytes = 0;
+
+    size_t csr_contributions_bytes = 0;
+    size_t csr_offsets_bytes = 0;
+    size_t csr_counts_bytes = 0;
+    size_t total_csr_bytes = 0;
+
+    double mean_paths_per_csr_entry = 0.0;
+    double p95_paths_per_csr_entry = 0.0;
+};
+
+// Provenance Orphan Audit Report (Part 20)
+struct ProvenanceOrphanReport {
+    uint32_t orphan_depositions_missing_node = 0;
+    uint32_t orphan_depositions_invalid_probe = 0;
+    uint32_t orphan_depositions_invalid_light = 0;
+    uint32_t csr_entries_without_provenance = 0;
+    bool is_clean() const {
+        return (orphan_depositions_missing_node == 0 &&
+                orphan_depositions_invalid_probe == 0 &&
+                orphan_depositions_invalid_light == 0 &&
+                csr_entries_without_provenance == 0);
+    }
 };
 
 enum ContributionRetentionMode {
@@ -279,13 +333,19 @@ public:
     std::vector<ASTGTransportNode> bounce0_nodes;
     std::vector<ASTGTransportNode> bounce1_nodes;
 
-    // Disambiguated Graph Collections
+    // Layer 1: Disambiguated Transport Graph Collections (Structural Truth)
     std::vector<ASTGDAGEdge> dag_edges;                                    // Node -> Node edges
-    std::vector<ASTGProbeDepositionLink> probe_deposition_links;           // Node -> Probe links
+    std::vector<ASTGProbeDepositionLink> probe_deposition_links;           // Legacy Node -> Probe links
     std::vector<ASTGRegenerationAnchor> regeneration_anchors;              // Blocker regeneration anchors
     std::unordered_map<uint32_t, ChunkDependencyList> chunk_dependencies; // Chunk -> ASTG structures
 
-    // Persistent CSR Transfer Matrix (Runtime Representation)
+    // Layer 2: Explicit Path-Level Probe Contributions (Exact Provenance Truth)
+    std::vector<ASTGPathProbeContribution> path_probe_contributions;       // Exact path arrival records
+    std::unordered_map<uint32_t, std::vector<uint32_t>> node_to_path_contributions;   // source_node_id -> contribution_id
+    std::unordered_map<uint32_t, std::vector<uint32_t>> chunk_to_path_contributions;  // destruction_chunk_id -> contribution_id
+    std::unordered_map<uint64_t, uint32_t> probe_light_to_csr_index;      // (probe_id << 32 | light_id) -> CSR index
+
+    // Layer 3: Derived Probe -> Light Sparse CSR Cache (Fast Runtime Shading)
     std::vector<ProbeLightContribution> persistent_contributions;
     std::vector<uint32_t> probe_contribution_offsets;
     std::vector<uint32_t> probe_contribution_counts;
@@ -533,6 +593,243 @@ public:
         }
     }
 
+    // Layer 3 Derivation: Build / Rebuild Probe->Light Sparse CSR Cache purely from Layer 2 Deposition Records
+    bool rebuild_probe_light_csr_from_depositions(
+        ContributionRetentionMode retention_mode = RETENTION_ADAPTIVE_ENERGY,
+        float target_energy_pct = 99.0f,
+        uint32_t fan_in_cap = 32
+    ) {
+        persistent_contributions.clear();
+        probe_contribution_offsets.assign(probes.size(), 0);
+        probe_contribution_counts.assign(probes.size(), 0);
+        probe_residual_tails.assign(probes.size(), ProbeResidualTail());
+        probe_candidate_counts.assign(probes.size(), 0);
+        probe_retained_counts.assign(probes.size(), 0);
+        probe_light_to_csr_index.clear();
+
+        total_candidate_contributions = 0;
+        total_retained_contributions = 0;
+        total_pruned_contributions = 0;
+
+        // Group active path depositions by probe_id
+        std::vector<std::vector<uint32_t>> probe_deposits(probes.size());
+        for (size_t i = 0; i < path_probe_contributions.size(); ++i) {
+            const auto& dep = path_probe_contributions[i];
+            if (!dep.is_active) continue;
+            if (dep.probe_id < probes.size() && probes[dep.probe_id].is_valid) {
+                probe_deposits[dep.probe_id].push_back((uint32_t)i);
+            }
+        }
+
+        for (size_t p = 0; p < probes.size(); ++p) {
+            probe_contribution_offsets[p] = (uint32_t)persistent_contributions.size();
+            if (!probes[p].is_valid) continue;
+
+            // Group by source_light_id - exact sum over all active underlying transport paths
+            std::map<uint32_t, ProbeLightEntry> unique_light_map;
+            for (uint32_t dep_idx : probe_deposits[p]) {
+                const auto& dep = path_probe_contributions[dep_idx];
+                auto it = unique_light_map.find(dep.source_light_id);
+                if (it == unique_light_map.end()) {
+                    ProbeLightEntry entry;
+                    entry.source_light_id = dep.source_light_id;
+                    entry.source_node_id = dep.source_node_id;
+                    entry.transfer_r = dep.transfer_r;
+                    entry.transfer_g = dep.transfer_g;
+                    entry.transfer_b = dep.transfer_b;
+                    entry.total_importance = dep.importance;
+                    entry.path_count = 1;
+                    entry.underlying_deposition_ids.push_back(dep_idx);
+                    unique_light_map[dep.source_light_id] = entry;
+                } else {
+                    it->second.transfer_r += dep.transfer_r;
+                    it->second.transfer_g += dep.transfer_g;
+                    it->second.transfer_b += dep.transfer_b;
+                    it->second.total_importance += dep.importance;
+                    it->second.path_count++;
+                    it->second.underlying_deposition_ids.push_back(dep_idx);
+                }
+            }
+
+            std::vector<ProbeLightEntry> candidate_entries;
+            candidate_entries.reserve(unique_light_map.size());
+            double total_probe_energy = 0.0;
+            for (const auto& pair : unique_light_map) {
+                candidate_entries.push_back(pair.second);
+                total_probe_energy += pair.second.total_importance;
+            }
+
+            uint32_t candidate_count = (uint32_t)candidate_entries.size();
+            probe_candidate_counts[p] = candidate_count;
+            total_candidate_contributions += candidate_count;
+
+            std::sort(
+                candidate_entries.begin(),
+                candidate_entries.end(),
+                [](const ProbeLightEntry& a, const ProbeLightEntry& b) {
+                    return a.total_importance > b.total_importance;
+                }
+            );
+
+            uint32_t k = 0;
+            if (retention_mode == RETENTION_UNLIMITED) {
+                k = candidate_count;
+            } else if (retention_mode == RETENTION_ADAPTIVE_ENERGY) {
+                double accumulated_energy = 0.0;
+                double threshold = total_probe_energy * (target_energy_pct / 100.0);
+                uint32_t min_k = std::min(8u, candidate_count);
+                uint32_t max_k = std::min(fan_in_cap, candidate_count);
+
+                for (uint32_t i = 0; i < candidate_count; ++i) {
+                    accumulated_energy += candidate_entries[i].total_importance;
+                    if ((accumulated_energy >= threshold && i + 1 >= min_k) || (i + 1 >= max_k)) {
+                        k = i + 1;
+                        break;
+                    }
+                }
+                if (k == 0) k = candidate_count;
+            } else {
+                k = std::min(candidate_count, fan_in_cap);
+            }
+
+            // Retained sources -> CSR runtime cache
+            for (uint32_t i = 0; i < k; ++i) {
+                const auto& entry = candidate_entries[i];
+                ProbeLightContribution plc;
+                plc.light_id = entry.source_light_id;
+                plc.transfer_r = entry.transfer_r;
+                plc.transfer_g = entry.transfer_g;
+                plc.transfer_b = entry.transfer_b;
+
+                uint32_t csr_idx = (uint32_t)persistent_contributions.size();
+                persistent_contributions.push_back(plc);
+
+                uint64_t pl_key = (uint64_t(p) << 32) | entry.source_light_id;
+                probe_light_to_csr_index[pl_key] = csr_idx;
+            }
+
+            // Pruned sources & residual tails (Runtime contribution pruning does NOT destroy transport truth!)
+            ProbeResidualTail tail;
+            for (uint32_t i = k; i < candidate_count; ++i) {
+                const auto& entry = candidate_entries[i];
+                tail.residual_r += entry.transfer_r;
+                tail.residual_g += entry.transfer_g;
+                tail.residual_b += entry.transfer_b;
+                tail.pruned_source_count++;
+
+                if (i == k) {
+                    PrunedSourceRecord ps;
+                    ps.probe_id = (uint32_t)p;
+                    ps.source_light_id = entry.source_light_id;
+                    ps.static_transfer_magnitude = entry.total_importance;
+                    ps.rank_before_pruning = k;
+                    strongest_pruned_sources.push_back(ps);
+                }
+            }
+            probe_residual_tails[p] = tail;
+
+            probe_contribution_counts[p] = k;
+            probe_retained_counts[p] = k;
+            total_retained_contributions += k;
+            total_pruned_contributions += (candidate_count - k);
+
+            probes[p].confidence = std::min(1.0f, probes[p].confidence + k * 0.05f);
+            probes[p].sample_count += k;
+        }
+
+        return true;
+    }
+
+    ASTGProvenanceMemoryAudit audit_provenance_memory() const {
+        ASTGProvenanceMemoryAudit a;
+        a.dag_nodes_bytes = (bounce0_nodes.size() + bounce1_nodes.size()) * sizeof(ASTGTransportNode);
+        a.dag_edges_bytes = dag_edges.size() * sizeof(ASTGDAGEdge);
+        a.dag_anchors_bytes = regeneration_anchors.size() * sizeof(ASTGRegenerationAnchor);
+        a.total_dag_bytes = a.dag_nodes_bytes + a.dag_edges_bytes + a.dag_anchors_bytes;
+
+        a.path_contributions_bytes = path_probe_contributions.size() * sizeof(ASTGPathProbeContribution);
+        a.node_to_path_index_bytes = node_to_path_contributions.size() * 32;
+        for (const auto& kv : node_to_path_contributions) {
+            a.node_to_path_index_bytes += kv.second.size() * sizeof(uint32_t);
+        }
+        a.chunk_to_path_index_bytes = chunk_to_path_contributions.size() * 32;
+        for (const auto& kv : chunk_to_path_contributions) {
+            a.chunk_to_path_index_bytes += kv.second.size() * sizeof(uint32_t);
+        }
+        a.total_path_provenance_bytes = a.path_contributions_bytes + a.node_to_path_index_bytes + a.chunk_to_path_index_bytes;
+
+        a.csr_contributions_bytes = persistent_contributions.size() * sizeof(ProbeLightContribution);
+        a.csr_offsets_bytes = probe_contribution_offsets.size() * sizeof(uint32_t);
+        a.csr_counts_bytes = probe_contribution_counts.size() * sizeof(uint32_t);
+        a.total_csr_bytes = a.csr_contributions_bytes + a.csr_offsets_bytes + a.csr_counts_bytes;
+
+        std::vector<double> paths_per_csr;
+        for (size_t p = 0; p < probes.size(); ++p) {
+            if (!probes[p].is_valid) continue;
+            uint32_t offset = probe_contribution_offsets[p];
+            uint32_t count = probe_contribution_counts[p];
+            for (uint32_t i = 0; i < count; ++i) {
+                uint32_t l_id = persistent_contributions[offset + i].light_id;
+                uint32_t p_count = 0;
+                for (const auto& dep : path_probe_contributions) {
+                    if (dep.is_active && dep.probe_id == p && dep.source_light_id == l_id) {
+                        p_count++;
+                    }
+                }
+                if (p_count > 0) paths_per_csr.push_back(double(p_count));
+            }
+        }
+        if (!paths_per_csr.empty()) {
+            std::sort(paths_per_csr.begin(), paths_per_csr.end());
+            double sum = 0.0;
+            for (double v : paths_per_csr) sum += v;
+            a.mean_paths_per_csr_entry = sum / paths_per_csr.size();
+            a.p95_paths_per_csr_entry = paths_per_csr[size_t(paths_per_csr.size() * 0.95)];
+        } else {
+            a.mean_paths_per_csr_entry = 1.0;
+            a.p95_paths_per_csr_entry = 1.0;
+        }
+
+        return a;
+    }
+
+    ProvenanceOrphanReport audit_orphans_and_provenance(uint32_t total_lights) const {
+        ProvenanceOrphanReport rep;
+        size_t total_nodes = bounce0_nodes.size() + bounce1_nodes.size();
+        for (const auto& dep : path_probe_contributions) {
+            if (!dep.is_active) continue;
+            if (total_nodes > 0 && dep.source_node_id >= total_nodes) {
+                rep.orphan_depositions_missing_node++;
+            }
+            if (dep.probe_id >= probes.size() || !probes[dep.probe_id].is_valid) {
+                rep.orphan_depositions_invalid_probe++;
+            }
+            if (dep.source_light_id >= total_lights && total_lights > 0) {
+                rep.orphan_depositions_invalid_light++;
+            }
+        }
+
+        for (size_t p = 0; p < probes.size(); ++p) {
+            if (!probes[p].is_valid) continue;
+            uint32_t offset = probe_contribution_offsets[p];
+            uint32_t count = probe_contribution_counts[p];
+            for (uint32_t i = 0; i < count; ++i) {
+                uint32_t light_id = persistent_contributions[offset + i].light_id;
+                bool found_active = false;
+                for (const auto& dep : path_probe_contributions) {
+                    if (dep.is_active && dep.probe_id == p && dep.source_light_id == light_id) {
+                        found_active = true;
+                        break;
+                    }
+                }
+                if (!found_active) {
+                    rep.csr_entries_without_provenance++;
+                }
+            }
+        }
+        return rep;
+    }
+
     // 3. Execute Transport Discovery with Strict Anchor Semantics & Regeneration Verification
     bool execute_transport_discovery(
         const std::vector<LightStatic>& lights,
@@ -547,6 +844,10 @@ public:
         bounce1_nodes.clear();
         dag_edges.clear();
         probe_deposition_links.clear();
+        path_probe_contributions.clear();
+        node_to_path_contributions.clear();
+        chunk_to_path_contributions.clear();
+        probe_light_to_csr_index.clear();
         regeneration_anchors.clear();
         persistent_contributions.clear();
         strongest_pruned_sources.clear();
@@ -767,169 +1068,76 @@ public:
             }
         }
 
-        // 6. Gather Local Deposition Candidates
-        std::vector<std::vector<ProbeDepositCandidate>> probe_raw_candidates(probes.size());
-        total_candidate_contributions = 0;
-        total_retained_contributions = 0;
-        total_pruned_contributions = 0;
-        probe_candidate_counts.assign(probes.size(), 0);
-        probe_retained_counts.assign(probes.size(), 0);
+        // 6. Record Exact Path-Level Probe Contributions (Layer 2 - Exact Structural Truth)
+        path_probe_contributions.clear();
+        node_to_path_contributions.clear();
+        chunk_to_path_contributions.clear();
+        probe_deposition_links.clear();
 
-        for (const auto& b0 : bounce0_nodes) {
-            for (size_t p = 0; p < probes.size(); ++p) {
-                if (!probes[p].is_valid) continue;
-                float dx = b0.position.x - probes[p].world_position.x;
-                float dy = b0.position.y - probes[p].world_position.y;
-                float dz = b0.position.z - probes[p].world_position.z;
-                float d_sq = dx * dx + dy * dy + dz * dz;
+        auto record_node_deposits = [&](const std::vector<ASTGTransportNode>& nodes) {
+            for (const auto& node : nodes) {
+                if (!node.is_active) continue;
+                for (size_t p = 0; p < probes.size(); ++p) {
+                    if (!probes[p].is_valid) continue;
+                    float dx = node.position.x - probes[p].world_position.x;
+                    float dy = node.position.y - probes[p].world_position.y;
+                    float dz = node.position.z - probes[p].world_position.z;
+                    float d_sq = dx * dx + dy * dy + dz * dz;
 
-                bool cluster_match = (b0.surface_cluster_id == probes[p].surface_cluster_id);
-                if (d_sq < 0.1225f || (cluster_match && d_sq < 0.25f)) {
-                    float ndot = b0.geometric_normal.x * probes[p].geometric_normal.x +
-                                 b0.geometric_normal.y * probes[p].geometric_normal.y +
-                                 b0.geometric_normal.z * probes[p].geometric_normal.z;
+                    bool cluster_match = (node.surface_cluster_id == probes[p].surface_cluster_id);
+                    if (d_sq < 0.1225f || (cluster_match && d_sq < 0.25f)) {
+                        float ndot = node.geometric_normal.x * probes[p].geometric_normal.x +
+                                     node.geometric_normal.y * probes[p].geometric_normal.y +
+                                     node.geometric_normal.z * probes[p].geometric_normal.z;
 
-                    if (ndot >= 0.8f) {
-                        float tf = (b0.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                        float importance = tf * ndot;
+                        if (ndot >= 0.8f) {
+                            float tf = (node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
+                            float importance = tf * ndot;
 
-                        ProbeDepositCandidate cand;
-                        cand.source_light_id = b0.source_light_id;
-                        cand.source_node_id = b0.node_id;
-                        cand.target_probe_id = (uint32_t)p;
-                        cand.transfer_r = tf * 0.95f;
-                        cand.transfer_g = tf * 0.85f;
-                        cand.transfer_b = tf * 0.70f;
-                        cand.importance = importance;
-                        probe_raw_candidates[p].push_back(cand);
+                            ASTGPathProbeContribution dep;
+                            dep.contribution_id = (uint32_t)path_probe_contributions.size();
+                            dep.probe_id = (uint32_t)p;
+                            dep.source_light_id = node.source_light_id;
+                            dep.source_node_id = node.node_id;
+                            dep.angular_cell_id = node.angular_cell_id;
+                            dep.bounce_depth = node.bounce_depth;
+                            dep.surface_cluster_id = node.surface_cluster_id;
+                            dep.destruction_chunk_id = node.destruction_chunk_id;
+                            dep.transfer_r = tf * 0.95f;
+                            dep.transfer_g = tf * 0.85f;
+                            dep.transfer_b = tf * 0.70f;
+                            dep.importance = importance;
+                            dep.generation = geometry_generation;
+                            dep.is_active = true;
+
+                            path_probe_contributions.push_back(dep);
+                            node_to_path_contributions[node.node_id].push_back(dep.contribution_id);
+                            if (dep.destruction_chunk_id > 0) {
+                                chunk_to_path_contributions[dep.destruction_chunk_id].push_back(dep.contribution_id);
+                            }
+
+                            // Keep legacy link structure in sync
+                            ASTGProbeDepositionLink dep_link;
+                            dep_link.link_id = dep.contribution_id;
+                            dep_link.source_node_id = dep.source_node_id;
+                            dep_link.target_probe_id = dep.probe_id;
+                            dep_link.source_light_id = dep.source_light_id;
+                            dep_link.transfer_r = dep.transfer_r;
+                            dep_link.transfer_g = dep.transfer_g;
+                            dep_link.transfer_b = dep.transfer_b;
+                            dep_link.importance = dep.importance;
+                            dep_link.is_active = true;
+                            probe_deposition_links.push_back(dep_link);
+                        }
                     }
                 }
             }
-        }
+        };
 
-        // 7. Deduplicate & Select Contributions (with Pruned-Source Tracking and Residual Tail)
-        probe_contribution_offsets.resize(probes.size(), 0);
-        probe_contribution_counts.resize(probes.size(), 0);
-        probe_residual_tails.resize(probes.size());
+        record_node_deposits(bounce0_nodes);
 
-        for (size_t p = 0; p < probes.size(); ++p) {
-            probe_contribution_offsets[p] = (uint32_t)persistent_contributions.size();
-
-            std::map<uint32_t, ProbeLightEntry> unique_light_map;
-            for (const auto& cand : probe_raw_candidates[p]) {
-                auto it = unique_light_map.find(cand.source_light_id);
-                if (it == unique_light_map.end()) {
-                    ProbeLightEntry entry;
-                    entry.source_light_id = cand.source_light_id;
-                    entry.source_node_id = cand.source_node_id;
-                    entry.transfer_r = cand.transfer_r;
-                    entry.transfer_g = cand.transfer_g;
-                    entry.transfer_b = cand.transfer_b;
-                    entry.total_importance = cand.importance;
-                    entry.path_count = 1;
-                    unique_light_map[cand.source_light_id] = entry;
-                } else {
-                    it->second.transfer_r += cand.transfer_r;
-                    it->second.transfer_g += cand.transfer_g;
-                    it->second.transfer_b += cand.transfer_b;
-                    it->second.total_importance += cand.importance;
-                    it->second.path_count++;
-                }
-            }
-
-            std::vector<ProbeLightEntry> candidate_entries;
-            candidate_entries.reserve(unique_light_map.size());
-            double total_probe_energy = 0.0;
-            for (auto& pair : unique_light_map) {
-                candidate_entries.push_back(pair.second);
-                total_probe_energy += pair.second.total_importance;
-            }
-
-            uint32_t candidate_count = (uint32_t)candidate_entries.size();
-            probe_candidate_counts[p] = candidate_count;
-            total_candidate_contributions += candidate_count;
-
-            std::sort(
-                candidate_entries.begin(),
-                candidate_entries.end(),
-                [](const ProbeLightEntry& a, const ProbeLightEntry& b) {
-                    return a.total_importance > b.total_importance;
-                }
-            );
-
-            uint32_t k = 0;
-            if (retention_mode == RETENTION_UNLIMITED) {
-                k = candidate_count;
-            } else if (retention_mode == RETENTION_ADAPTIVE_ENERGY) {
-                double accumulated_energy = 0.0;
-                double threshold = total_probe_energy * (target_energy_pct / 100.0);
-                uint32_t min_k = std::min(8u, candidate_count);
-                uint32_t max_k = std::min(128u, candidate_count);
-
-                for (uint32_t i = 0; i < candidate_count; ++i) {
-                    accumulated_energy += candidate_entries[i].total_importance;
-                    if ((accumulated_energy >= threshold && i + 1 >= min_k) || (i + 1 >= max_k)) {
-                        k = i + 1;
-                        break;
-                    }
-                }
-                if (k == 0) k = candidate_count;
-            } else {
-                k = std::min(candidate_count, fan_in_cap);
-            }
-
-            // Retained sources
-            for (uint32_t i = 0; i < k; ++i) {
-                const auto& entry = candidate_entries[i];
-                ProbeLightContribution plc;
-                plc.light_id = entry.source_light_id;
-                plc.transfer_r = entry.transfer_r;
-                plc.transfer_g = entry.transfer_g;
-                plc.transfer_b = entry.transfer_b;
-                persistent_contributions.push_back(plc);
-
-                ASTGProbeDepositionLink dep_link;
-                dep_link.link_id = (uint32_t)probe_deposition_links.size();
-                dep_link.source_node_id = entry.source_node_id;
-                dep_link.target_probe_id = (uint32_t)p;
-                dep_link.source_light_id = entry.source_light_id;
-                dep_link.transfer_r = entry.transfer_r;
-                dep_link.transfer_g = entry.transfer_g;
-                dep_link.transfer_b = entry.transfer_b;
-                dep_link.importance = entry.total_importance;
-                dep_link.is_active = true;
-                probe_deposition_links.push_back(dep_link);
-            }
-
-            // Pruned sources & residual tail calculation (Part B1 & B10)
-            ProbeResidualTail tail;
-            for (uint32_t i = k; i < candidate_count; ++i) {
-                const auto& entry = candidate_entries[i];
-                tail.residual_r += entry.transfer_r;
-                tail.residual_g += entry.transfer_g;
-                tail.residual_b += entry.transfer_b;
-                tail.pruned_source_count++;
-
-                if (i == k) {
-                    // Strongest pruned source
-                    PrunedSourceRecord ps;
-                    ps.probe_id = (uint32_t)p;
-                    ps.source_light_id = entry.source_light_id;
-                    ps.static_transfer_magnitude = entry.total_importance;
-                    ps.rank_before_pruning = k;
-                    strongest_pruned_sources.push_back(ps);
-                }
-            }
-            probe_residual_tails[p] = tail;
-
-            probe_contribution_counts[p] = k;
-            probe_retained_counts[p] = k;
-            total_retained_contributions += k;
-            total_pruned_contributions += (candidate_count - k);
-
-            probes[p].confidence = std::min(1.0f, probes[p].confidence + k * 0.05f);
-            probes[p].sample_count += k;
-        }
+        // 7. Derive Probe -> Light Sparse CSR Runtime Shading Cache (Layer 3 - Disposable Cache)
+        rebuild_probe_light_csr_from_depositions(retention_mode, target_energy_pct, fan_in_cap);
 
         rtx_upload_probe_contributions(
             persistent_contributions.data(),
@@ -1092,6 +1300,18 @@ public:
             }
         }
 
+        // Invalidate path-level deposition records
+        for (uint32_t n_id : invalidated_nodes) {
+            auto it_dep = node_to_path_contributions.find(n_id);
+            if (it_dep != node_to_path_contributions.end()) {
+                for (uint32_t dep_id : it_dep->second) {
+                    if (dep_id < path_probe_contributions.size()) {
+                        path_probe_contributions[dep_id].is_active = false;
+                    }
+                }
+            }
+        }
+
         std::vector<ASTGRay> regrowth_rays;
         std::vector<uint32_t> active_anchor_indices;
 
@@ -1171,12 +1391,29 @@ public:
                                          new_node.geometric_normal.z * probes[p].geometric_normal.z;
                             if (ndot >= 0.8f) {
                                 float tf = (new_node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                                ProbeLightContribution plc;
-                                plc.light_id = new_node.source_light_id;
-                                plc.transfer_r = tf * 0.95f;
-                                plc.transfer_g = tf * 0.85f;
-                                plc.transfer_b = tf * 0.70f;
-                                persistent_contributions.push_back(plc);
+                                float importance = tf * ndot;
+
+                                ASTGPathProbeContribution dep;
+                                dep.contribution_id = (uint32_t)path_probe_contributions.size();
+                                dep.probe_id = (uint32_t)p;
+                                dep.source_light_id = new_node.source_light_id;
+                                dep.source_node_id = new_node.node_id;
+                                dep.angular_cell_id = new_node.angular_cell_id;
+                                dep.bounce_depth = new_node.bounce_depth;
+                                dep.surface_cluster_id = new_node.surface_cluster_id;
+                                dep.destruction_chunk_id = new_node.destruction_chunk_id;
+                                dep.transfer_r = tf * 0.95f;
+                                dep.transfer_g = tf * 0.85f;
+                                dep.transfer_b = tf * 0.70f;
+                                dep.importance = importance;
+                                dep.generation = geometry_generation;
+                                dep.is_active = true;
+
+                                path_probe_contributions.push_back(dep);
+                                node_to_path_contributions[new_node.node_id].push_back(dep.contribution_id);
+                                if (dep.destruction_chunk_id > 0) {
+                                    chunk_to_path_contributions[dep.destruction_chunk_id].push_back(dep.contribution_id);
+                                }
                             }
                         }
                     }
@@ -1187,6 +1424,9 @@ public:
             auto t_commit_end = std::chrono::high_resolution_clock::now();
             timings.repair_commit_cpu_us = std::chrono::duration_cast<std::chrono::microseconds>(t_commit_end - t_commit_start).count();
         }
+
+        // Rebuild CSR from remaining and newly grown active depositions
+        rebuild_probe_light_csr_from_depositions(RETENTION_ADAPTIVE_ENERGY, 99.0f, 32);
 
         timings.repair_total_ms = (timings.repair_schedule_cpu_us + timings.repair_commit_cpu_us) / 1000.0 + 
                                   timings.repair_dispatch_gpu_ms + timings.repair_intersection_gpu_ms + timings.repair_process_gpu_ms;
