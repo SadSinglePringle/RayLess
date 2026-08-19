@@ -1,0 +1,9 @@
+[
+  "[23:22:26] Run context initialized: run_20260818_232226_6a8aa05_evidence_hardened",
+  "[23:22:26] Runtime Binary SHA-256: 548c2926b0370579f52fbfcd0307f77b36d7e88b3efe86b107655f1d8f9a6a20",
+  "[23:22:26] Build Commit SHA: 6a8aa05",
+  "[23:22:26] Hashing scene assets: assets/bistro/bistro.gltf and assets/bistro/bistro.bin",
+  "[23:22:27] Loading authentic scene: assets/bistro/bistro.gltf",
+  "[23:22:28] Scene loaded and DXR AS built successfully: 551 meshes, 1.75M triangles",
+  "[23:22:33] Created atomic staging directory: results/.tmp_run_20260818_232226_6a8aa05_evidence_hardened"
+]

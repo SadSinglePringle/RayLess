@@ -1,0 +1,23 @@
+{
+  "schema_version": "2.1.0",
+  "run_uuid": "run_20260818_232226_6a8aa05_evidence_hardened",
+  "session_timestamp": "20260818_232226",
+  "source_commit_sha": "6a8aa05",
+  "build_commit_sha": "6a8aa05",
+  "results_commit_note": "results_commit != benchmarked_source_commit (results committed in post-pass)",
+  "binary_sha256": "548c2926b0370579f52fbfcd0307f77b36d7e88b3efe86b107655f1d8f9a6a20",
+  "scene_gltf_sha256": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_sha256": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_vertex_sha256": "13f6994494b9acc6e9935cd6d91315bda3ccc50e7a6e6c0eb897baa2a9f55e09",
+  "hardware_identity": {
+    "gpu_name": "NVIDIA GeForce RTX 4070 Laptop GPU",
+    "api": "Direct3D 12.1 / DXR 1.1",
+    "hardware_rt_cores": true
+  },
+  "sealed_test_results_count": 11,
+  "known_limitations": [
+    "Unbounded late-bound source intensity spikes (>10x) not guaranteed under sparse static pruning without dynamic promotion.",
+    "Continuous moving geometry requires skinning AS rebuild.",
+    "Dynamic moving light positions require runtime angular hierarchy update."
+  ]
+}

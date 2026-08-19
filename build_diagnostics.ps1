@@ -9,17 +9,24 @@ if (-not (Test-Path "bin")) {
     New-Item -ItemType Directory -Path "bin" | Out-Null
 }
 
+$GIT_COMMIT = (git rev-parse --short HEAD).Trim()
+if (-not $GIT_COMMIT) {
+    $GIT_COMMIT = "unknown_commit"
+}
+
 $cl = "$MSVC_DIR\cl.exe"
 $diag_args = @(
     "/O2",
     "/std:c++17",
     "/EHsc",
     "/openmp",
+    "/DASTG_BUILD_COMMIT=`"$GIT_COMMIT`"",
     "/I$MSVC_INC",
     "/I$WIN_SDK_INC\um",
     "/I$WIN_SDK_INC\shared",
     "/I$WIN_SDK_INC\ucrt",
     "/I$WIN_SDK_INC\winrt",
+    "/Isrc\common",
     "/Isrc\rtx",
     "/Isrc\astg",
     "/Isrc\diagnostics",
@@ -36,7 +43,7 @@ $diag_args = @(
     "d3dcompiler.lib"
 )
 
-Write-Host "Compiling bin\astg_diagnostics.exe with MSVC..."
+Write-Host "Compiling bin\astg_diagnostics.exe (Commit: $GIT_COMMIT) with MSVC..."
 & $cl $diag_args
 
 if (Test-Path "bin\astg_diagnostics.exe") {

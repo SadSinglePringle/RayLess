@@ -1,11 +1,11 @@
 {
-  "duration_ms": 8244.512,
+  "duration_ms": 7222.085,
   "failed": 0,
   "invalid": 0,
   "level": "FULL",
   "passed": 24,
   "skipped": 0,
   "status": "PASS",
-  "timestamp": "2026-08-18T23:17:32",
+  "timestamp": "2026-08-18T23:22:47",
   "total_tests": 24
 }
