@@ -44,7 +44,8 @@ enum ASTGTerminationReason {
     TERMINATION_BLOCKED_STATIC = 4,
     TERMINATION_BLOCKED_DESTRUCTIBLE = 5,
     TERMINATION_MAX_DEPTH = 6,
-    TERMINATION_PROBE_TERMINATED = 7
+    TERMINATION_PROBE_TERMINATED = 7,
+    TERMINATION_STITCHED_TO_EXISTING_DAG = 8
 };
 
 inline const char* get_termination_reason_name(ASTGTerminationReason r) {
@@ -57,6 +58,7 @@ inline const char* get_termination_reason_name(ASTGTerminationReason r) {
         case TERMINATION_BLOCKED_DESTRUCTIBLE: return "BLOCKED_DESTRUCTIBLE";
         case TERMINATION_MAX_DEPTH: return "MAX_DEPTH";
         case TERMINATION_PROBE_TERMINATED: return "PROBE_TERMINATED";
+        case TERMINATION_STITCHED_TO_EXISTING_DAG: return "STITCHED_TO_EXISTING_DAG";
         default: return "UNKNOWN";
     }
 }
@@ -176,7 +178,57 @@ struct ASTGDAGEdge {
     uint32_t angular_cell_id = 0;
     uint32_t bounce_depth = 1;
     float transfer_weight = 1.0f;
+    bool is_stitch_edge = false;
+    uint32_t repair_generation = 0;
     bool is_active = true;
+};
+
+// Reusable Transport State Key (Part 1)
+struct ASTGTransportStateKey {
+    uint32_t surface_cluster_id = 0;
+    uint32_t material_id = 0;
+    RTXVector3 position = {0, 0, 0};
+    RTXVector3 geometric_normal = {0, 1, 0};
+    uint32_t bounce_depth = 0;
+    uint32_t angular_cell_id = 0;
+    uint32_t geometry_generation = 1;
+};
+
+// Rejection Reason Enum for Path Stitching Diagnostics (Part 21)
+enum StitchRejectionReason {
+    STITCH_REJECT_NONE = 0,
+    STITCH_REJECT_SURFACE_MISMATCH = 1,
+    STITCH_REJECT_POSITION_MISMATCH = 2,
+    STITCH_REJECT_NORMAL_MISMATCH = 3,
+    STITCH_REJECT_DEPENDENCY_CONFLICT = 4,
+    STITCH_REJECT_GENERATION_STALE = 5,
+    STITCH_REJECT_ANGULAR_MISMATCH = 6,
+    STITCH_REJECT_NO_DOWNSTREAM_TRANSPORT = 7
+};
+
+// Detailed Stitching Telemetry & Metrics (Part 20, 21, 35)
+struct ASTGStitchingMetrics {
+    uint32_t stitch_candidates_considered = 0;
+    uint32_t stitches_accepted = 0;
+    uint32_t stitches_rejected = 0;
+
+    // Rejection reasons breakdown
+    uint32_t reject_surface_mismatch = 0;
+    uint32_t reject_position_mismatch = 0;
+    uint32_t reject_normal_mismatch = 0;
+    uint32_t reject_dependency_conflict = 0;
+    uint32_t reject_generation_stale = 0;
+    uint32_t reject_angular_mismatch = 0;
+    uint32_t reject_no_downstream = 0;
+
+    // Work and structural savings
+    uint32_t new_bridge_nodes = 0;
+    uint32_t new_bridge_edges = 0;
+    uint32_t reused_suffix_nodes = 0;
+    uint32_t reused_suffix_edges = 0;
+    uint32_t reused_probe_depositions = 0;
+    double total_reused_depth = 0.0;
+    double mean_reused_suffix_depth = 0.0;
 };
 
 // Explicit Path-Level Probe Contribution Record (Layer 2 - Exact Provenance Truth)
@@ -367,6 +419,96 @@ public:
     std::vector<ASTGProbeDepositionLink> probe_deposition_links;           // Legacy Node -> Probe links
     std::vector<ASTGRegenerationAnchor> regeneration_anchors;              // Blocker regeneration anchors
     std::unordered_map<uint32_t, ChunkDependencyList> chunk_dependencies; // Chunk -> ASTG structures
+
+    // Spatial candidate lookup (surface_cluster_id -> node_ids)
+    std::unordered_map<uint32_t, std::vector<uint32_t>> surface_cluster_to_nodes;
+
+    // Path Stitching Configuration & Telemetry (Part 1-35)
+    bool enable_path_stitching = true;
+    float stitch_pos_threshold = 0.40f;
+    float stitch_normal_threshold = 0.80f;
+    uint32_t max_stitch_candidates_per_hit = 32;
+    ASTGStitchingMetrics stitching_metrics;
+
+    bool can_stitch(
+        const ASTGRayHit& repair_hit,
+        const ASTGTransportNode& candidate,
+        uint32_t source_light_id,
+        uint32_t angular_cell_id,
+        uint32_t destroyed_chunk_id,
+        float* out_score,
+        StitchRejectionReason* out_reason
+    ) const {
+        if (!candidate.is_active) {
+            if (out_reason) *out_reason = STITCH_REJECT_GENERATION_STALE;
+            return false;
+        }
+        if (candidate.generation != geometry_generation && candidate.generation == 0) {
+            if (out_reason) *out_reason = STITCH_REJECT_GENERATION_STALE;
+            return false;
+        }
+        if (candidate.surface_cluster_id != repair_hit.surface_cluster_id) {
+            if (out_reason) *out_reason = STITCH_REJECT_SURFACE_MISMATCH;
+            return false;
+        }
+        // Dependency conflict check (Part 4, 26)
+        if (destroyed_chunk_id > 0 && candidate.inherited_chunk_dependencies.count(destroyed_chunk_id) > 0) {
+            if (out_reason) *out_reason = STITCH_REJECT_DEPENDENCY_CONFLICT;
+            return false;
+        }
+        if (candidate.destruction_chunk_id == destroyed_chunk_id && destroyed_chunk_id > 0) {
+            if (out_reason) *out_reason = STITCH_REJECT_DEPENDENCY_CONFLICT;
+            return false;
+        }
+        // Normal similarity check (Part 3, 23)
+        float ndot = repair_hit.normal_x * candidate.geometric_normal.x +
+                     repair_hit.normal_y * candidate.geometric_normal.y +
+                     repair_hit.normal_z * candidate.geometric_normal.z;
+        if (ndot < stitch_normal_threshold) {
+            if (out_reason) *out_reason = STITCH_REJECT_NORMAL_MISMATCH;
+            return false;
+        }
+        // Position distance check (Part 3, 24)
+        float dx = repair_hit.pos_x - candidate.position.x;
+        float dy = repair_hit.pos_y - candidate.position.y;
+        float dz = repair_hit.pos_z - candidate.position.z;
+        float dist_sq = dx * dx + dy * dy + dz * dz;
+        if (dist_sq > stitch_pos_threshold * stitch_pos_threshold) {
+            if (out_reason) *out_reason = STITCH_REJECT_POSITION_MISMATCH;
+            return false;
+        }
+        // Check if candidate has active downstream transport or probe depositions (Part 33)
+        bool has_downstream = false;
+        for (const auto& edge : dag_edges) {
+            if (edge.parent_node_id == candidate.node_id && edge.is_active) {
+                has_downstream = true;
+                break;
+            }
+        }
+        if (!has_downstream) {
+            auto it_dep = node_to_path_contributions.find(candidate.node_id);
+            if (it_dep != node_to_path_contributions.end() && !it_dep->second.empty()) {
+                for (uint32_t dep_id : it_dep->second) {
+                    if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
+                        has_downstream = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!has_downstream) {
+            if (out_reason) *out_reason = STITCH_REJECT_NO_DOWNSTREAM_TRANSPORT;
+            return false;
+        }
+
+        if (out_score) {
+            float pos_score = 1.0f - std::sqrt(dist_sq) / stitch_pos_threshold;
+            float norm_score = (ndot - stitch_normal_threshold) / (1.0f - stitch_normal_threshold);
+            *out_score = pos_score * 0.4f + norm_score * 0.4f + (candidate.bounce_depth == 1 ? 0.2f : 0.1f);
+        }
+        if (out_reason) *out_reason = STITCH_REJECT_NONE;
+        return true;
+    }
 
     // Layer 2: Explicit Path-Level Probe Contributions (Exact Provenance Truth)
     std::vector<ASTGPathProbeContribution> path_probe_contributions;       // Exact path arrival records
@@ -1194,6 +1336,14 @@ public:
         record_node_deposits(bounce0_nodes);
         record_node_deposits(bounce1_nodes);
 
+        surface_cluster_to_nodes.clear();
+        for (const auto& node : bounce0_nodes) {
+            if (node.is_active) surface_cluster_to_nodes[node.surface_cluster_id].push_back(node.node_id);
+        }
+        for (const auto& node : bounce1_nodes) {
+            if (node.is_active) surface_cluster_to_nodes[node.surface_cluster_id].push_back(node.node_id);
+        }
+
         // 7. Derive Probe -> Light Sparse CSR Runtime Shading Cache (Layer 3 - Disposable Cache)
         rebuild_probe_light_csr_from_depositions(retention_mode, target_energy_pct, fan_in_cap);
 
@@ -1431,70 +1581,174 @@ public:
                 uint32_t a_idx = active_anchor_indices[i];
                 timings.repair_rays_completed++;
                 if (regrowth_hits[i].hit) {
-                    ASTGTransportNode new_node;
-                    new_node.node_id = (uint32_t)bounce0_nodes.size();
-                    new_node.source_light_id = regrowth_rays[i].source_light_id;
-                    new_node.angular_cell_id = regrowth_rays[i].angular_cell_id;
-                    new_node.bounce_depth = 0;
-                    new_node.hit_primitive_id = regrowth_hits[i].primitive_id;
-                    new_node.surface_cluster_id = regrowth_hits[i].surface_cluster_id;
-                    new_node.destruction_chunk_id = regrowth_hits[i].destruction_chunk_id;
-                    new_node.material_id = regrowth_hits[i].material_id;
-                    new_node.position = { regrowth_hits[i].pos_x, regrowth_hits[i].pos_y, regrowth_hits[i].pos_z };
-                    new_node.geometric_normal = { regrowth_hits[i].normal_x, regrowth_hits[i].normal_y, regrowth_hits[i].normal_z };
-                    new_node.generation = geometry_generation;
+                    const auto& hit = regrowth_hits[i];
+                    uint32_t source_light = regrowth_rays[i].source_light_id;
+                    uint32_t ang_cell = regrowth_rays[i].angular_cell_id;
+                    uint32_t parent_node = regrowth_rays[i].transport_node_id;
 
-                    float dist = std::max(0.2f, regrowth_hits[i].distance);
-                    new_node.geometric_factor = 0.5f / (dist * dist + 1.0f);
-                    new_node.diffuse_albedo = 0.75f;
-                    new_node.path_transfer_r = new_node.geometric_factor * new_node.diffuse_albedo;
-                    new_node.path_transfer_g = new_node.geometric_factor * new_node.diffuse_albedo;
-                    new_node.path_transfer_b = new_node.geometric_factor * new_node.diffuse_albedo;
-                    if (new_node.destruction_chunk_id > 0) {
-                        new_node.inherited_chunk_dependencies.insert(new_node.destruction_chunk_id);
+                    bool stitched = false;
+                    if (enable_path_stitching) {
+                        auto it_clust = surface_cluster_to_nodes.find(hit.surface_cluster_id);
+                        if (it_clust != surface_cluster_to_nodes.end()) {
+                            uint32_t best_node_id = UINT32_MAX;
+                            float best_score = -1.0f;
+                            uint32_t checked = 0;
+
+                            for (uint32_t cand_id : it_clust->second) {
+                                if (checked++ >= max_stitch_candidates_per_hit) break;
+                                stitching_metrics.stitch_candidates_considered++;
+
+                                const ASTGTransportNode* cand_node = nullptr;
+                                if (cand_id < bounce0_nodes.size()) cand_node = &bounce0_nodes[cand_id];
+                                else if (cand_id - bounce0_nodes.size() < bounce1_nodes.size()) cand_node = &bounce1_nodes[cand_id - bounce0_nodes.size()];
+                                if (!cand_node) continue;
+
+                                float score = 0.0f;
+                                StitchRejectionReason rej = STITCH_REJECT_NONE;
+                                if (can_stitch(hit, *cand_node, source_light, ang_cell, destroyed_chunk_id, &score, &rej)) {
+                                    if (score > best_score) {
+                                        best_score = score;
+                                        best_node_id = cand_id;
+                                    }
+                                } else {
+                                    stitching_metrics.stitches_rejected++;
+                                    switch (rej) {
+                                        case STITCH_REJECT_SURFACE_MISMATCH: stitching_metrics.reject_surface_mismatch++; break;
+                                        case STITCH_REJECT_POSITION_MISMATCH: stitching_metrics.reject_position_mismatch++; break;
+                                        case STITCH_REJECT_NORMAL_MISMATCH: stitching_metrics.reject_normal_mismatch++; break;
+                                        case STITCH_REJECT_DEPENDENCY_CONFLICT: stitching_metrics.reject_dependency_conflict++; break;
+                                        case STITCH_REJECT_GENERATION_STALE: stitching_metrics.reject_generation_stale++; break;
+                                        case STITCH_REJECT_ANGULAR_MISMATCH: stitching_metrics.reject_angular_mismatch++; break;
+                                        case STITCH_REJECT_NO_DOWNSTREAM_TRANSPORT: stitching_metrics.reject_no_downstream++; break;
+                                        default: break;
+                                    }
+                                }
+                            }
+
+                            if (best_node_id != UINT32_MAX && best_score > 0.0f) {
+                                stitched = true;
+                                stitching_metrics.stitches_accepted++;
+                                stitching_metrics.reused_suffix_nodes++;
+
+                                ASTGTransportNode* cand_node = (best_node_id < bounce0_nodes.size())
+                                    ? &bounce0_nodes[best_node_id]
+                                    : &bounce1_nodes[best_node_id - bounce0_nodes.size()];
+
+                                ASTGDAGEdge stitch_edge;
+                                stitch_edge.edge_id = (uint32_t)dag_edges.size();
+                                stitch_edge.parent_node_id = parent_node;
+                                stitch_edge.child_node_id = best_node_id;
+                                stitch_edge.source_light_id = source_light;
+                                stitch_edge.angular_cell_id = ang_cell;
+                                stitch_edge.bounce_depth = cand_node->bounce_depth + 1;
+                                stitch_edge.transfer_weight = cand_node->geometric_factor;
+                                stitch_edge.is_stitch_edge = true;
+                                stitch_edge.repair_generation = geometry_generation;
+                                stitch_edge.is_active = true;
+                                dag_edges.push_back(stitch_edge);
+                                stitching_metrics.new_bridge_edges++;
+
+                                DAGParentRef pref;
+                                pref.parent_node_id = parent_node;
+                                pref.source_light_id = source_light;
+                                pref.angular_cell_id = ang_cell;
+                                pref.transfer_weight = cand_node->geometric_factor;
+                                pref.is_valid = true;
+                                cand_node->parent_refs.push_back(pref);
+
+                                auto it_dep = node_to_path_contributions.find(best_node_id);
+                                if (it_dep != node_to_path_contributions.end()) {
+                                    for (uint32_t dep_id : it_dep->second) {
+                                        if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
+                                            const auto& orig_dep = path_probe_contributions[dep_id];
+                                            ASTGPathProbeContribution spliced_dep = orig_dep;
+                                            spliced_dep.contribution_id = (uint32_t)path_probe_contributions.size();
+                                            spliced_dep.source_light_id = source_light;
+                                            spliced_dep.angular_cell_id = ang_cell;
+                                            spliced_dep.generation = geometry_generation;
+                                            spliced_dep.path_provenance_id = fnv1a_64_path(source_light, ang_cell, spliced_dep.bounce_depth, best_node_id, spliced_dep.probe_id);
+                                            spliced_dep.is_active = true;
+                                            path_probe_contributions.push_back(spliced_dep);
+                                            node_to_path_contributions[best_node_id].push_back(spliced_dep.contribution_id);
+                                            stitching_metrics.reused_probe_depositions++;
+                                        }
+                                    }
+                                }
+
+                                regeneration_anchors[a_idx].reason = TERMINATION_STITCHED_TO_EXISTING_DAG;
+                            }
+                        }
                     }
-                    new_node.termination_reason = TERMINATION_VISIBLE_SURFACE;
-                    new_node.is_active = true;
-                    bounce0_nodes.push_back(new_node);
 
-                    for (size_t p = 0; p < probes.size(); ++p) {
-                        if (!probes[p].is_valid) continue;
-                        float dx = new_node.position.x - probes[p].world_position.x;
-                        float dy = new_node.position.y - probes[p].world_position.y;
-                        float dz = new_node.position.z - probes[p].world_position.z;
-                        float d_sq = dx * dx + dy * dy + dz * dz;
-                        if (d_sq < 0.1225f) {
-                            float ndot = new_node.geometric_normal.x * probes[p].geometric_normal.x +
-                                         new_node.geometric_normal.y * probes[p].geometric_normal.y +
-                                         new_node.geometric_normal.z * probes[p].geometric_normal.z;
-                            if (ndot >= 0.8f) {
-                                float local_tf = (new_node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                                float final_tf_r = new_node.path_transfer_r * local_tf * 0.95f;
-                                float final_tf_g = new_node.path_transfer_g * local_tf * 0.85f;
-                                float final_tf_b = new_node.path_transfer_b * local_tf * 0.70f;
-                                float importance = (final_tf_r + final_tf_g + final_tf_b) / 3.0f * ndot;
+                    if (!stitched) {
+                        ASTGTransportNode new_node;
+                        new_node.node_id = (uint32_t)bounce0_nodes.size();
+                        new_node.source_light_id = source_light;
+                        new_node.angular_cell_id = ang_cell;
+                        new_node.bounce_depth = 0;
+                        new_node.hit_primitive_id = hit.primitive_id;
+                        new_node.surface_cluster_id = hit.surface_cluster_id;
+                        new_node.destruction_chunk_id = hit.destruction_chunk_id;
+                        new_node.material_id = hit.material_id;
+                        new_node.position = { hit.pos_x, hit.pos_y, hit.pos_z };
+                        new_node.geometric_normal = { hit.normal_x, hit.normal_y, hit.normal_z };
+                        new_node.generation = geometry_generation;
 
-                                ASTGPathProbeContribution dep;
-                                dep.contribution_id = (uint32_t)path_probe_contributions.size();
-                                dep.probe_id = (uint32_t)p;
-                                dep.source_light_id = new_node.source_light_id;
-                                dep.source_node_id = new_node.node_id;
-                                dep.angular_cell_id = new_node.angular_cell_id;
-                                dep.bounce_depth = new_node.bounce_depth;
-                                dep.surface_cluster_id = new_node.surface_cluster_id;
-                                dep.destruction_chunk_id = new_node.destruction_chunk_id;
-                                dep.path_provenance_id = fnv1a_64_path(new_node.source_light_id, new_node.angular_cell_id, new_node.bounce_depth, new_node.node_id, (uint32_t)p);
-                                dep.transfer_r = final_tf_r;
-                                dep.transfer_g = final_tf_g;
-                                dep.transfer_b = final_tf_b;
-                                dep.importance = importance;
-                                dep.generation = geometry_generation;
-                                dep.is_active = true;
+                        float dist = std::max(0.2f, hit.distance);
+                        new_node.geometric_factor = 0.5f / (dist * dist + 1.0f);
+                        new_node.diffuse_albedo = 0.75f;
+                        new_node.path_transfer_r = new_node.geometric_factor * new_node.diffuse_albedo;
+                        new_node.path_transfer_g = new_node.geometric_factor * new_node.diffuse_albedo;
+                        new_node.path_transfer_b = new_node.geometric_factor * new_node.diffuse_albedo;
+                        if (new_node.destruction_chunk_id > 0) {
+                            new_node.inherited_chunk_dependencies.insert(new_node.destruction_chunk_id);
+                        }
+                        new_node.termination_reason = TERMINATION_VISIBLE_SURFACE;
+                        new_node.is_active = true;
+                        bounce0_nodes.push_back(new_node);
+                        stitching_metrics.new_bridge_nodes++;
 
-                                path_probe_contributions.push_back(dep);
-                                node_to_path_contributions[new_node.node_id].push_back(dep.contribution_id);
-                                for (uint32_t chunk_dep : new_node.inherited_chunk_dependencies) {
-                                    chunk_to_path_contributions[chunk_dep].push_back(dep.contribution_id);
+                        surface_cluster_to_nodes[new_node.surface_cluster_id].push_back(new_node.node_id);
+
+                        for (size_t p = 0; p < probes.size(); ++p) {
+                            if (!probes[p].is_valid) continue;
+                            float dx = new_node.position.x - probes[p].world_position.x;
+                            float dy = new_node.position.y - probes[p].world_position.y;
+                            float dz = new_node.position.z - probes[p].world_position.z;
+                            float d_sq = dx * dx + dy * dy + dz * dz;
+                            if (d_sq < 0.1225f) {
+                                float ndot = new_node.geometric_normal.x * probes[p].geometric_normal.x +
+                                             new_node.geometric_normal.y * probes[p].geometric_normal.y +
+                                             new_node.geometric_normal.z * probes[p].geometric_normal.z;
+                                if (ndot >= 0.8f) {
+                                    float local_tf = (new_node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
+                                    float final_tf_r = new_node.path_transfer_r * local_tf * 0.95f;
+                                    float final_tf_g = new_node.path_transfer_g * local_tf * 0.85f;
+                                    float final_tf_b = new_node.path_transfer_b * local_tf * 0.70f;
+                                    float importance = (final_tf_r + final_tf_g + final_tf_b) / 3.0f * ndot;
+
+                                    ASTGPathProbeContribution dep;
+                                    dep.contribution_id = (uint32_t)path_probe_contributions.size();
+                                    dep.probe_id = (uint32_t)p;
+                                    dep.source_light_id = new_node.source_light_id;
+                                    dep.source_node_id = new_node.node_id;
+                                    dep.angular_cell_id = new_node.angular_cell_id;
+                                    dep.bounce_depth = new_node.bounce_depth;
+                                    dep.surface_cluster_id = new_node.surface_cluster_id;
+                                    dep.destruction_chunk_id = new_node.destruction_chunk_id;
+                                    dep.path_provenance_id = fnv1a_64_path(new_node.source_light_id, new_node.angular_cell_id, new_node.bounce_depth, new_node.node_id, (uint32_t)p);
+                                    dep.transfer_r = final_tf_r;
+                                    dep.transfer_g = final_tf_g;
+                                    dep.transfer_b = final_tf_b;
+                                    dep.importance = importance;
+                                    dep.generation = geometry_generation;
+                                    dep.is_active = true;
+
+                                    path_probe_contributions.push_back(dep);
+                                    node_to_path_contributions[new_node.node_id].push_back(dep.contribution_id);
+                                    for (uint32_t chunk_dep : new_node.inherited_chunk_dependencies) {
+                                        chunk_to_path_contributions[chunk_dep].push_back(dep.contribution_id);
+                                    }
                                 }
                             }
                         }

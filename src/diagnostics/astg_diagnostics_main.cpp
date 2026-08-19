@@ -36,10 +36,13 @@ int main(int argc, char** argv) {
     // 5. PART E: Path Provenance Preservation, Surgical Invalidation & Accounting Closure
     diag.test_path_provenance_preservation();
 
-    // 6. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
+    // 6. PART F: ASTG Regeneration Path-Stitching Validation
+    diag.test_path_stitching_regeneration();
+
+    // 7. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
     diag.export_all_diagnostics_files();
 
-    // 7. PART 90: Final Evidence Integrity Report
+    // 8. PART 90: Final Evidence Integrity Report
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

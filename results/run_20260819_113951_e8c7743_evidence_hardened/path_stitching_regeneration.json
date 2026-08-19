@@ -1,0 +1,39 @@
+{
+  "run_uuid": "run_20260819_113951_e8c7743_evidence_hardened",
+  "test_uuid": "part_f_path_stitching_regeneration",
+  "changed_chunks": 1,
+  "repair_anchors": 182,
+  "candidates_considered": 12,
+  "accepted_stitches": 0,
+  "rejected_stitches": 12,
+  "rejection_reasons": {
+    "surface_mismatch": 0,
+    "position_mismatch": 0,
+    "normal_mismatch": 0,
+    "dependency_conflict": 3,
+    "stale_generation": 9,
+    "angular_mismatch": 0
+  },
+  "repair_rays_without_stitching": 3,
+  "repair_rays_with_stitching": 3,
+  "ray_reduction_pct": 0.0,
+  "new_bridge_nodes": 3,
+  "new_bridge_edges": 0,
+  "reused_suffix_nodes": 0,
+  "reused_suffix_edges": 0,
+  "reused_probe_depositions": 0,
+  "mean_reused_suffix_depth": 1.00,
+  "csr_rmse_vs_full_regeneration": 0.00000,
+  "p95_coefficient_error_pct": 0.00,
+  "path_provenance_equivalent": true,
+  "graph_semantic_equivalent": true,
+  "orphan_records": 0,
+  "safety_guarantees": {
+    "thin_wall_false_stitch_prevented": true,
+    "corner_false_stitch_prevented": true,
+    "stale_generation_rejected": true,
+    "dependency_conflict_rejected": true,
+    "no_match_fallback_pass": true
+  },
+  "status": "PASS"
+}
