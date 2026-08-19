@@ -30,6 +30,55 @@ var cam_rot: Vector2 = Vector2(-10.0, 140.0)
 var cam_speed: float = 6.0
 var is_right_mouse_down: bool = false
 
+# Light Color Cycling & Rainbow Animation
+var is_rainbow_anim_active: bool = false
+var color_preset_index: int = 0
+
+var color_palettes: Array = [
+	{
+		"name": "Default Classroom (Warm Sun & Neutral White)",
+		"sun": Color(1.0, 0.95, 0.86),
+		"pendant": Color(0.96, 0.95, 1.0),
+		"desk": Color(1.0, 0.8, 0.4),
+		"accent": Color(1.0, 0.95, 0.9)
+	},
+	{
+		"name": "Cyberpunk Neon (Cyan Sun & Magenta Pendants)",
+		"sun": Color(0.1, 0.85, 1.0),
+		"pendant": Color(1.0, 0.15, 0.75),
+		"desk": Color(0.9, 0.2, 1.0),
+		"accent": Color(0.2, 1.0, 0.8)
+	},
+	{
+		"name": "Emerald Sanctuary (Golden Sun & Green Pendants)",
+		"sun": Color(1.0, 0.85, 0.3),
+		"pendant": Color(0.2, 0.95, 0.4),
+		"desk": Color(0.8, 1.0, 0.2),
+		"accent": Color(0.3, 0.9, 0.6)
+	},
+	{
+		"name": "Sunset Crimson (Orange Sun & Amber Pendants)",
+		"sun": Color(1.0, 0.35, 0.1),
+		"pendant": Color(1.0, 0.65, 0.2),
+		"desk": Color(1.0, 0.4, 0.15),
+		"accent": Color(1.0, 0.8, 0.3)
+	},
+	{
+		"name": "Arctic Twilight (Deep Blue Sun & Ice Cyan Pendants)",
+		"sun": Color(0.2, 0.4, 1.0),
+		"pendant": Color(0.5, 0.9, 1.0),
+		"desk": Color(0.8, 0.95, 1.0),
+		"accent": Color(0.3, 0.7, 1.0)
+	},
+	{
+		"name": "Psychedelic Rainbow Spread",
+		"sun": Color(1.0, 0.2, 0.3),
+		"pendant": Color(0.2, 0.9, 1.0),
+		"desk": Color(1.0, 0.9, 0.1),
+		"accent": Color(0.8, 0.2, 1.0)
+	}
+]
+
 var surface_shader: Shader = preload("res://scripts/rendering/shaders/astg_gi.gdshader")
 
 func _ready() -> void:
@@ -128,6 +177,8 @@ func _setup_ui() -> void:
 	hud.debug_view_changed.connect(_on_debug_view_changed)
 	hud.camera_preset_changed.connect(set_camera_preset)
 	hud.toggle_probes_requested.connect(_on_toggle_probes_requested)
+	hud.cycle_light_colors_requested.connect(_on_cycle_light_colors_requested)
+	hud.toggle_rainbow_anim_requested.connect(_on_toggle_rainbow_anim_requested)
 	
 	hud.destroy_center_chunk_requested.connect(func():
 		if current_scene_type == SceneType.CLASSROOM:
@@ -197,6 +248,10 @@ var last_ddgi_metrics: Dictionary = {}
 func _process(delta: float) -> void:
 	if current_camera_preset == 5:
 		_handle_camera_movement(delta)
+		
+	# Process Continuous Rainbow Color Animation if Active
+	if is_rainbow_anim_active:
+		_tick_rainbow_animation(delta)
 	
 	if benchmark_runner.is_running:
 		benchmark_runner.tick_frame(delta)
@@ -232,6 +287,15 @@ func _process(delta: float) -> void:
 		
 		hud.update_telemetry(astg_metrics, ddgi_metrics, gt_metrics, current_gi_mode)
 
+func _tick_rainbow_animation(delta: float) -> void:
+	var t = Time.get_ticks_msec() / 1000.0
+	var lights = classroom_builder.dynamic_lights if current_scene_type == SceneType.CLASSROOM else three_room_builder.dynamic_lights
+	for i in range(lights.size()):
+		var hue = fposmod(t * 0.20 + float(i) * 0.14, 1.0)
+		var sat = 0.85
+		var val = 1.0
+		lights[i].light_color = Color.from_hsv(hue, sat, val)
+
 func _handle_camera_movement(delta: float) -> void:
 	if not is_instance_valid(camera):
 		return
@@ -256,9 +320,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_5: set_camera_preset(5)
 		elif event.keycode == KEY_P:
 			_on_toggle_probes_requested()
+		elif event.keycode == KEY_C:
+			_on_cycle_light_colors_requested()
+		elif event.keycode == KEY_R:
+			_on_toggle_rainbow_anim_requested()
 		elif event.keycode == KEY_O:
 			# Cycle probe debug coloring mode
-			var next_mode = (current_debug_mode + 1) % 6
+			var next_mode = (current_debug_mode + 1) % 7
 			_on_debug_view_changed(next_mode)
 			if hud != null:
 				hud.set_debug_mode_index(next_mode)
@@ -289,6 +357,45 @@ func _unhandled_input(event: InputEvent) -> void:
 		cam_rot.y -= event.relative.x * 0.3
 		cam_rot.x = clamp(cam_rot.x - event.relative.y * 0.3, -85.0, 85.0)
 		camera.rotation_degrees = Vector3(cam_rot.x, cam_rot.y, 0)
+
+func _on_cycle_light_colors_requested() -> void:
+	color_preset_index = (color_preset_index + 1) % color_palettes.size()
+	var pal = color_palettes[color_preset_index]
+	print("\n🌈 [Lighting] Switched to Color Palette %d: %s" % [color_preset_index, pal["name"]])
+	
+	var lights = classroom_builder.dynamic_lights if current_scene_type == SceneType.CLASSROOM else three_room_builder.dynamic_lights
+	
+	for i in range(lights.size()):
+		var l = lights[i]
+		if l is DirectionalLight3D:
+			l.light_color = pal["sun"]
+		elif "Ceiling" in l.name or i < 6:
+			# Shift hue slightly across the 6 ceiling pendants for rich multi-color bounce
+			var p_col: Color = pal["pendant"]
+			var h = p_col.h + float(i % 6) * 0.08
+			l.light_color = Color.from_hsv(fposmod(h, 1.0), p_col.s, p_col.v)
+		elif "Teacher" in l.name:
+			l.light_color = pal["desk"]
+		else:
+			l.light_color = pal["accent"]
+			
+	ground_truth.compute_reference_solve(astg_pipeline.probes)
+
+func _on_toggle_rainbow_anim_requested() -> void:
+	is_rainbow_anim_active = not is_rainbow_anim_active
+	print("\n✨ [Lighting] Continuous Rainbow Color Cycling: %s" % ("STARTED" if is_rainbow_anim_active else "STOPPED"))
+	if hud != null:
+		hud.set_rainbow_anim_state(is_rainbow_anim_active)
+	if not is_rainbow_anim_active:
+		# Restore selected palette colors when stopped
+		var pal = color_palettes[color_preset_index]
+		var lights = classroom_builder.dynamic_lights if current_scene_type == SceneType.CLASSROOM else three_room_builder.dynamic_lights
+		for i in range(lights.size()):
+			var l = lights[i]
+			if l is DirectionalLight3D:
+				l.light_color = pal["sun"]
+			else:
+				l.light_color = pal["pendant"]
 
 func _on_toggle_probes_requested() -> void:
 	if debug_renderer != null:

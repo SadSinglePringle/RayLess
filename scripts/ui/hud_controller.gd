@@ -5,6 +5,8 @@ signal gi_mode_changed(new_mode: int)
 signal debug_view_changed(new_mode: int)
 signal camera_preset_changed(preset: int)
 signal toggle_probes_requested
+signal cycle_light_colors_requested
+signal toggle_rainbow_anim_requested
 signal destroy_center_chunk_requested
 signal destroy_all_chunks_requested
 signal destroy_irrelevant_wall_requested
@@ -19,6 +21,8 @@ var gi_mode_btn: OptionButton
 var debug_mode_btn: OptionButton
 var camera_preset_btn: OptionButton
 var btn_toggle_probes: Button
+var btn_cycle_colors: Button
+var btn_rainbow_anim: Button
 
 func _ready() -> void:
 	_create_ui_layout()
@@ -39,9 +43,9 @@ func _create_ui_layout() -> void:
 	
 	# Left: Telemetry & Controls Panel (Scrollable)
 	var left_panel = PanelContainer.new()
-	left_panel.custom_minimum_size = Vector2(400, 0)
+	left_panel.custom_minimum_size = Vector2(410, 0)
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(400, 0)
+	scroll.custom_minimum_size = Vector2(410, 0)
 	left_panel.add_child(scroll)
 	
 	var left_vbox = VBoxContainer.new()
@@ -110,7 +114,40 @@ func _create_ui_layout() -> void:
 	
 	left_vbox.add_child(HSeparator.new())
 	
-	# Interactive Actions
+	# Light Color Cycling & Animation Controls
+	var color_lbl = Label.new()
+	color_lbl.text = "💡 Dynamic Lighting Controls:"
+	color_lbl.add_theme_font_size_override("font_size", 14)
+	left_vbox.add_child(color_lbl)
+	
+	btn_cycle_colors = Button.new()
+	btn_cycle_colors.text = "🌈 Cycle Scene Light Colors [C]"
+	btn_cycle_colors.pressed.connect(func(): cycle_light_colors_requested.emit())
+	left_vbox.add_child(btn_cycle_colors)
+	
+	btn_rainbow_anim = Button.new()
+	btn_rainbow_anim.text = "✨ Start Rainbow Color Cycling [R]"
+	btn_rainbow_anim.pressed.connect(func(): toggle_rainbow_anim_requested.emit())
+	left_vbox.add_child(btn_rainbow_anim)
+	
+	var btn_light = Button.new()
+	btn_light.text = "💡 Toggle 6x Ceiling Pendant Lamps"
+	btn_light.pressed.connect(func(): toggle_light_requested.emit())
+	left_vbox.add_child(btn_light)
+	
+	var btn_teacher = Button.new()
+	btn_teacher.text = "📖 Toggle Teacher Desk Lamp"
+	btn_teacher.pressed.connect(func(): toggle_occluder_requested.emit())
+	left_vbox.add_child(btn_teacher)
+	
+	left_vbox.add_child(HSeparator.new())
+	
+	# Interactive Destruction Actions
+	var dest_lbl = Label.new()
+	dest_lbl.text = "🔨 Interactive World Changes:"
+	dest_lbl.add_theme_font_size_override("font_size", 14)
+	left_vbox.add_child(dest_lbl)
+	
 	var btn_breach = Button.new()
 	btn_breach.text = "🔨 Breach Window Shutter (Sunlight Burst)"
 	btn_breach.pressed.connect(func(): destroy_center_chunk_requested.emit())
@@ -131,21 +168,12 @@ func _create_ui_layout() -> void:
 	btn_restore.pressed.connect(func(): restore_wall_requested.emit())
 	left_vbox.add_child(btn_restore)
 	
-	var btn_light = Button.new()
-	btn_light.text = "💡 Toggle 6x Ceiling Pendant Lamps"
-	btn_light.pressed.connect(func(): toggle_light_requested.emit())
-	left_vbox.add_child(btn_light)
-	
-	var btn_teacher = Button.new()
-	btn_teacher.text = "📖 Toggle Teacher Desk Lamp"
-	btn_teacher.pressed.connect(func(): toggle_occluder_requested.emit())
-	left_vbox.add_child(btn_teacher)
-	
 	left_vbox.add_child(HSeparator.new())
 	
 	# Automated Benchmarks
 	var bench_lbl = Label.new()
 	bench_lbl.text = "📊 Benchmark Suite (Classroom Test):"
+	bench_lbl.add_theme_font_size_override("font_size", 14)
 	left_vbox.add_child(bench_lbl)
 	
 	var btn_full_timeline = Button.new()
@@ -179,6 +207,10 @@ func _create_ui_layout() -> void:
 func set_probes_visible_state(is_vis: bool) -> void:
 	if btn_toggle_probes != null:
 		btn_toggle_probes.text = "🟢 Hide Sparse Surface Probes [P]" if is_vis else "🔴 Show Sparse Surface Probes [P]"
+
+func set_rainbow_anim_state(is_anim: bool) -> void:
+	if btn_rainbow_anim != null:
+		btn_rainbow_anim.text = "⏹️ Stop Rainbow Animation [R]" if is_anim else "✨ Start Rainbow Color Cycling [R]"
 
 func set_debug_mode_index(idx: int) -> void:
 	if debug_mode_btn != null:
@@ -214,7 +246,8 @@ PSNR: %.2f dB
 T90 Converged Ratio: %.1f%%
 
 [ Shortcuts ]
-[P] Toggle Probes  |  [O] Cycle Colors
+[C] Cycle Colors   |  [R] Rainbow Mode
+[P] Toggle Probes  |  [O] Cycle Colors Mode
 [1-5] Camera Views |  [RMB] Mouselook""" % [
 		mode_name,
 		astg_metrics.get("time_ms", 16.6),
