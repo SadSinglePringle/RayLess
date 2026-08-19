@@ -245,11 +245,23 @@ enum ASTGPathSegmentOrigin {
     SEGMENT_CACHED_REUSE = 1
 };
 
+struct ASTGSolveRayCounters {
+    uint32_t rays_scheduled = 0;
+    uint32_t rays_dispatched = 0;
+    uint32_t rays_completed = 0;
+};
+
 struct ASTGPathSegmentTrace {
     uint32_t depth = 0;
-    std::string origin = "fresh"; // "fresh" or "cached"
+    std::string origin = "fresh"; // "fresh", "cached", or "bridge"
     uint32_t node_id = 0;
     uint32_t stitch_id = 0;
+    uint32_t surface_cluster = 0;
+    bool ray_dispatched = false;
+    uint32_t continuation_event_id = 0;
+    float incoming_transfer = 1.0f;
+    float local_transfer = 1.0f;
+    float outgoing_transfer = 1.0f;
     float transfer_r = 1.0f;
     float transfer_g = 1.0f;
     float transfer_b = 1.0f;
@@ -290,6 +302,11 @@ struct ASTGCachedReuseResult {
     uint32_t starting_path_depth = 0;
     uint32_t ending_path_depth = 0;
 
+    float final_transfer_r = 0.0f;
+    float final_transfer_g = 0.0f;
+    float final_transfer_b = 0.0f;
+    std::vector<ASTGPathSegmentTrace> final_timeline;
+
     uint32_t continuation_frontiers_emitted = 0;
 
     bool reached_requested_depth = false;
@@ -321,6 +338,7 @@ struct ASTGMultiHopSolveResult {
     float final_transfer_g = 0.0f;
     float final_transfer_b = 0.0f;
 
+    ASTGSolveRayCounters ray_counters;
     uint32_t fresh_reference_rays = 0;
     uint32_t reuse_continuation_rays = 0;
     uint32_t avoided_rays = 0;
@@ -688,6 +706,12 @@ public:
         seg_trace.origin = "cached";
         seg_trace.node_id = stitched_node_id;
         seg_trace.stitch_id = (uint32_t)incoming.stitch_sequence_index;
+        seg_trace.surface_cluster = start_node->surface_cluster_id;
+        seg_trace.ray_dispatched = false;
+        seg_trace.continuation_event_id = 0;
+        seg_trace.incoming_transfer = incoming.accumulated_transfer_r;
+        seg_trace.local_transfer = 1.0f;
+        seg_trace.outgoing_transfer = start_tf_r;
         seg_trace.transfer_r = start_tf_r;
         seg_trace.transfer_g = start_tf_g;
         seg_trace.transfer_b = start_tf_b;
@@ -701,6 +725,10 @@ public:
             branch_queue.pop_back();
 
             res.ending_path_depth = std::max(res.ending_path_depth, curr.path_depth);
+            res.final_transfer_r = curr.transfer_r;
+            res.final_transfer_g = curr.transfer_g;
+            res.final_transfer_b = curr.transfer_b;
+            res.final_timeline = curr.timeline;
 
             // Replicate/splice Layer-2 probe contributions at this node
             auto it_dep = node_to_path_contributions.find(curr.node_id);
@@ -801,6 +829,12 @@ public:
                     trace_item.origin = "cached";
                     trace_item.node_id = c_id;
                     trace_item.stitch_id = (uint32_t)incoming.stitch_sequence_index;
+                    trace_item.surface_cluster = child_node ? child_node->surface_cluster_id : 0;
+                    trace_item.ray_dispatched = false;
+                    trace_item.continuation_event_id = 0;
+                    trace_item.incoming_transfer = curr.transfer_r;
+                    trace_item.local_transfer = local_edge_tf;
+                    trace_item.outgoing_transfer = next_tf_r;
                     trace_item.transfer_r = next_tf_r;
                     trace_item.transfer_g = next_tf_g;
                     trace_item.transfer_b = next_tf_b;
@@ -814,6 +848,7 @@ public:
                 }
             }
         }
+
         return res;
     }
 
@@ -829,11 +864,11 @@ public:
         float start_flux_b = 1.0f,
         bool enable_stitching_mode = true,
         uint32_t changed_chunk_id = 0,
-        float energy_threshold = 0.0001f
+        float energy_threshold = 0.0001f,
+        bool allow_synthetic_hit_fallback = true
     ) {
         ASTGMultiHopSolveResult res;
         res.requested_max_depth = requested_max_bounce_depth;
-        res.fresh_reference_rays = requested_max_bounce_depth;
 
         std::vector<ASTGContinuationFrontier> frontier_queue;
 
@@ -892,18 +927,26 @@ public:
             ray.angular_cell_id = f.angular_cell_id;
             ray.transport_node_id = (f.node_id == UINT32_MAX) ? 0 : f.node_id;
 
+            res.ray_counters.rays_scheduled++;
+            res.ray_counters.rays_dispatched++;
+
             ASTGRayHit hit;
             rtx_trace_rays_batch(&ray, &hit, 1);
+            res.ray_counters.rays_completed++;
             res.reuse_continuation_rays++;
 
             if (!hit.hit) {
-                hit.hit = true;
-                hit.distance = 2.0f;
-                hit.surface_cluster_id = 5;
-                hit.pos_x = ray.origin_x + ray.dir_x * 2.0f;
-                hit.pos_y = ray.origin_y + ray.dir_y * 2.0f;
-                hit.pos_z = ray.origin_z + ray.dir_z * 2.0f;
-                hit.normal_x = 0.0f; hit.normal_y = 1.0f; hit.normal_z = 0.0f;
+                if (allow_synthetic_hit_fallback) {
+                    hit.hit = true;
+                    hit.distance = 2.0f;
+                    hit.surface_cluster_id = 5;
+                    hit.pos_x = ray.origin_x + ray.dir_x * 2.0f;
+                    hit.pos_y = ray.origin_y + ray.dir_y * 2.0f;
+                    hit.pos_z = ray.origin_z + ray.dir_z * 2.0f;
+                    hit.normal_x = 0.0f; hit.normal_y = 1.0f; hit.normal_z = 0.0f;
+                } else {
+                    continue;
+                }
             }
 
             bool stitched = false;
@@ -933,11 +976,13 @@ public:
 
                         ASTGContinuationFrontier stitch_in = f;
                         stitch_in.current_path_bounce_depth = f.current_path_bounce_depth + 1;
+                        const ASTGTransportNode* cand = get_node_by_id(best_cand);
                         float dist = std::max(0.2f, hit.distance);
-                        float g_fac = 0.5f / (dist * dist + 1.0f);
-                        stitch_in.accumulated_transfer_r = f.accumulated_transfer_r * (g_fac * 0.75f);
-                        stitch_in.accumulated_transfer_g = f.accumulated_transfer_g * (g_fac * 0.75f);
-                        stitch_in.accumulated_transfer_b = f.accumulated_transfer_b * (g_fac * 0.75f);
+                        float g_fac = cand ? cand->geometric_factor : (0.5f / (dist * dist + 1.0f));
+                        float albedo = cand ? cand->diffuse_albedo : 0.75f;
+                        stitch_in.accumulated_transfer_r = f.accumulated_transfer_r * (g_fac * albedo);
+                        stitch_in.accumulated_transfer_g = f.accumulated_transfer_g * (g_fac * albedo);
+                        stitch_in.accumulated_transfer_b = f.accumulated_transfer_b * (g_fac * albedo);
 
                         std::vector<ASTGContinuationFrontier> child_frontiers;
                         auto reuse_res = traverse_reusable_cached_segment(stitch_in, best_cand, child_frontiers, changed_chunk_id, energy_threshold);
@@ -950,6 +995,10 @@ public:
                         if (reuse_res.reached_requested_depth) {
                             res.requested_depth_reached = true;
                         }
+                        res.final_transfer_r = reuse_res.final_transfer_r;
+                        res.final_transfer_g = reuse_res.final_transfer_g;
+                        res.final_transfer_b = reuse_res.final_transfer_b;
+                        res.assembled_timeline = reuse_res.final_timeline;
 
                         if (reuse_res.cache_exhausted) res.cached_segment_exhausted = true;
                         res.continuation_frontiers_emitted += reuse_res.continuation_frontiers_emitted;
@@ -986,9 +1035,10 @@ public:
                     res.fresh_prefix_bounces++;
                 }
 
-                float next_tf_r = f.accumulated_transfer_r * (new_node.geometric_factor * new_node.diffuse_albedo);
-                float next_tf_g = f.accumulated_transfer_g * (new_node.geometric_factor * new_node.diffuse_albedo);
-                float next_tf_b = f.accumulated_transfer_b * (new_node.geometric_factor * new_node.diffuse_albedo);
+                float local_tf = new_node.geometric_factor * new_node.diffuse_albedo;
+                float next_tf_r = f.accumulated_transfer_r * local_tf;
+                float next_tf_g = f.accumulated_transfer_g * local_tf;
+                float next_tf_b = f.accumulated_transfer_b * local_tf;
 
                 ASTGContinuationFrontier next_f;
                 next_f.node_id = new_node.node_id;
@@ -1011,6 +1061,12 @@ public:
                 trace_item.origin = "fresh";
                 trace_item.node_id = new_node.node_id;
                 trace_item.stitch_id = (uint32_t)f.stitch_sequence_index;
+                trace_item.surface_cluster = hit.surface_cluster_id;
+                trace_item.ray_dispatched = true;
+                trace_item.continuation_event_id = f.came_from_stitch ? 1 : 0;
+                trace_item.incoming_transfer = f.accumulated_transfer_r;
+                trace_item.local_transfer = local_tf;
+                trace_item.outgoing_transfer = next_tf_r;
                 trace_item.transfer_r = next_tf_r;
                 trace_item.transfer_g = next_tf_g;
                 trace_item.transfer_b = next_tf_b;

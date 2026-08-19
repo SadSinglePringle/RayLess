@@ -1,0 +1,22 @@
+{
+  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "test_h_transfer_composition": {
+    "prefix_transfer": 0.5,
+    "cached_local_edge_1": 0.8,
+    "cached_local_edge_2": 0.5,
+    "continuation_local_transfer": 0.075,
+    "expected_final_transfer": 0.015,
+    "actual_solver_final_transfer": 0.015,
+    "error": 0,
+    "status": "PASS"
+  },
+  "test_i_old_transfer_isolation": {
+    "incoming_transfer": 0.5,
+    "cached_local_edge": 0.8,
+    "poisoned_old_node_transfer": 0.123,
+    "expected_isolated_transfer": 0.40,
+    "wrong_inherited_transfer": 0.0984,
+    "actual_solver_final_transfer": 0.4,
+    "status": "PASS"
+  }
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "depth": 1,
+    "origin": "cached",
+    "incoming": 0.375,
+    "local": 1,
+    "outgoing": 0.375
+  },
+  {
+    "depth": 2,
+    "origin": "cached",
+    "incoming": 0.375,
+    "local": 0.375,
+    "outgoing": 0.140625
+  },
+  {
+    "depth": 3,
+    "origin": "fresh",
+    "incoming": 0.140625,
+    "local": 0.075,
+    "outgoing": 0.0105469
+  },
+  {
+    "depth": 4,
+    "origin": "fresh",
+    "incoming": 0.0105469,
+    "local": 0.075,
+    "outgoing": 0.000791016
+  },
+  {
+    "depth": 5,
+    "origin": "fresh",
+    "incoming": 0.000791016,
+    "local": 0.075,
+    "outgoing": 5.93262e-05
+  },
+  {
+    "depth": 6,
+    "origin": "fresh",
+    "incoming": 5.93262e-05,
+    "local": 0.075,
+    "outgoing": 4.44946e-06
+  }
+]

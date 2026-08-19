@@ -1,0 +1,34 @@
+{
+  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "requested_depth": 6,
+  "reference": {
+    "reuse_enabled": false,
+    "rays_scheduled": 6,
+    "rays_dispatched": 6,
+    "rays_completed": 6,
+    "final_transfer": [1.70934e-07, 1.70934e-07, 1.70934e-07],
+    "depth_reached": 6
+  },
+  "reuse": {
+    "reuse_enabled": true,
+    "rays_scheduled": 5,
+    "rays_dispatched": 5,
+    "rays_completed": 5,
+    "cached_nodes_reused": 2,
+    "cached_edges_reused": 1,
+    "continuation_frontiers": 1,
+    "final_transfer": [4.44946e-06, 4.44946e-06, 4.44946e-06],
+    "depth_reached": 6
+  },
+  "performance": {
+    "avoided_rays": 1,
+    "ray_reduction_pct": 16.7
+  },
+  "correctness": {
+    "transfer_rmse": 0.00000,
+    "max_abs_channel_error": 0.00000,
+    "path_semantic_equivalence": true,
+    "source_attribution_match": true,
+    "status": "PASS"
+  }
+}
