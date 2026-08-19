@@ -1,6 +1,6 @@
 {
   "manifest": {
-    "run_id": "20260819_090942_f4ee155_1024k",
+    "run_id": "20260819_092101_f4ee155_1024k",
     "benchmark_category": "FULL_SCENE",
     "placement_mode": "SCENE_VALID",
     "scene": "NVIDIA / Amazon Lumberyard Bistro",
@@ -65,8 +65,8 @@
     "mean_candidate_fanin": 134.676,
     "mean_retained_fanin": 31.99,
     "max_retained_fanin": 32,
-    "static_mean_ms": 0.0730197,
-    "chaos_mean_ms": 0.0791979,
-    "pass_frequency_hz": 12682.6
+    "static_mean_ms": 0.0764757,
+    "chaos_mean_ms": 0.0844373,
+    "pass_frequency_hz": 11909.3
   }
 }

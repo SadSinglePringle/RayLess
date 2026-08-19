@@ -61,6 +61,25 @@ inline const char* get_termination_reason_name(ASTGTerminationReason r) {
     }
 }
 
+static inline uint64_t fnv1a_64_hash_bytes(const void* data, size_t size, uint64_t hash = 14695981039346656037ULL) {
+    const uint8_t* ptr = (const uint8_t*)data;
+    for (size_t i = 0; i < size; ++i) {
+        hash ^= (uint64_t)ptr[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+static inline uint64_t fnv1a_64_path(uint32_t light, uint32_t cell, uint32_t bounce, uint32_t node, uint32_t probe) {
+    uint64_t h = 14695981039346656037ULL;
+    h = fnv1a_64_hash_bytes(&light, sizeof(light), h);
+    h = fnv1a_64_hash_bytes(&cell, sizeof(cell), h);
+    h = fnv1a_64_hash_bytes(&bounce, sizeof(bounce), h);
+    h = fnv1a_64_hash_bytes(&node, sizeof(node), h);
+    h = fnv1a_64_hash_bytes(&probe, sizeof(probe), h);
+    return h;
+}
+
 // Regeneration Anchor (Part 1, 2): Retained ONLY for branches that genuinely require future regeneration
 struct ASTGRegenerationAnchor {
     uint32_t anchor_id = 0;
@@ -117,6 +136,7 @@ struct SurfaceAttachedProbe {
 };
 
 // Transport Path Node (Bounce 0 Direct Hit & Bounce 1 Indirect Hit)
+// Transport Path Node (Bounce 0 Direct Hit & Bounce 1 Indirect Hit)
 struct ASTGTransportNode {
     uint32_t node_id = 0;
     uint32_t source_light_id = 0;
@@ -132,6 +152,14 @@ struct ASTGTransportNode {
     RTXVector3 geometric_normal = {0, 1, 0};
     float geometric_factor = 0.0f; // (N.L) / (d^2 + 1)
     float diffuse_albedo = 0.75f;
+
+    // Accumulated Transport State (Upstream path transfer excluding dynamic light state)
+    float path_transfer_r = 1.0f;
+    float path_transfer_g = 1.0f;
+    float path_transfer_b = 1.0f;
+
+    // Full upstream geometry dependency lineage
+    std::unordered_set<uint32_t> inherited_chunk_dependencies;
 
     ASTGTerminationReason termination_reason = TERMINATION_VISIBLE_SURFACE;
     std::vector<DAGParentRef> parent_refs; // Supports multi-parent DAG merging
@@ -161,6 +189,7 @@ struct ASTGPathProbeContribution {
     uint32_t bounce_depth = 0;
     uint32_t surface_cluster_id = 0;
     uint32_t destruction_chunk_id = 0;
+    uint64_t path_provenance_id = 0;
     float transfer_r = 0.0f;
     float transfer_g = 0.0f;
     float transfer_b = 0.0f;
@@ -939,6 +968,14 @@ public:
                 b0.geometric_factor = ndotl / (dist * dist + 1.0f);
                 b0.diffuse_albedo = 0.75f;
 
+                // Accumulated Transport for Bounce 0 (Transport only, dynamic light state separate)
+                b0.path_transfer_r = b0.geometric_factor * b0.diffuse_albedo;
+                b0.path_transfer_g = b0.geometric_factor * b0.diffuse_albedo;
+                b0.path_transfer_b = b0.geometric_factor * b0.diffuse_albedo;
+                if (b0.destruction_chunk_id > 0) {
+                    b0.inherited_chunk_dependencies.insert(b0.destruction_chunk_id);
+                }
+
                 // Strict Blocker Classification (Priority 1)
                 if (b0.destruction_chunk_id > 0) {
                     b0.termination_reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
@@ -1038,6 +1075,22 @@ public:
                     b1.diffuse_albedo = 0.70f;
                     b1.termination_reason = (b1.destruction_chunk_id > 0) ? TERMINATION_BLOCKED_DESTRUCTIBLE : TERMINATION_VISIBLE_SURFACE;
 
+                    // Compute accumulated transport from parent B0 node
+                    float parent_transfer_r = 1.0f, parent_transfer_g = 1.0f, parent_transfer_b = 1.0f;
+                    if (bounce1_rays[i].transport_node_id < bounce0_nodes.size()) {
+                        const auto& parent_b0 = bounce0_nodes[bounce1_rays[i].transport_node_id];
+                        parent_transfer_r = parent_b0.path_transfer_r;
+                        parent_transfer_g = parent_b0.path_transfer_g;
+                        parent_transfer_b = parent_b0.path_transfer_b;
+                        b1.inherited_chunk_dependencies = parent_b0.inherited_chunk_dependencies;
+                    }
+                    b1.path_transfer_r = parent_transfer_r * b1.geometric_factor * b1.diffuse_albedo;
+                    b1.path_transfer_g = parent_transfer_g * b1.geometric_factor * b1.diffuse_albedo;
+                    b1.path_transfer_b = parent_transfer_b * b1.geometric_factor * b1.diffuse_albedo;
+                    if (b1.destruction_chunk_id > 0) {
+                        b1.inherited_chunk_dependencies.insert(b1.destruction_chunk_id);
+                    }
+
                     DAGParentRef pref;
                     pref.parent_node_id = bounce1_rays[i].transport_node_id;
                     pref.source_light_id = b1.source_light_id;
@@ -1068,7 +1121,7 @@ public:
             }
         }
 
-        // 6. Record Exact Path-Level Probe Contributions (Layer 2 - Exact Structural Truth)
+        // 6. Record Exact Path-Level Probe Contributions (Layer 2 - Direct B0 + Indirect B1)
         path_probe_contributions.clear();
         node_to_path_contributions.clear();
         chunk_to_path_contributions.clear();
@@ -1091,8 +1144,11 @@ public:
                                      node.geometric_normal.z * probes[p].geometric_normal.z;
 
                         if (ndot >= 0.8f) {
-                            float tf = (node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                            float importance = tf * ndot;
+                            float local_tf = (node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
+                            float final_tf_r = node.path_transfer_r * local_tf * 0.95f;
+                            float final_tf_g = node.path_transfer_g * local_tf * 0.85f;
+                            float final_tf_b = node.path_transfer_b * local_tf * 0.70f;
+                            float importance = (final_tf_r + final_tf_g + final_tf_b) / 3.0f * ndot;
 
                             ASTGPathProbeContribution dep;
                             dep.contribution_id = (uint32_t)path_probe_contributions.size();
@@ -1103,20 +1159,21 @@ public:
                             dep.bounce_depth = node.bounce_depth;
                             dep.surface_cluster_id = node.surface_cluster_id;
                             dep.destruction_chunk_id = node.destruction_chunk_id;
-                            dep.transfer_r = tf * 0.95f;
-                            dep.transfer_g = tf * 0.85f;
-                            dep.transfer_b = tf * 0.70f;
+                            dep.path_provenance_id = fnv1a_64_path(node.source_light_id, node.angular_cell_id, node.bounce_depth, node.node_id, (uint32_t)p);
+                            dep.transfer_r = final_tf_r;
+                            dep.transfer_g = final_tf_g;
+                            dep.transfer_b = final_tf_b;
                             dep.importance = importance;
                             dep.generation = geometry_generation;
                             dep.is_active = true;
 
                             path_probe_contributions.push_back(dep);
                             node_to_path_contributions[node.node_id].push_back(dep.contribution_id);
-                            if (dep.destruction_chunk_id > 0) {
-                                chunk_to_path_contributions[dep.destruction_chunk_id].push_back(dep.contribution_id);
+                            for (uint32_t chunk_dep : node.inherited_chunk_dependencies) {
+                                chunk_to_path_contributions[chunk_dep].push_back(dep.contribution_id);
                             }
 
-                            // Keep legacy link structure in sync
+                            // Legacy link structure in sync
                             ASTGProbeDepositionLink dep_link;
                             dep_link.link_id = dep.contribution_id;
                             dep_link.source_node_id = dep.source_node_id;
@@ -1135,6 +1192,7 @@ public:
         };
 
         record_node_deposits(bounce0_nodes);
+        record_node_deposits(bounce1_nodes);
 
         // 7. Derive Probe -> Light Sparse CSR Runtime Shading Cache (Layer 3 - Disposable Cache)
         rebuild_probe_light_csr_from_depositions(retention_mode, target_energy_pct, fan_in_cap);
@@ -1260,10 +1318,16 @@ public:
         const auto& dep_list = it->second;
 
         std::unordered_set<uint32_t> invalidated_nodes;
-        for (uint32_t node_id : dep_list.transport_node_ids) {
-            if (node_id < bounce0_nodes.size()) {
-                bounce0_nodes[node_id].is_active = false;
-                invalidated_nodes.insert(node_id);
+        for (auto& node : bounce0_nodes) {
+            if (node.is_active && (node.destruction_chunk_id == destroyed_chunk_id || node.inherited_chunk_dependencies.count(destroyed_chunk_id) > 0)) {
+                node.is_active = false;
+                invalidated_nodes.insert(node.node_id);
+            }
+        }
+        for (auto& node : bounce1_nodes) {
+            if (node.is_active && (node.destruction_chunk_id == destroyed_chunk_id || node.inherited_chunk_dependencies.count(destroyed_chunk_id) > 0)) {
+                node.is_active = false;
+                invalidated_nodes.insert(node.node_id);
             }
         }
 
@@ -1282,7 +1346,7 @@ public:
                     for (auto& pref : child.parent_refs) {
                         if (pref.parent_node_id == edge.parent_node_id) {
                             pref.is_valid = false;
-                        } else if (pref.is_valid) {
+                        } else if (pref.is_valid && !invalidated_nodes.count(pref.parent_node_id)) {
                             has_other_valid_parents = true;
                         }
                     }
@@ -1308,6 +1372,14 @@ public:
                     if (dep_id < path_probe_contributions.size()) {
                         path_probe_contributions[dep_id].is_active = false;
                     }
+                }
+            }
+        }
+        auto it_chunk = chunk_to_path_contributions.find(destroyed_chunk_id);
+        if (it_chunk != chunk_to_path_contributions.end()) {
+            for (uint32_t dep_id : it_chunk->second) {
+                if (dep_id < path_probe_contributions.size()) {
+                    path_probe_contributions[dep_id].is_active = false;
                 }
             }
         }
@@ -1375,6 +1447,12 @@ public:
                     float dist = std::max(0.2f, regrowth_hits[i].distance);
                     new_node.geometric_factor = 0.5f / (dist * dist + 1.0f);
                     new_node.diffuse_albedo = 0.75f;
+                    new_node.path_transfer_r = new_node.geometric_factor * new_node.diffuse_albedo;
+                    new_node.path_transfer_g = new_node.geometric_factor * new_node.diffuse_albedo;
+                    new_node.path_transfer_b = new_node.geometric_factor * new_node.diffuse_albedo;
+                    if (new_node.destruction_chunk_id > 0) {
+                        new_node.inherited_chunk_dependencies.insert(new_node.destruction_chunk_id);
+                    }
                     new_node.termination_reason = TERMINATION_VISIBLE_SURFACE;
                     new_node.is_active = true;
                     bounce0_nodes.push_back(new_node);
@@ -1390,8 +1468,11 @@ public:
                                          new_node.geometric_normal.y * probes[p].geometric_normal.y +
                                          new_node.geometric_normal.z * probes[p].geometric_normal.z;
                             if (ndot >= 0.8f) {
-                                float tf = (new_node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                                float importance = tf * ndot;
+                                float local_tf = (new_node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
+                                float final_tf_r = new_node.path_transfer_r * local_tf * 0.95f;
+                                float final_tf_g = new_node.path_transfer_g * local_tf * 0.85f;
+                                float final_tf_b = new_node.path_transfer_b * local_tf * 0.70f;
+                                float importance = (final_tf_r + final_tf_g + final_tf_b) / 3.0f * ndot;
 
                                 ASTGPathProbeContribution dep;
                                 dep.contribution_id = (uint32_t)path_probe_contributions.size();
@@ -1402,17 +1483,18 @@ public:
                                 dep.bounce_depth = new_node.bounce_depth;
                                 dep.surface_cluster_id = new_node.surface_cluster_id;
                                 dep.destruction_chunk_id = new_node.destruction_chunk_id;
-                                dep.transfer_r = tf * 0.95f;
-                                dep.transfer_g = tf * 0.85f;
-                                dep.transfer_b = tf * 0.70f;
+                                dep.path_provenance_id = fnv1a_64_path(new_node.source_light_id, new_node.angular_cell_id, new_node.bounce_depth, new_node.node_id, (uint32_t)p);
+                                dep.transfer_r = final_tf_r;
+                                dep.transfer_g = final_tf_g;
+                                dep.transfer_b = final_tf_b;
                                 dep.importance = importance;
                                 dep.generation = geometry_generation;
                                 dep.is_active = true;
 
                                 path_probe_contributions.push_back(dep);
                                 node_to_path_contributions[new_node.node_id].push_back(dep.contribution_id);
-                                if (dep.destruction_chunk_id > 0) {
-                                    chunk_to_path_contributions[dep.destruction_chunk_id].push_back(dep.contribution_id);
+                                for (uint32_t chunk_dep : new_node.inherited_chunk_dependencies) {
+                                    chunk_to_path_contributions[chunk_dep].push_back(dep.contribution_id);
                                 }
                             }
                         }

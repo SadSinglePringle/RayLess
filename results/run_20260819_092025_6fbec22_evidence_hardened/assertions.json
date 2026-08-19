@@ -1,0 +1,205 @@
+[
+  {
+    "test_uuid": "tier_scaling_32",
+    "assertion_name": "contribution_closure",
+    "expected": "8540",
+    "actual": "8540",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_32",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "7.110833 <= 8.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "assertion_name": "contribution_closure",
+    "expected": "28172",
+    "actual": "28172",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "18.440833 <= 21.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "assertion_name": "contribution_closure",
+    "expected": "100395",
+    "actual": "100395",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_512",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "31.975000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "assertion_name": "contribution_closure",
+    "expected": "212460",
+    "actual": "212460",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_1024",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "31.990000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "assertion_name": "contribution_closure",
+    "expected": "862924",
+    "actual": "862924",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_4096",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "32.000000 <= 32.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "assertion_name": "contribution_closure",
+    "expected": "3453153",
+    "actual": "3453153",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_16384",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "128.000000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "assertion_name": "contribution_closure",
+    "expected": "745007",
+    "actual": "745007",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_64000",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "127.950000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "assertion_name": "contribution_closure",
+    "expected": "1484914",
+    "actual": "1484914",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "tier_scaling_128000",
+    "assertion_name": "fanin_statistical_consistency",
+    "expected": "mean_fanin <= p95_fanin",
+    "actual": "128.000000 <= 128.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "terminal_branches_closure",
+    "expected": "262144",
+    "actual": "262144",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "timing_precision_nonzero",
+    "expected": "> 0.000 ms",
+    "actual": "0.446688 ms",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "assertion_name": "workload_separation_inequality",
+    "expected": "completed <= dispatched <= scheduled <= budget",
+    "actual": "4 <= 4 <= 4 <= 4096",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
+    "assertion_name": "late_bound_bounded_10x_pass",
+    "expected": "< 1.00%",
+    "actual": "0.412000%",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "assertion_name": "independent_fresh_rebuild_work_minimum",
+    "expected": "> 0 rays",
+    "actual": "8192000 rays",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "assertion_name": "incremental_vs_rebuild_ssim",
+    "expected": ">= 0.999",
+    "actual": "1.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "indirect_path_surgical_invalidation_and_regrowth",
+    "expected": "initial=0.35, post_inval=0.15, post_regrowth=0.45",
+    "actual": "initial=0.35, post_inval=0.15, post_regrowth=0.45",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "destroy_bounce0_wall_descendant_pruning",
+    "expected": "b0_inval=1, b1_inval=1, sibling_preserved=true",
+    "actual": "b0_inval=1, b1_inval=1, sibling_preserved=true",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "destroy_bounce1_surface_preserves_b0",
+    "expected": "b0_preserved=true, b1_inval=1",
+    "actual": "b0_preserved=true, b1_inval=1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "mixed_direct_indirect_same_light_probe",
+    "expected": "initial=0.30, after_inval=0.10",
+    "actual": "initial=0.30, after_inval=0.10",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "bounce1_path_depositions_present",
+    "expected": "> 0",
+    "actual": "22407",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "orphan_and_csr_provenance_clean",
+    "expected": "orphans=0, unbacked_csr=0",
+    "actual": "orphans=0, unbacked_csr=0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_e_bounce1_provenance",
+    "assertion_name": "incremental_vs_independent_changed_world_rebuild",
+    "expected": "CSR RMSE < 0.001",
+    "actual": "CSR RMSE = 0.000494",
+    "status": "PASS"
+  }
+]
