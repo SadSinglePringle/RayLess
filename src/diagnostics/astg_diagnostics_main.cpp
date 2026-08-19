@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv) {
     std::cout << "================================================================================\n";
-    std::cout << "🚀 ASTG TRANSPORT SCALING DIAGNOSTIC & VERIFICATION SUITE\n";
+    std::cout << "🚀 ASTG TRANSPORT SCALING DIAGNOSTIC & SAFE OPTIMIZATION VERIFICATION SUITE\n";
     std::cout << "================================================================================\n\n";
 
     if (!rtx_init()) {
@@ -36,19 +36,28 @@ int main(int argc, char** argv) {
     // 5. Run Phases 36 & 37: Fan-In Sweep & 512-Light Spatial Variation Test
     diag.test_fan_in_variations();
 
-    // 6. Run Step 5: Top-K Quality Sweeps Against Unlimited Reference
-    diag.run_top_k_quality_sweep();
+    // 6. Run Part 8 & 9: Fresh-Rebuild Equivalence Test (Incremental vs Rebuild)
+    diag.test_fresh_rebuild_equivalence();
 
-    // 7. Run Step 6: Equal-Contribution Many-Light Torture Test
+    // 7. Run Part 10 & 29: Destruction Matrix & 1000x Mutation Stress Test
+    diag.test_destruction_matrix_and_stability();
+
+    // 8. Run Part 34: Repair Budget Invariance Test (64 vs 4096 rays/frame)
+    diag.test_repair_budget_invariance();
+
+    // 9. Run Part 17 & 20: Adaptive Energy Retention Quality Sweep (Energy95-99.5 vs K8-128)
+    diag.run_adaptive_energy_retention_sweep();
+
+    // 10. Run Part 21: Equal-Contribution Many-Light Torture Test
     diag.run_equal_contribution_torture_test();
 
-    // 8. Run Step 7: Adaptive 2-Stage Discovery Optimization Test
+    // 11. Run Part 4 & 11: Adaptive 2-Stage Discovery Optimization Test
     diag.run_adaptive_discovery_optimization();
 
-    // 9. Export all clean telemetry deliverables
+    // 12. Export all clean telemetry deliverables
     diag.export_all_diagnostics_files();
 
-    // 10. Output Definition of Done verification summary
+    // 13. Output Definition of Done verification summary
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

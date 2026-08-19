@@ -2,8 +2,8 @@
 🛡️ ASTG DIAGNOSTIC REPORT
 ================================================================================
 Suite Status:      PASS
-Suite Level:       STRESS
-Tests Executed:    28 Total | 28 Passed | 0 Failed | 0 Invalid | 0 Skipped
+Suite Level:       FULL
+Tests Executed:    24 Total | 24 Passed | 0 Failed | 0 Invalid | 0 Skipped
 --------------------------------------------------------------------------------
 FAILURES & DIAGNOSES:
 

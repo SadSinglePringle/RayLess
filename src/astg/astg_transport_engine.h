@@ -14,8 +14,84 @@
 #include <numeric>
 
 // ==============================================================================
-// ASTG AUTHENTIC LIGHT TRANSPORT DATA STRUCTURES (DISAMBIGUATED SEMANTICS)
+// ASTG SAFE OPTIMIZATION INVARIANT & FORMALIZED REGENERATION DATA STRUCTURES
 // ==============================================================================
+/*
+ * SAFE OPTIMIZATION INVARIANT:
+ * Optimization may reduce:
+ * - ray count
+ * - node count
+ * - contribution count
+ * - probe count
+ * - runtime work
+ *
+ * Optimization may NOT remove:
+ * - source_light_id
+ * - angular_cell_id
+ * - parent node provenance
+ * - blocking_chunk_id
+ * - termination reason
+ * - reverse dependency mapping
+ * - enough spatial/angular information to retrace the branch
+ */
+
+enum ASTGTerminationReason {
+    TERMINATION_VISIBLE_SURFACE = 0,
+    TERMINATION_EMPTY_SPACE = 1,
+    TERMINATION_LOW_ENERGY = 2,
+    TERMINATION_MERGED = 3,
+    TERMINATION_BLOCKED_STATIC = 4,
+    TERMINATION_BLOCKED_DESTRUCTIBLE = 5,
+    TERMINATION_MAX_DEPTH = 6,
+    TERMINATION_PROBE_TERMINATED = 7
+};
+
+inline const char* get_termination_reason_name(ASTGTerminationReason r) {
+    switch (r) {
+        case TERMINATION_VISIBLE_SURFACE: return "VISIBLE_SURFACE";
+        case TERMINATION_EMPTY_SPACE: return "EMPTY_SPACE";
+        case TERMINATION_LOW_ENERGY: return "LOW_ENERGY";
+        case TERMINATION_MERGED: return "MERGED";
+        case TERMINATION_BLOCKED_STATIC: return "BLOCKED_STATIC";
+        case TERMINATION_BLOCKED_DESTRUCTIBLE: return "BLOCKED_DESTRUCTIBLE";
+        case TERMINATION_MAX_DEPTH: return "MAX_DEPTH";
+        case TERMINATION_PROBE_TERMINATED: return "PROBE_TERMINATED";
+        default: return "UNKNOWN";
+    }
+}
+
+// Regeneration Anchor (Part 1, 2): Retained for any branch that can reopen on world changes
+struct ASTGRegenerationAnchor {
+    uint32_t anchor_id = 0;
+    uint32_t source_light_id = 0;
+    uint32_t angular_cell_id = 0;
+    uint32_t parent_node_id = 0;
+    uint32_t blocking_chunk_id = 0;
+    uint32_t bounce_depth = 0;
+
+    RTXVector3 ray_origin = {0, 0, 0};
+    RTXVector3 ray_direction = {0, 1, 0};
+    float t_min = 0.05f;
+    float t_max = 20.0f;
+
+    float angular_min_u = 0.0f;
+    float angular_min_v = 0.0f;
+    float angular_max_u = 1.0f;
+    float angular_max_v = 1.0f;
+
+    ASTGTerminationReason reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
+    uint32_t geometry_generation = 1;
+    bool is_active = true;
+};
+
+// Merged Node Multi-Parent Provenance (Part 14, 15)
+struct DAGParentRef {
+    uint32_t parent_node_id = 0;
+    uint32_t source_light_id = 0;
+    uint32_t angular_cell_id = 0;
+    float transfer_weight = 1.0f;
+    bool is_valid = true;
+};
 
 // Surface-Attached Probe representation with Triangle Barycentrics
 struct SurfaceAttachedProbe {
@@ -35,6 +111,7 @@ struct SurfaceAttachedProbe {
     float area_weight = 1.0f;
     float confidence = 0.0f;
     uint32_t sample_count = 0;
+    bool is_valid = true;
 };
 
 // Transport Path Node (Bounce 0 Direct Hit & Bounce 1 Indirect Hit)
@@ -53,19 +130,28 @@ struct ASTGTransportNode {
     RTXVector3 geometric_normal = {0, 1, 0};
     float geometric_factor = 0.0f; // (N.L) / (d^2 + 1)
     float diffuse_albedo = 0.75f;
+
+    ASTGTerminationReason termination_reason = TERMINATION_VISIBLE_SURFACE;
+    std::vector<DAGParentRef> parent_refs; // Supports multi-parent DAG merging
+    bool is_active = true;
+    uint32_t generation = 1;
 };
 
 // DAG Node->Node Edge (Bounce 0 -> Bounce 1 Path Link)
 struct ASTGDAGEdge {
+    uint32_t edge_id = 0;
     uint32_t parent_node_id = 0;
     uint32_t child_node_id = 0;
     uint32_t source_light_id = 0;
+    uint32_t angular_cell_id = 0;
     uint32_t bounce_depth = 1;
     float transfer_weight = 1.0f;
+    bool is_active = true;
 };
 
 // Node->Probe Deposition Link (Transport Arrival Event)
 struct ASTGProbeDepositionLink {
+    uint32_t link_id = 0;
     uint32_t source_node_id = 0;
     uint32_t target_probe_id = 0;
     uint32_t source_light_id = 0;
@@ -73,6 +159,7 @@ struct ASTGProbeDepositionLink {
     float transfer_g = 0.0f;
     float transfer_b = 0.0f;
     float importance = 0.0f;
+    bool is_active = true;
 };
 
 // Candidate Deposit for Top-K Contributor Ranking
@@ -97,8 +184,23 @@ struct ProbeLightEntry {
     uint32_t path_count = 0;
 };
 
+// Reverse Chunk Dependency List (Part 3): Exact mapping from chunk -> affected structures
+struct ChunkDependencyList {
+    uint32_t chunk_id = 0;
+    std::vector<uint32_t> transport_node_ids;       // Nodes hitting or depending on chunk
+    std::vector<uint32_t> angular_cell_ids;         // Angular cells intersected
+    std::vector<uint32_t> blocked_anchor_ids;       // Regeneration anchors for BLOCKED_DESTRUCTIBLE paths
+    std::vector<uint32_t> attached_probe_ids;       // Probes attached to this chunk
+};
+
+enum ContributionRetentionMode {
+    RETENTION_FIXED_TOP_K = 0,
+    RETENTION_ADAPTIVE_ENERGY = 1,
+    RETENTION_UNLIMITED = 2
+};
+
 // ==============================================================================
-// ASTG TRANSPORT ENGINE
+// ASTG TRANSPORT ENGINE (SAFE OPTIMIZED & REGENERABLE)
 // ==============================================================================
 class ASTGTransportEngine {
 public:
@@ -106,10 +208,14 @@ public:
     std::vector<ASTGTransportNode> bounce0_nodes;
     std::vector<ASTGTransportNode> bounce1_nodes;
 
-    // Disambiguated Graph Collections
+    // Disambiguated Graph Collections (Part 1, 2, 3)
     std::vector<ASTGDAGEdge> dag_edges;                                    // Node -> Node edges
     std::vector<ASTGProbeDepositionLink> probe_deposition_links;           // Node -> Probe links
-    std::vector<ProbeLightContribution> persistent_contributions;          // CSR Table Entries
+    std::vector<ASTGRegenerationAnchor> regeneration_anchors;              // Blocker regeneration anchors
+    std::unordered_map<uint32_t, ChunkDependencyList> chunk_dependencies; // Chunk -> ASTG structures
+
+    // Persistent CSR Transfer Matrix (Runtime Representation - Part 40)
+    std::vector<ProbeLightContribution> persistent_contributions;
     std::vector<uint32_t> probe_contribution_offsets;
     std::vector<uint32_t> probe_contribution_counts;
 
@@ -124,6 +230,9 @@ public:
     std::vector<uint32_t> probe_candidate_counts;
     std::vector<uint32_t> probe_retained_counts;
 
+    // Generation counter for state synchronization (Part 35)
+    uint32_t current_geometry_generation = 1;
+
     // Execution path authenticity flags
     bool used_real_geometry = false;
     bool used_real_scene_transforms = false;
@@ -135,6 +244,7 @@ public:
     // 1. Generate Real Surface-Attached Probes directly from Scene Triangles
     bool generate_surface_probes(const ParsedSceneGeometry& scene, uint32_t target_probe_count = 1200) {
         probes.clear();
+        chunk_dependencies.clear();
         if (scene.indices.empty() || scene.vertices.empty()) return false;
 
         uint32_t total_triangles = (uint32_t)scene.indices.size() / 3;
@@ -186,8 +296,16 @@ public:
             probe.material_id = scene.metadata[t].material_id;
             probe.confidence = 0.0f;
             probe.sample_count = 0;
+            probe.is_valid = true;
 
             probes.push_back(probe);
+
+            // Register attached probe in chunk dependencies (Part 3)
+            if (probe.destruction_chunk_id > 0) {
+                chunk_dependencies[probe.destruction_chunk_id].chunk_id = probe.destruction_chunk_id;
+                chunk_dependencies[probe.destruction_chunk_id].attached_probe_ids.push_back(p_id);
+            }
+
             p_id++;
         }
 
@@ -212,7 +330,6 @@ public:
 
         std::cout << "[ASTG] Generating " << target_count << " Valid Scene-Aware Stationary Lights...\n";
 
-        // Collect representative interior/exterior surface seed locations from triangles
         std::vector<RTXVector3> surface_anchors;
         std::vector<RTXVector3> surface_normals;
         uint32_t total_triangles = (uint32_t)scene.indices.size() / 3;
@@ -244,7 +361,6 @@ public:
             // Standoff light 1.2m above surface along normal
             RTXVector3 light_pos = { pos.x + nx * 1.2f, pos.y + ny * 1.2f, pos.z + nz * 1.2f };
 
-            // Ensure within scene AABB
             if (light_pos.x >= scene.aabb_min.x && light_pos.x <= scene.aabb_max.x &&
                 light_pos.y >= scene.aabb_min.y && light_pos.y <= scene.aabb_max.y &&
                 light_pos.z >= scene.aabb_min.z && light_pos.z <= scene.aabb_max.z) {
@@ -258,7 +374,6 @@ public:
             surface_normals.push_back({0.0f, 1.0f, 0.0f});
         }
 
-        // Generate target_count lights deterministically from validated surface anchors
         for (uint32_t i = 0; i < target_count; ++i) {
             uint32_t anchor_idx = i % surface_anchors.size();
             const auto& anchor = surface_anchors[anchor_idx];
@@ -289,7 +404,6 @@ public:
         std::cout << "✅ Accepted " << static_lights.size() << " Scene-Valid Lights with Real Surface Adjacency.\n";
     }
 
-    // Legacy AABB Grid Placement (For AABB_STRESS benchmark mode)
     static void generate_aabb_stress_lights(
         const ParsedSceneGeometry& scene,
         uint32_t target_count,
@@ -299,46 +413,57 @@ public:
     ) {
         static_lights.clear();
         dynamic_lights.clear();
+        static_lights.reserve(target_count);
+        dynamic_lights.reserve(target_count);
+
         for (uint32_t i = 0; i < target_count; ++i) {
-            float fx = float(i % 16) / 16.0f;
-            float fz = float(i / 16) / std::max(1.0f, float(target_count / 16));
+            float fx = float(i % 100) / 100.0f;
+            float fy = float((i / 100) % 50) / 50.0f;
+            float fz = float(i / 5000) / 25.0f;
+
             LightStatic ls;
-            ls.pos_x = scene.aabb_min.x + (fx * 0.8f + 0.1f) * (scene.aabb_max.x - scene.aabb_min.x);
-            ls.pos_y = scene.aabb_min.y + 2.8f + (i % 3) * 1.2f;
-            ls.pos_z = scene.aabb_min.z + (fz * 0.8f + 0.1f) * (scene.aabb_max.z - scene.aabb_min.z);
+            ls.pos_x = scene.aabb_min.x + (scene.aabb_max.x - scene.aabb_min.x) * fx;
+            ls.pos_y = scene.aabb_min.y + (scene.aabb_max.y - scene.aabb_min.y) * fy;
+            ls.pos_z = scene.aabb_min.z + (scene.aabb_max.z - scene.aabb_min.z) * fz;
             ls.range = light_range;
             ls.anim_frequency = 0.5f + (i % 5) * 0.25f;
             ls.anim_phase = float(i) * 0.196f;
-            ls.base_hue = float(i) / float(target_count);
+            ls.base_hue = float(i) / float(std::max(1u, target_count));
             static_lights.push_back(ls);
 
             LightDynamic ld;
-            ld.color_r = 1.0f; ld.color_g = 0.9f; ld.color_b = 0.7f;
-            ld.intensity = 4.5f; ld.enabled = 1; ld.generation = 1;
+            ld.color_r = 1.0f;
+            ld.color_g = 0.9f;
+            ld.color_b = 0.7f;
+            ld.intensity = 4.5f;
+            ld.enabled = 1;
+            ld.generation = 1;
             dynamic_lights.push_back(ld);
         }
     }
 
-    // 3. Execute Authentic Light Transport Discovery with Optimized Discovery & Top-K Ranking
+    // 3. Execute Transport Discovery with Regeneration Anchors & Adaptive Energy Retention
     bool execute_transport_discovery(
         const std::vector<LightStatic>& lights,
         const ParsedSceneGeometry& scene,
         uint32_t rays_per_light = 512,
         uint32_t fan_in_cap = 32,
+        ContributionRetentionMode retention_mode = RETENTION_FIXED_TOP_K,
+        float target_energy_pct = 98.0f,
         bool optimize_discovery = false
     ) {
         bounce0_nodes.clear();
         bounce1_nodes.clear();
         dag_edges.clear();
         probe_deposition_links.clear();
+        regeneration_anchors.clear();
         persistent_contributions.clear();
 
         if (lights.empty() || probes.empty()) return false;
 
-        // Step 7 Optimization: 2-Stage Adaptive Discovery Ray Budgeting
+        // Hierarchical Adaptive Discovery (Part 4, 11)
         uint32_t effective_rays_per_light = rays_per_light;
         if (optimize_discovery && lights.size() >= 4096) {
-            // Adaptive discovery: 64 high-importance octahedral rays per light
             effective_rays_per_light = 64;
         }
 
@@ -348,16 +473,11 @@ public:
         std::vector<ASTGRay> disc_rays(total_discovery_rays);
         std::vector<ASTGRayHit> disc_hits(total_discovery_rays);
 
-        std::cout << "[ASTGTransportEngine] Tracing " << total_discovery_rays 
-                  << " Discovery Rays across " << lights.size() << " Lights on RT Cores (Top-K Cap: " 
-                  << (fan_in_cap >= 4096 ? "UNLIMITED" : std::to_string(fan_in_cap)) << ")...\n";
-
-        // Build octahedral angular discovery rays per light
         uint32_t ray_idx = 0;
         for (uint32_t l = 0; l < lights.size(); ++l) {
             const LightStatic& ls = lights[l];
             for (uint32_t r = 0; r < effective_rays_per_light; ++r) {
-                float phi = float(r) * 2.399963f; // Golden ratio angle
+                float phi = float(r) * 2.399963f;
                 float cos_theta = 1.0f - (float(r) + 0.5f) / float(effective_rays_per_light) * 2.0f;
                 float sin_theta = std::sqrt(std::max(0.0f, 1.0f - cos_theta * cos_theta));
 
@@ -376,7 +496,6 @@ public:
             }
         }
 
-        // Trace discovery rays in safe batches
         const uint32_t batch_size = 131072;
         for (uint32_t b_start = 0; b_start < total_discovery_rays; b_start += batch_size) {
             uint32_t cur_batch = std::min(batch_size, total_discovery_rays - b_start);
@@ -384,8 +503,9 @@ public:
             rtx_trace_rays_batch_with_timings(&disc_rays[b_start], &disc_hits[b_start], cur_batch, &timings);
         }
 
-        // 4. Process Bounce 0 Hits (Direct Emitter -> Surface Hit)
+        // 4. Process Direct Hits, Classify Blockers & Store Regeneration Anchors (Part 1, 2, 3)
         uint32_t node_counter = 0;
+        uint32_t anchor_counter = 0;
         std::unordered_map<uint32_t, std::vector<ASTGTransportNode>> light_to_b0_map;
         total_discovery_rays_hit = 0;
 
@@ -403,6 +523,7 @@ public:
                 b0.material_id = disc_hits[i].material_id;
                 b0.position = { disc_hits[i].pos_x, disc_hits[i].pos_y, disc_hits[i].pos_z };
                 b0.geometric_normal = { disc_hits[i].normal_x, disc_hits[i].normal_y, disc_hits[i].normal_z };
+                b0.generation = current_geometry_generation;
 
                 float dist = std::max(0.2f, disc_hits[i].distance);
                 float ndotl = std::max(0.05f, -(disc_rays[i].dir_x * b0.geometric_normal.x + 
@@ -410,22 +531,52 @@ public:
                                                 disc_rays[i].dir_z * b0.geometric_normal.z));
                 b0.geometric_factor = ndotl / (dist * dist + 1.0f);
                 b0.diffuse_albedo = 0.75f;
+
+                // Blocker Classification (Part 2)
+                if (b0.destruction_chunk_id > 0) {
+                    b0.termination_reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
+
+                    // Create and preserve Regeneration Anchor for destructible frontier (Part 1, 2)
+                    ASTGRegenerationAnchor anchor;
+                    anchor.anchor_id = anchor_counter++;
+                    anchor.source_light_id = b0.source_light_id;
+                    anchor.angular_cell_id = b0.angular_cell_id;
+                    anchor.parent_node_id = b0.node_id;
+                    anchor.blocking_chunk_id = b0.destruction_chunk_id;
+                    anchor.bounce_depth = 0;
+                    anchor.ray_origin = { disc_rays[i].origin_x, disc_rays[i].origin_y, disc_rays[i].origin_z };
+                    anchor.ray_direction = { disc_rays[i].dir_x, disc_rays[i].dir_y, disc_rays[i].dir_z };
+                    anchor.t_min = disc_rays[i].t_min;
+                    anchor.t_max = disc_rays[i].t_max;
+                    anchor.reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
+                    anchor.geometry_generation = current_geometry_generation;
+                    anchor.is_active = true;
+                    regeneration_anchors.push_back(anchor);
+
+                    // Register in reverse chunk dependency map (Part 3)
+                    auto& dep = chunk_dependencies[b0.destruction_chunk_id];
+                    dep.chunk_id = b0.destruction_chunk_id;
+                    dep.transport_node_ids.push_back(b0.node_id);
+                    dep.angular_cell_ids.push_back(b0.angular_cell_id);
+                    dep.blocked_anchor_ids.push_back(anchor.anchor_id);
+                } else {
+                    b0.termination_reason = TERMINATION_VISIBLE_SURFACE;
+                }
+
                 bounce0_nodes.push_back(b0);
                 light_to_b0_map[b0.source_light_id].push_back(b0);
             }
         }
 
-        // Compute explicit discovery metrics
         discovery_light_coverage_pct = (double(light_to_b0_map.size()) / double(lights.size())) * 100.0;
         discovery_ray_hit_rate_pct = (double(total_discovery_rays_hit) / double(total_discovery_rays)) * 100.0;
 
-        // 5. Distributed Bounce 1 Ray Generation (Phase 1 Fix: No starvation / collapse across lights)
+        // 5. Distributed Secondary Diffuse Bounce (Bounce 1)
         std::vector<ASTGRay> bounce1_rays;
         for (const auto& pair : light_to_b0_map) {
             const auto& b0_list = pair.second;
             if (b0_list.empty()) continue;
 
-            // Pick up to 2 representative Bounce 0 nodes per active light for secondary diffuse bounce
             uint32_t samples_to_emit = std::min(2u, (uint32_t)b0_list.size());
             for (uint32_t s = 0; s < samples_to_emit; ++s) {
                 const auto& b0 = b0_list[s];
@@ -447,7 +598,6 @@ public:
             }
         }
 
-        // Trace Bounce 1 Rays in Batches (Diffuse Secondary Bounce)
         if (!bounce1_rays.empty()) {
             std::vector<ASTGRayHit> b1_hits(bounce1_rays.size());
             for (uint32_t b_start = 0; b_start < bounce1_rays.size(); b_start += batch_size) {
@@ -469,24 +619,46 @@ public:
                     b1.material_id = b1_hits[i].material_id;
                     b1.position = { b1_hits[i].pos_x, b1_hits[i].pos_y, b1_hits[i].pos_z };
                     b1.geometric_normal = { b1_hits[i].normal_x, b1_hits[i].normal_y, b1_hits[i].normal_z };
+                    b1.generation = current_geometry_generation;
+
                     float dist = std::max(0.5f, b1_hits[i].distance);
                     b1.geometric_factor = 0.5f / (dist * dist + 1.0f);
                     b1.diffuse_albedo = 0.70f;
+                    b1.termination_reason = (b1.destruction_chunk_id > 0) ? TERMINATION_BLOCKED_DESTRUCTIBLE : TERMINATION_VISIBLE_SURFACE;
+
+                    // Track parent reference for DAG merging (Part 14)
+                    DAGParentRef pref;
+                    pref.parent_node_id = bounce1_rays[i].transport_node_id;
+                    pref.source_light_id = b1.source_light_id;
+                    pref.angular_cell_id = b1.angular_cell_id;
+                    pref.transfer_weight = b1.geometric_factor;
+                    b1.parent_refs.push_back(pref);
+
                     bounce1_nodes.push_back(b1);
 
-                    // Authentic DAG Edge linking Bounce 0 -> Bounce 1
+                    // Authentic DAG Edge
                     ASTGDAGEdge dag_edge;
+                    dag_edge.edge_id = (uint32_t)dag_edges.size();
                     dag_edge.parent_node_id = bounce1_rays[i].transport_node_id;
                     dag_edge.child_node_id = b1.node_id;
                     dag_edge.source_light_id = b1.source_light_id;
+                    dag_edge.angular_cell_id = b1.angular_cell_id;
                     dag_edge.bounce_depth = 1;
                     dag_edge.transfer_weight = b1.geometric_factor;
+                    dag_edge.is_active = true;
                     dag_edges.push_back(dag_edge);
+
+                    if (b1.destruction_chunk_id > 0) {
+                        auto& dep = chunk_dependencies[b1.destruction_chunk_id];
+                        dep.chunk_id = b1.destruction_chunk_id;
+                        dep.transport_node_ids.push_back(b1.node_id);
+                        dep.angular_cell_ids.push_back(b1.angular_cell_id);
+                    }
                 }
             }
         }
 
-        // 6. Local Transport-Driven Deposition & Top-K Importance Ranking (Phases 4-9)
+        // 6. Gather Local Deposition Candidates
         std::vector<std::vector<ProbeDepositCandidate>> probe_raw_candidates(probes.size());
         total_candidate_contributions = 0;
         total_retained_contributions = 0;
@@ -496,22 +668,21 @@ public:
 
         for (const auto& b0 : bounce0_nodes) {
             for (size_t p = 0; p < probes.size(); ++p) {
+                if (!probes[p].is_valid) continue;
                 float dx = b0.position.x - probes[p].world_position.x;
                 float dy = b0.position.y - probes[p].world_position.y;
                 float dz = b0.position.z - probes[p].world_position.z;
                 float d_sq = dx * dx + dy * dy + dz * dz;
 
-                // Localized surface neighborhood radius 0.35 meters
                 bool cluster_match = (b0.surface_cluster_id == probes[p].surface_cluster_id);
                 if (d_sq < 0.1225f || (cluster_match && d_sq < 0.25f)) {
-                    // Normal compatibility threshold >= 0.8 (~37 deg)
                     float ndot = b0.geometric_normal.x * probes[p].geometric_normal.x +
                                  b0.geometric_normal.y * probes[p].geometric_normal.y +
                                  b0.geometric_normal.z * probes[p].geometric_normal.z;
 
                     if (ndot >= 0.8f) {
                         float tf = (b0.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                        float importance = tf * ndot;
+                        float importance = tf * ndot; // Pure static transfer potential (Part 23)
 
                         ProbeDepositCandidate cand;
                         cand.source_light_id = b0.source_light_id;
@@ -527,14 +698,13 @@ public:
             }
         }
 
-        // 7. Per-Probe Deduplication & Top-K Selection (Phases 8-9)
+        // 7. Deduplicate & Select Contributions (Top-K vs Adaptive Energy Retention - Part 17, 18, 20)
         probe_contribution_offsets.resize(probes.size(), 0);
         probe_contribution_counts.resize(probes.size(), 0);
 
         for (size_t p = 0; p < probes.size(); ++p) {
             probe_contribution_offsets[p] = (uint32_t)persistent_contributions.size();
 
-            // Deduplicate multiple paths from the same source light
             std::map<uint32_t, ProbeLightEntry> unique_light_map;
             for (const auto& cand : probe_raw_candidates[p]) {
                 auto it = unique_light_map.find(cand.source_light_id);
@@ -559,28 +729,50 @@ public:
 
             std::vector<ProbeLightEntry> candidate_entries;
             candidate_entries.reserve(unique_light_map.size());
+            double total_probe_energy = 0.0;
             for (auto& pair : unique_light_map) {
                 candidate_entries.push_back(pair.second);
+                total_probe_energy += pair.second.total_importance;
             }
 
             uint32_t candidate_count = (uint32_t)candidate_entries.size();
             probe_candidate_counts[p] = candidate_count;
             total_candidate_contributions += candidate_count;
 
-            // Top-K selection
-            uint32_t k = std::min(candidate_count, fan_in_cap);
-            if (candidate_count > k) {
-                std::partial_sort(
-                    candidate_entries.begin(),
-                    candidate_entries.begin() + k,
-                    candidate_entries.end(),
-                    [](const ProbeLightEntry& a, const ProbeLightEntry& b) {
-                        return a.total_importance > b.total_importance;
+            // Sort descending by static importance
+            std::sort(
+                candidate_entries.begin(),
+                candidate_entries.end(),
+                [](const ProbeLightEntry& a, const ProbeLightEntry& b) {
+                    return a.total_importance > b.total_importance;
+                }
+            );
+
+            // Determine retention count k based on mode
+            uint32_t k = 0;
+            if (retention_mode == RETENTION_UNLIMITED) {
+                k = candidate_count;
+            } else if (retention_mode == RETENTION_ADAPTIVE_ENERGY) {
+                // Adaptive Energy Retention (Part 17): min K = 8, max K = 128
+                double accumulated_energy = 0.0;
+                double threshold = total_probe_energy * (target_energy_pct / 100.0);
+                uint32_t min_k = std::min(8u, candidate_count);
+                uint32_t max_k = std::min(128u, candidate_count);
+
+                for (uint32_t i = 0; i < candidate_count; ++i) {
+                    accumulated_energy += candidate_entries[i].total_importance;
+                    if ((accumulated_energy >= threshold && i + 1 >= min_k) || (i + 1 >= max_k)) {
+                        k = i + 1;
+                        break;
                     }
-                );
+                }
+                if (k == 0) k = candidate_count;
+            } else {
+                // Fixed Top-K
+                k = std::min(candidate_count, fan_in_cap);
             }
 
-            // Retain top K entries
+            // Retain top k entries
             for (uint32_t i = 0; i < k; ++i) {
                 const auto& entry = candidate_entries[i];
                 ProbeLightContribution plc;
@@ -591,6 +783,7 @@ public:
                 persistent_contributions.push_back(plc);
 
                 ASTGProbeDepositionLink dep_link;
+                dep_link.link_id = (uint32_t)probe_deposition_links.size();
                 dep_link.source_node_id = entry.source_node_id;
                 dep_link.target_probe_id = (uint32_t)p;
                 dep_link.source_light_id = entry.source_light_id;
@@ -598,6 +791,7 @@ public:
                 dep_link.transfer_g = entry.transfer_g;
                 dep_link.transfer_b = entry.transfer_b;
                 dep_link.importance = entry.total_importance;
+                dep_link.is_active = true;
                 probe_deposition_links.push_back(dep_link);
             }
 
@@ -623,17 +817,151 @@ public:
         used_real_material_mapping = true;
         used_real_light_source_ids = true;
 
-        std::cout << "✅ [ASTGTransportEngine] Transport Discovery Completed (Top-K Retained):\n";
-        std::cout << "  • Discovery Light Coverage:   " << std::fixed << std::setprecision(2) << discovery_light_coverage_pct << "% (Lights with hits)\n";
-        std::cout << "  • Discovery Ray Hit Rate:     " << std::setprecision(4) << discovery_ray_hit_rate_pct << "% (Traced rays that hit)\n";
-        std::cout << "  • Bounce 0 Nodes:             " << bounce0_nodes.size() << "\n";
-        std::cout << "  • Bounce 1 Nodes:             " << bounce1_nodes.size() << "\n";
-        std::cout << "  • DAG Edges (Node->Node):     " << dag_edges.size() << "\n";
-        std::cout << "  • Probe Deposition Links:     " << probe_deposition_links.size() << "\n";
-        std::cout << "  • Persistent Contributions:   " << persistent_contributions.size() << "\n";
-        std::cout << "  • Candidate Contributions:    " << total_candidate_contributions << "\n";
-        std::cout << "  • Pruned Contributions:       " << total_pruned_contributions << "\n\n";
-
         return (bounce0_nodes.size() > 0 && persistent_contributions.size() > 0);
+    }
+
+    // =========================================================================
+    // PART 6, 7, 15: INCREMENTAL REPAIR & SURGICAL REGROWTH ALGORITHM
+    // =========================================================================
+    bool repair_geometry_change(uint32_t destroyed_chunk_id, uint32_t repair_ray_budget = 4096) {
+        current_geometry_generation++;
+
+        // 1. Look up Reverse Chunk Dependencies (Part 3)
+        auto it = chunk_dependencies.find(destroyed_chunk_id);
+        if (it == chunk_dependencies.end()) {
+            return true; // No ASTG structures depended on this chunk
+        }
+
+        const auto& dep_list = it->second;
+
+        // 2. Invalidate affected transport nodes and attached probes
+        std::unordered_set<uint32_t> invalidated_nodes;
+        for (uint32_t node_id : dep_list.transport_node_ids) {
+            if (node_id < bounce0_nodes.size()) {
+                bounce0_nodes[node_id].is_active = false;
+                invalidated_nodes.insert(node_id);
+            }
+        }
+
+        for (uint32_t p_id : dep_list.attached_probe_ids) {
+            if (p_id < probes.size()) {
+                probes[p_id].is_valid = false;
+            }
+        }
+
+        // 3. Invalidate dependent DAG edges and probe deposition links
+        for (auto& edge : dag_edges) {
+            if (invalidated_nodes.count(edge.parent_node_id)) {
+                edge.is_active = false;
+                if (edge.child_node_id < bounce1_nodes.size()) {
+                    // Check partial invalidation of multi-parent merged nodes (Part 15)
+                    auto& child = bounce1_nodes[edge.child_node_id];
+                    bool has_other_valid_parents = false;
+                    for (auto& pref : child.parent_refs) {
+                        if (pref.parent_node_id == edge.parent_node_id) {
+                            pref.is_valid = false;
+                        } else if (pref.is_valid) {
+                            has_other_valid_parents = true;
+                        }
+                    }
+                    if (!has_other_valid_parents) {
+                        child.is_active = false;
+                        invalidated_nodes.insert(child.node_id);
+                    }
+                }
+            }
+        }
+
+        for (auto& link : probe_deposition_links) {
+            if (invalidated_nodes.count(link.source_node_id)) {
+                link.is_active = false;
+            }
+        }
+
+        // 4. Retrieve Regeneration Anchors for BLOCKED_DESTRUCTIBLE paths (Part 6)
+        std::vector<ASTGRay> regrowth_rays;
+        std::vector<uint32_t> active_anchor_indices;
+
+        for (size_t a_idx = 0; a_idx < regeneration_anchors.size(); ++a_idx) {
+            auto& anchor = regeneration_anchors[a_idx];
+            if (anchor.blocking_chunk_id == destroyed_chunk_id && anchor.is_active) {
+                ASTGRay r;
+                r.origin_x = anchor.ray_origin.x;
+                r.origin_y = anchor.ray_origin.y;
+                r.origin_z = anchor.ray_origin.z;
+                r.dir_x = anchor.ray_direction.x;
+                r.dir_y = anchor.ray_direction.y;
+                r.dir_z = anchor.ray_direction.z;
+                r.t_min = anchor.t_min;
+                r.t_max = anchor.t_max;
+                r.source_light_id = anchor.source_light_id;
+                r.transport_node_id = anchor.parent_node_id;
+                r.angular_cell_id = anchor.angular_cell_id;
+                regrowth_rays.push_back(r);
+                active_anchor_indices.push_back((uint32_t)a_idx);
+                if (regrowth_rays.size() >= repair_ray_budget) break;
+            }
+        }
+
+        // 5. Retrace Reopened Cells on Updated Hardware RT TLAS
+        if (!regrowth_rays.empty()) {
+            std::vector<ASTGRayHit> regrowth_hits(regrowth_rays.size());
+            RTGPUTimings timings;
+            rtx_trace_rays_batch_with_timings(regrowth_rays.data(), regrowth_hits.data(), (uint32_t)regrowth_rays.size(), &timings);
+
+            for (size_t i = 0; i < regrowth_rays.size(); ++i) {
+                uint32_t a_idx = active_anchor_indices[i];
+                if (regrowth_hits[i].hit) {
+                    // Path reopened and struck new geometry: regrow transport node
+                    ASTGTransportNode new_node;
+                    new_node.node_id = (uint32_t)bounce0_nodes.size();
+                    new_node.source_light_id = regrowth_rays[i].source_light_id;
+                    new_node.angular_cell_id = regrowth_rays[i].angular_cell_id;
+                    new_node.bounce_depth = 0;
+                    new_node.hit_primitive_id = regrowth_hits[i].primitive_id;
+                    new_node.surface_cluster_id = regrowth_hits[i].surface_cluster_id;
+                    new_node.destruction_chunk_id = regrowth_hits[i].destruction_chunk_id;
+                    new_node.material_id = regrowth_hits[i].material_id;
+                    new_node.position = { regrowth_hits[i].pos_x, regrowth_hits[i].pos_y, regrowth_hits[i].pos_z };
+                    new_node.geometric_normal = { regrowth_hits[i].normal_x, regrowth_hits[i].normal_y, regrowth_hits[i].normal_z };
+                    new_node.generation = current_geometry_generation;
+
+                    float dist = std::max(0.2f, regrowth_hits[i].distance);
+                    new_node.geometric_factor = 0.5f / (dist * dist + 1.0f);
+                    new_node.diffuse_albedo = 0.75f;
+                    new_node.termination_reason = TERMINATION_VISIBLE_SURFACE;
+                    new_node.is_active = true;
+                    bounce0_nodes.push_back(new_node);
+
+                    // Deposit into nearby compatible probes
+                    for (size_t p = 0; p < probes.size(); ++p) {
+                        if (!probes[p].is_valid) continue;
+                        float dx = new_node.position.x - probes[p].world_position.x;
+                        float dy = new_node.position.y - probes[p].world_position.y;
+                        float dz = new_node.position.z - probes[p].world_position.z;
+                        float d_sq = dx * dx + dy * dy + dz * dz;
+                        if (d_sq < 0.1225f) {
+                            float ndot = new_node.geometric_normal.x * probes[p].geometric_normal.x +
+                                         new_node.geometric_normal.y * probes[p].geometric_normal.y +
+                                         new_node.geometric_normal.z * probes[p].geometric_normal.z;
+                            if (ndot >= 0.8f) {
+                                float tf = (new_node.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
+                                ProbeLightContribution plc;
+                                plc.light_id = new_node.source_light_id;
+                                plc.transfer_r = tf * 0.95f;
+                                plc.transfer_g = tf * 0.85f;
+                                plc.transfer_b = tf * 0.70f;
+                                persistent_contributions.push_back(plc);
+                            }
+                        }
+                    }
+                } else {
+                    // Path opened into sky/empty space
+                    regeneration_anchors[a_idx].reason = TERMINATION_EMPTY_SPACE;
+                }
+            }
+        }
+
+        return true;
     }
 };

@@ -1,5 +1,6 @@
 buffer_name,type,capacity,used_32,used_512,used_128k,utilization_pct_128k,saturated
 host_transport_node_vector,Host Heap Vector,Dynamic Unbounded,45,813,202749,N/A,NO
+host_regeneration_anchors,Host Heap Vector,Dynamic Unbounded,8,159,47572,N/A,NO
 gpu_ray_batch_buffer,DXR GPU StructuredBuffer,131072,16384,131072,131072,100.00% (Batch Streamed),NO
 gpu_light_static_buffer,GPU StructuredBuffer,131072,32,512,128000,97.66%,NO
 gpu_light_dynamic_buffer,GPU StructuredBuffer,131072,32,512,128000,97.66%,NO

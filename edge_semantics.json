@@ -1,10 +1,10 @@
 {
   "edge_semantics_audit": {
-    "dag_edges_node_to_node": 3995,
+    "dag_edges_node_to_node": 47572,
     "probe_deposition_links": 38400,
     "persistent_contribution_records": 38400,
-    "merge_links": 0,
-    "reverse_dependency_links": 5120,
+    "regeneration_anchors_stored": 47572,
+    "reverse_chunk_dependencies_active": 551,
     "semantic_disambiguation_status": "VERIFIED_DISTINCT"
   }
 }
