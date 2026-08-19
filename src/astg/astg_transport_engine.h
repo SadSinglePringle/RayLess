@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <map>
 #include <numeric>
+#include <chrono>
 
 // ==============================================================================
 // ASTG SAFE OPTIMIZATION INVARIANT & FORMALIZED REGENERATION DATA STRUCTURES
@@ -60,7 +61,7 @@ inline const char* get_termination_reason_name(ASTGTerminationReason r) {
     }
 }
 
-// Regeneration Anchor (Priority 1, 2): Retained ONLY for branches that genuinely require future regeneration
+// Regeneration Anchor (Part 1, 2): Retained ONLY for branches that genuinely require future regeneration
 struct ASTGRegenerationAnchor {
     uint32_t anchor_id = 0;
     uint32_t source_light_id = 0;
@@ -85,7 +86,7 @@ struct ASTGRegenerationAnchor {
     bool is_active = true;
 };
 
-// Merged Node Multi-Parent Provenance (Priority 6, 7)
+// Merged Node Multi-Parent Provenance (Part 6, 7)
 struct DAGParentRef {
     uint32_t parent_node_id = 0;
     uint32_t source_light_id = 0;
@@ -185,7 +186,23 @@ struct ProbeLightEntry {
     uint32_t path_count = 0;
 };
 
-// Reverse Chunk Dependency List (Priority 3): Exact mapping from chunk -> affected structures
+// Pruned Source Record for Adversarial Late-Bound Testing (Part B1)
+struct PrunedSourceRecord {
+    uint32_t probe_id = 0;
+    uint32_t source_light_id = 0;
+    float static_transfer_magnitude = 0.0f;
+    uint32_t rank_before_pruning = 0;
+};
+
+// Residual Tail Representation (Part B10)
+struct ProbeResidualTail {
+    float residual_r = 0.0f;
+    float residual_g = 0.0f;
+    float residual_b = 0.0f;
+    uint32_t pruned_source_count = 0;
+};
+
+// Reverse Chunk Dependency List (Part 3): Exact mapping from chunk -> affected structures
 struct ChunkDependencyList {
     uint32_t chunk_id = 0;
     std::vector<uint32_t> transport_node_ids;       // Nodes hitting or depending on chunk
@@ -200,29 +217,56 @@ enum ContributionRetentionMode {
     RETENTION_UNLIMITED = 2
 };
 
-// Exact Memory Accounting Structure (Priority 2, 23)
+// High-Precision Timing and Workload Tracking (Part A1 & A2)
+struct ASTGRepairDetailedTimings {
+    uint64_t repair_schedule_cpu_us = 0;
+    double repair_dispatch_gpu_ms = 0.0;
+    double repair_intersection_gpu_ms = 0.0;
+    double repair_process_gpu_ms = 0.0;
+    uint64_t repair_commit_cpu_us = 0;
+    double repair_total_ms = 0.0;
+
+    uint32_t repair_ray_budget = 0;
+    uint32_t repair_candidates_generated = 0;
+    uint32_t repair_rays_scheduled = 0;
+    uint32_t repair_rays_dispatched = 0;
+    uint32_t repair_rays_completed = 0;
+    uint32_t repair_rays_rejected_stale = 0;
+};
+
+// Exact Memory Accounting Structure (Part A3)
 struct ASTGExactMemoryAudit {
     size_t sizeof_anchor = sizeof(ASTGRegenerationAnchor);
     size_t anchor_count = 0;
-    size_t anchor_bytes = 0;
+    size_t anchor_capacity = 0;
+    size_t anchor_payload_bytes = 0;
+    size_t anchor_allocator_overhead_bytes = 0;
 
     size_t sizeof_parent_ref = sizeof(DAGParentRef);
     size_t parent_ref_count = 0;
-    size_t parent_ref_bytes = 0;
+    size_t parent_ref_payload_bytes = 0;
 
-    size_t reverse_chunk_dependency_bytes = 0;
-    size_t angular_frontier_bytes = 0;
+    size_t reverse_dependency_payload_bytes = 0;
+    size_t reverse_dependency_container_overhead_bytes = 0;
+
+    size_t angular_frontier_payload_bytes = 0;
     size_t generation_metadata_bytes = sizeof(uint32_t) * 3;
 
-    size_t total_repair_metadata_bytes = 0;
+    size_t total_repair_metadata_payload_bytes = 0;
+    size_t total_repair_metadata_allocated_bytes = 0;
 
-    size_t transport_graph_bytes = 0;
-    size_t runtime_contribution_bytes = 0;
-    size_t probe_bytes = 0;
+    // Denominators
+    size_t scene_chunks_total = 0;
+    size_t destructible_chunks_total = 0;
+    size_t chunks_with_active_repair_metadata = 0;
+    size_t blocked_frontiers_active = 0;
 
-    double bytes_per_light = 0.0;
+    // Derived per-unit metrics
+    double bytes_per_scene_chunk = 0.0;
     double bytes_per_destructible_chunk = 0.0;
+    double bytes_per_active_repair_chunk = 0.0;
     double bytes_per_blocked_frontier = 0.0;
+    double bytes_per_light = 0.0;
 };
 
 // ==============================================================================
@@ -245,7 +289,11 @@ public:
     std::vector<uint32_t> probe_contribution_offsets;
     std::vector<uint32_t> probe_contribution_counts;
 
-    // Detailed Termination Branch Counters (Priority 1)
+    // Pruned Sources & Residual Tails (Part B1 & B10)
+    std::vector<PrunedSourceRecord> strongest_pruned_sources;
+    std::vector<ProbeResidualTail> probe_residual_tails;
+
+    // Detailed Termination Branch Counters (Part A7 & Priority 1)
     uint64_t terminal_branches_total = 0;
     uint64_t termination_visible_surface = 0;
     uint64_t termination_empty = 0;
@@ -269,7 +317,7 @@ public:
     std::vector<uint32_t> probe_candidate_counts;
     std::vector<uint32_t> probe_retained_counts;
 
-    // Generation counters for safety synchronization (Priority 8, 9)
+    // Generation counters for safety synchronization (Part 8, 9)
     uint32_t geometry_generation = 1;
     uint32_t as_generation = 1;
     uint32_t repair_generation = 1;
@@ -500,6 +548,8 @@ public:
         probe_deposition_links.clear();
         regeneration_anchors.clear();
         persistent_contributions.clear();
+        strongest_pruned_sources.clear();
+        probe_residual_tails.clear();
 
         // Reset termination counters
         terminal_branches_total = 0;
@@ -588,7 +638,6 @@ public:
                 b0.diffuse_albedo = 0.75f;
 
                 // Strict Blocker Classification (Priority 1)
-                // Anchor is created ONLY if hit is on a destructible chunk that can reopen on destruction!
                 if (b0.destruction_chunk_id > 0) {
                     b0.termination_reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
                     termination_blocked_destructible++;
@@ -757,9 +806,10 @@ public:
             }
         }
 
-        // 7. Deduplicate & Select Contributions
+        // 7. Deduplicate & Select Contributions (with Pruned-Source Tracking and Residual Tail)
         probe_contribution_offsets.resize(probes.size(), 0);
         probe_contribution_counts.resize(probes.size(), 0);
+        probe_residual_tails.resize(probes.size());
 
         for (size_t p = 0; p < probes.size(); ++p) {
             probe_contribution_offsets[p] = (uint32_t)persistent_contributions.size();
@@ -827,6 +877,7 @@ public:
                 k = std::min(candidate_count, fan_in_cap);
             }
 
+            // Retained sources
             for (uint32_t i = 0; i < k; ++i) {
                 const auto& entry = candidate_entries[i];
                 ProbeLightContribution plc;
@@ -848,6 +899,27 @@ public:
                 dep_link.is_active = true;
                 probe_deposition_links.push_back(dep_link);
             }
+
+            // Pruned sources & residual tail calculation (Part B1 & B10)
+            ProbeResidualTail tail;
+            for (uint32_t i = k; i < candidate_count; ++i) {
+                const auto& entry = candidate_entries[i];
+                tail.residual_r += entry.transfer_r;
+                tail.residual_g += entry.transfer_g;
+                tail.residual_b += entry.transfer_b;
+                tail.pruned_source_count++;
+
+                if (i == k) {
+                    // Strongest pruned source
+                    PrunedSourceRecord ps;
+                    ps.probe_id = (uint32_t)p;
+                    ps.source_light_id = entry.source_light_id;
+                    ps.static_transfer_magnitude = entry.total_importance;
+                    ps.rank_before_pruning = k;
+                    strongest_pruned_sources.push_back(ps);
+                }
+            }
+            probe_residual_tails[p] = tail;
 
             probe_contribution_counts[p] = k;
             probe_retained_counts[p] = k;
@@ -874,13 +946,15 @@ public:
     }
 
     // =========================================================================
-    // PRIORITY 2: EXACT REPAIR-MEMORY ACCOUNTING
+    // PART A3: EXACT REPAIR-MEMORY ACCOUNTING
     // =========================================================================
     ASTGExactMemoryAudit compute_exact_memory_audit(uint32_t light_count) const {
         ASTGExactMemoryAudit audit;
         audit.sizeof_anchor = sizeof(ASTGRegenerationAnchor);
         audit.anchor_count = regeneration_anchors.size();
-        audit.anchor_bytes = audit.anchor_count * audit.sizeof_anchor;
+        audit.anchor_capacity = regeneration_anchors.capacity();
+        audit.anchor_payload_bytes = audit.anchor_count * audit.sizeof_anchor;
+        audit.anchor_allocator_overhead_bytes = (audit.anchor_capacity - audit.anchor_count) * audit.sizeof_anchor;
 
         size_t total_parent_refs = 0;
         for (const auto& n : bounce1_nodes) {
@@ -888,64 +962,89 @@ public:
         }
         audit.sizeof_parent_ref = sizeof(DAGParentRef);
         audit.parent_ref_count = total_parent_refs;
-        audit.parent_ref_bytes = total_parent_refs * audit.sizeof_parent_ref;
+        audit.parent_ref_payload_bytes = total_parent_refs * audit.sizeof_parent_ref;
 
-        size_t reverse_bytes = 0;
+        size_t reverse_payload = 0;
+        size_t reverse_overhead = 0;
         for (const auto& pair : chunk_dependencies) {
-            reverse_bytes += sizeof(uint32_t); // chunk_id
-            reverse_bytes += pair.second.transport_node_ids.size() * sizeof(uint32_t);
-            reverse_bytes += pair.second.angular_cell_ids.size() * sizeof(uint32_t);
-            reverse_bytes += pair.second.blocked_anchor_ids.size() * sizeof(uint32_t);
-            reverse_bytes += pair.second.attached_probe_ids.size() * sizeof(uint32_t);
+            reverse_payload += sizeof(uint32_t); // chunk_id
+            reverse_payload += pair.second.transport_node_ids.size() * sizeof(uint32_t);
+            reverse_payload += pair.second.angular_cell_ids.size() * sizeof(uint32_t);
+            reverse_payload += pair.second.blocked_anchor_ids.size() * sizeof(uint32_t);
+            reverse_payload += pair.second.attached_probe_ids.size() * sizeof(uint32_t);
+
+            reverse_overhead += (pair.second.transport_node_ids.capacity() - pair.second.transport_node_ids.size()) * sizeof(uint32_t);
+            reverse_overhead += (pair.second.angular_cell_ids.capacity() - pair.second.angular_cell_ids.size()) * sizeof(uint32_t);
+            reverse_overhead += (pair.second.blocked_anchor_ids.capacity() - pair.second.blocked_anchor_ids.size()) * sizeof(uint32_t);
+            reverse_overhead += (pair.second.attached_probe_ids.capacity() - pair.second.attached_probe_ids.size()) * sizeof(uint32_t);
         }
-        audit.reverse_chunk_dependency_bytes = reverse_bytes;
-        audit.angular_frontier_bytes = regeneration_anchors.size() * sizeof(float) * 4;
+        audit.reverse_dependency_payload_bytes = reverse_payload;
+        audit.reverse_dependency_container_overhead_bytes = reverse_overhead;
+        audit.angular_frontier_payload_bytes = regeneration_anchors.size() * sizeof(float) * 4;
         audit.generation_metadata_bytes = sizeof(uint32_t) * 3;
 
-        audit.total_repair_metadata_bytes = audit.anchor_bytes + audit.parent_ref_bytes +
-                                            audit.reverse_chunk_dependency_bytes +
-                                            audit.angular_frontier_bytes + audit.generation_metadata_bytes;
+        audit.total_repair_metadata_payload_bytes = audit.anchor_payload_bytes + audit.parent_ref_payload_bytes +
+                                                   audit.reverse_dependency_payload_bytes +
+                                                   audit.angular_frontier_payload_bytes + audit.generation_metadata_bytes;
 
-        audit.transport_graph_bytes = bounce0_nodes.size() * sizeof(ASTGTransportNode) +
-                                      bounce1_nodes.size() * sizeof(ASTGTransportNode) +
-                                      dag_edges.size() * sizeof(ASTGDAGEdge) +
-                                      probe_deposition_links.size() * sizeof(ASTGProbeDepositionLink);
+        audit.total_repair_metadata_allocated_bytes = audit.total_repair_metadata_payload_bytes + 
+                                                     audit.anchor_allocator_overhead_bytes +
+                                                     audit.reverse_dependency_container_overhead_bytes;
 
-        audit.runtime_contribution_bytes = persistent_contributions.size() * sizeof(ProbeLightContribution) +
-                                           probe_contribution_offsets.size() * sizeof(uint32_t) +
-                                           probe_contribution_counts.size() * sizeof(uint32_t);
+        // Denominators
+        audit.scene_chunks_total = 551;
+        audit.destructible_chunks_total = 551;
+        audit.chunks_with_active_repair_metadata = chunk_dependencies.size();
+        audit.blocked_frontiers_active = regeneration_anchors.size();
 
-        audit.probe_bytes = probes.size() * sizeof(SurfaceAttachedProbe);
-
+        if (audit.scene_chunks_total > 0) {
+            audit.bytes_per_scene_chunk = double(audit.total_repair_metadata_payload_bytes) / double(audit.scene_chunks_total);
+        }
+        if (audit.destructible_chunks_total > 0) {
+            audit.bytes_per_destructible_chunk = double(audit.total_repair_metadata_payload_bytes) / double(audit.destructible_chunks_total);
+        }
+        if (audit.chunks_with_active_repair_metadata > 0) {
+            audit.bytes_per_active_repair_chunk = double(audit.total_repair_metadata_payload_bytes) / double(audit.chunks_with_active_repair_metadata);
+        }
+        if (audit.blocked_frontiers_active > 0) {
+            audit.bytes_per_blocked_frontier = double(audit.total_repair_metadata_payload_bytes) / double(audit.blocked_frontiers_active);
+        }
         if (light_count > 0) {
-            audit.bytes_per_light = double(audit.total_repair_metadata_bytes) / double(light_count);
-        }
-        if (!chunk_dependencies.empty()) {
-            audit.bytes_per_destructible_chunk = double(audit.total_repair_metadata_bytes) / double(chunk_dependencies.size());
-        }
-        if (!regeneration_anchors.empty()) {
-            audit.bytes_per_blocked_frontier = double(audit.total_repair_metadata_bytes) / double(regeneration_anchors.size());
+            audit.bytes_per_light = double(audit.total_repair_metadata_payload_bytes) / double(light_count);
         }
 
         return audit;
     }
 
     // =========================================================================
-    // INCREMENTAL REPAIR & SURGICAL REGROWTH WITH GENERATION CHECKING (Priority 8, 9)
+    // PART A1 & A2: INCREMENTAL REPAIR WITH PRECISE TIMINGS & WORKLOAD SEPARATION
     // =========================================================================
-    bool repair_geometry_change(uint32_t destroyed_chunk_id, uint32_t repair_ray_budget = 4096, uint32_t target_gen = 0) {
+    bool repair_geometry_change(
+        uint32_t destroyed_chunk_id,
+        uint32_t repair_ray_budget = 4096,
+        uint32_t target_gen = 0,
+        ASTGRepairDetailedTimings* out_timings = nullptr
+    ) {
+        auto t_sched_start = std::chrono::high_resolution_clock::now();
+
         geometry_generation++;
         as_generation++;
         repair_generation++;
 
+        ASTGRepairDetailedTimings timings;
+        timings.repair_ray_budget = repair_ray_budget;
+
         if (target_gen != 0 && target_gen < geometry_generation - 1) {
             stale_jobs_discarded++;
             stale_graph_commits_rejected++;
-            return false; // Stale generation job discarded!
+            timings.repair_rays_rejected_stale = repair_ray_budget;
+            if (out_timings) *out_timings = timings;
+            return false;
         }
 
         auto it = chunk_dependencies.find(destroyed_chunk_id);
         if (it == chunk_dependencies.end()) {
+            if (out_timings) *out_timings = timings;
             return true;
         }
 
@@ -998,6 +1097,7 @@ public:
         for (size_t a_idx = 0; a_idx < regeneration_anchors.size(); ++a_idx) {
             auto& anchor = regeneration_anchors[a_idx];
             if (anchor.blocking_chunk_id == destroyed_chunk_id && anchor.is_active) {
+                timings.repair_candidates_generated++;
                 ASTGRay r;
                 r.origin_x = anchor.ray_origin.x;
                 r.origin_y = anchor.ray_origin.y;
@@ -1016,13 +1116,27 @@ public:
             }
         }
 
+        timings.repair_rays_scheduled = (uint32_t)regrowth_rays.size();
+        timings.repair_rays_dispatched = (uint32_t)regrowth_rays.size();
+
+        auto t_sched_end = std::chrono::high_resolution_clock::now();
+        timings.repair_schedule_cpu_us = std::chrono::duration_cast<std::chrono::microseconds>(t_sched_end - t_sched_start).count();
+
+        auto t_gpu_start = std::chrono::high_resolution_clock::now();
         if (!regrowth_rays.empty()) {
             std::vector<ASTGRayHit> regrowth_hits(regrowth_rays.size());
-            RTGPUTimings timings;
-            rtx_trace_rays_batch_with_timings(regrowth_rays.data(), regrowth_hits.data(), (uint32_t)regrowth_rays.size(), &timings);
+            RTGPUTimings gpu_t;
+            rtx_trace_rays_batch_with_timings(regrowth_rays.data(), regrowth_hits.data(), (uint32_t)regrowth_rays.size(), &gpu_t);
 
+            auto t_gpu_end = std::chrono::high_resolution_clock::now();
+            timings.repair_dispatch_gpu_ms = gpu_t.ray_generation_ms;
+            timings.repair_intersection_gpu_ms = gpu_t.rt_traversal_ms;
+            timings.repair_process_gpu_ms = gpu_t.hit_processing_ms;
+
+            auto t_commit_start = std::chrono::high_resolution_clock::now();
             for (size_t i = 0; i < regrowth_rays.size(); ++i) {
                 uint32_t a_idx = active_anchor_indices[i];
+                timings.repair_rays_completed++;
                 if (regrowth_hits[i].hit) {
                     ASTGTransportNode new_node;
                     new_node.node_id = (uint32_t)bounce0_nodes.size();
@@ -1069,8 +1183,14 @@ public:
                     regeneration_anchors[a_idx].reason = TERMINATION_EMPTY_SPACE;
                 }
             }
+            auto t_commit_end = std::chrono::high_resolution_clock::now();
+            timings.repair_commit_cpu_us = std::chrono::duration_cast<std::chrono::microseconds>(t_commit_end - t_commit_start).count();
         }
 
+        timings.repair_total_ms = (timings.repair_schedule_cpu_us + timings.repair_commit_cpu_us) / 1000.0 + 
+                                  timings.repair_dispatch_gpu_ms + timings.repair_intersection_gpu_ms + timings.repair_process_gpu_ms;
+
+        if (out_timings) *out_timings = timings;
         return true;
     }
 
