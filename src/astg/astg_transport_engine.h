@@ -60,7 +60,7 @@ inline const char* get_termination_reason_name(ASTGTerminationReason r) {
     }
 }
 
-// Regeneration Anchor (Part 1, 2): Retained for any branch that can reopen on world changes
+// Regeneration Anchor (Priority 1, 2): Retained ONLY for branches that genuinely require future regeneration
 struct ASTGRegenerationAnchor {
     uint32_t anchor_id = 0;
     uint32_t source_light_id = 0;
@@ -81,10 +81,11 @@ struct ASTGRegenerationAnchor {
 
     ASTGTerminationReason reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
     uint32_t geometry_generation = 1;
+    uint32_t as_generation = 1;
     bool is_active = true;
 };
 
-// Merged Node Multi-Parent Provenance (Part 14, 15)
+// Merged Node Multi-Parent Provenance (Priority 6, 7)
 struct DAGParentRef {
     uint32_t parent_node_id = 0;
     uint32_t source_light_id = 0;
@@ -184,7 +185,7 @@ struct ProbeLightEntry {
     uint32_t path_count = 0;
 };
 
-// Reverse Chunk Dependency List (Part 3): Exact mapping from chunk -> affected structures
+// Reverse Chunk Dependency List (Priority 3): Exact mapping from chunk -> affected structures
 struct ChunkDependencyList {
     uint32_t chunk_id = 0;
     std::vector<uint32_t> transport_node_ids;       // Nodes hitting or depending on chunk
@@ -199,6 +200,31 @@ enum ContributionRetentionMode {
     RETENTION_UNLIMITED = 2
 };
 
+// Exact Memory Accounting Structure (Priority 2, 23)
+struct ASTGExactMemoryAudit {
+    size_t sizeof_anchor = sizeof(ASTGRegenerationAnchor);
+    size_t anchor_count = 0;
+    size_t anchor_bytes = 0;
+
+    size_t sizeof_parent_ref = sizeof(DAGParentRef);
+    size_t parent_ref_count = 0;
+    size_t parent_ref_bytes = 0;
+
+    size_t reverse_chunk_dependency_bytes = 0;
+    size_t angular_frontier_bytes = 0;
+    size_t generation_metadata_bytes = sizeof(uint32_t) * 3;
+
+    size_t total_repair_metadata_bytes = 0;
+
+    size_t transport_graph_bytes = 0;
+    size_t runtime_contribution_bytes = 0;
+    size_t probe_bytes = 0;
+
+    double bytes_per_light = 0.0;
+    double bytes_per_destructible_chunk = 0.0;
+    double bytes_per_blocked_frontier = 0.0;
+};
+
 // ==============================================================================
 // ASTG TRANSPORT ENGINE (SAFE OPTIMIZED & REGENERABLE)
 // ==============================================================================
@@ -208,16 +234,29 @@ public:
     std::vector<ASTGTransportNode> bounce0_nodes;
     std::vector<ASTGTransportNode> bounce1_nodes;
 
-    // Disambiguated Graph Collections (Part 1, 2, 3)
+    // Disambiguated Graph Collections
     std::vector<ASTGDAGEdge> dag_edges;                                    // Node -> Node edges
     std::vector<ASTGProbeDepositionLink> probe_deposition_links;           // Node -> Probe links
     std::vector<ASTGRegenerationAnchor> regeneration_anchors;              // Blocker regeneration anchors
     std::unordered_map<uint32_t, ChunkDependencyList> chunk_dependencies; // Chunk -> ASTG structures
 
-    // Persistent CSR Transfer Matrix (Runtime Representation - Part 40)
+    // Persistent CSR Transfer Matrix (Runtime Representation)
     std::vector<ProbeLightContribution> persistent_contributions;
     std::vector<uint32_t> probe_contribution_offsets;
     std::vector<uint32_t> probe_contribution_counts;
+
+    // Detailed Termination Branch Counters (Priority 1)
+    uint64_t terminal_branches_total = 0;
+    uint64_t termination_visible_surface = 0;
+    uint64_t termination_empty = 0;
+    uint64_t termination_low_energy = 0;
+    uint64_t termination_merged = 0;
+    uint64_t termination_blocked_static = 0;
+    uint64_t termination_blocked_destructible = 0;
+    uint64_t termination_max_depth = 0;
+    uint64_t termination_probe_terminated = 0;
+    uint64_t regeneration_anchors_created = 0;
+    uint64_t regeneration_anchors_active = 0;
 
     // Telemetry and Scaling Metrics
     uint64_t total_candidate_contributions = 0;
@@ -225,13 +264,20 @@ public:
     uint64_t total_pruned_contributions = 0;
     uint64_t total_discovery_rays_traced = 0;
     uint64_t total_discovery_rays_hit = 0;
-    double discovery_light_coverage_pct = 0.0; // Lights with >= 1 hit / total lights
-    double discovery_ray_hit_rate_pct = 0.0;    // Hit rays / total rays
+    double discovery_light_coverage_pct = 0.0;
+    double discovery_ray_hit_rate_pct = 0.0;
     std::vector<uint32_t> probe_candidate_counts;
     std::vector<uint32_t> probe_retained_counts;
 
-    // Generation counter for state synchronization (Part 35)
-    uint32_t current_geometry_generation = 1;
+    // Generation counters for safety synchronization (Priority 8, 9)
+    uint32_t geometry_generation = 1;
+    uint32_t as_generation = 1;
+    uint32_t repair_generation = 1;
+
+    // Stale generation attack tracking
+    uint64_t stale_jobs_discarded = 0;
+    uint64_t stale_hits_rejected = 0;
+    uint64_t stale_graph_commits_rejected = 0;
 
     // Execution path authenticity flags
     bool used_real_geometry = false;
@@ -262,13 +308,11 @@ public:
             const RTXVertex& v1 = scene.vertices[i1];
             const RTXVertex& v2 = scene.vertices[i2];
 
-            // Sample center of triangle via barycentrics (1/3, 1/3, 1/3)
             float u = 0.333f, v = 0.333f, w = 1.0f - u - v;
             float px = v0.px * w + v1.px * u + v2.px * v;
             float py = v0.py * w + v1.py * u + v2.py * v;
             float pz = v0.pz * w + v1.pz * u + v2.pz * v;
 
-            // Compute true geometric normal from triangle edges
             float e1x = v1.px - v0.px, e1y = v1.py - v0.py, e1z = v1.pz - v0.pz;
             float e2x = v2.px - v0.px, e2y = v2.py - v0.py, e2z = v2.pz - v0.pz;
             float nx = e1y * e2z - e1z * e2y;
@@ -289,7 +333,7 @@ public:
             probe.primitive_id = t;
             probe.barycentric_u = u;
             probe.barycentric_v = v;
-            probe.world_position = { px + nx * 0.06f, py + ny * 0.06f, pz + nz * 0.06f }; // 0.06m standoff
+            probe.world_position = { px + nx * 0.06f, py + ny * 0.06f, pz + nz * 0.06f };
             probe.geometric_normal = { nx, ny, nz };
             probe.surface_cluster_id = scene.metadata[t].surface_cluster_id;
             probe.destruction_chunk_id = scene.metadata[t].destruction_chunk_id;
@@ -300,7 +344,6 @@ public:
 
             probes.push_back(probe);
 
-            // Register attached probe in chunk dependencies (Part 3)
             if (probe.destruction_chunk_id > 0) {
                 chunk_dependencies[probe.destruction_chunk_id].chunk_id = probe.destruction_chunk_id;
                 chunk_dependencies[probe.destruction_chunk_id].attached_probe_ids.push_back(p_id);
@@ -315,7 +358,7 @@ public:
         return (probes.size() > 0);
     }
 
-    // 2. Scene-Aware Valid Light Placement (Rejects inside-geometry & unilluminable positions)
+    // 2. Scene-Aware Valid Light Placement
     static void generate_scene_valid_lights(
         const ParsedSceneGeometry& scene,
         uint32_t target_count,
@@ -358,7 +401,6 @@ public:
             if (len > 1e-4f) { nx /= len; ny /= len; nz /= len; }
             else { nx = 0.0f; ny = 1.0f; nz = 0.0f; }
 
-            // Standoff light 1.2m above surface along normal
             RTXVector3 light_pos = { pos.x + nx * 1.2f, pos.y + ny * 1.2f, pos.z + nz * 1.2f };
 
             if (light_pos.x >= scene.aabb_min.x && light_pos.x <= scene.aabb_max.x &&
@@ -442,7 +484,7 @@ public:
         }
     }
 
-    // 3. Execute Transport Discovery with Regeneration Anchors & Adaptive Energy Retention
+    // 3. Execute Transport Discovery with Strict Anchor Semantics & Regeneration Verification
     bool execute_transport_discovery(
         const std::vector<LightStatic>& lights,
         const ParsedSceneGeometry& scene,
@@ -459,11 +501,23 @@ public:
         regeneration_anchors.clear();
         persistent_contributions.clear();
 
+        // Reset termination counters
+        terminal_branches_total = 0;
+        termination_visible_surface = 0;
+        termination_empty = 0;
+        termination_low_energy = 0;
+        termination_merged = 0;
+        termination_blocked_static = 0;
+        termination_blocked_destructible = 0;
+        termination_max_depth = 0;
+        termination_probe_terminated = 0;
+        regeneration_anchors_created = 0;
+        regeneration_anchors_active = 0;
+
         if (lights.empty() || probes.empty()) return false;
 
-        // Hierarchical Adaptive Discovery (Part 4, 11)
         uint32_t effective_rays_per_light = rays_per_light;
-        if (optimize_discovery && lights.size() >= 4096) {
+        if (optimize_discovery) {
             effective_rays_per_light = 64;
         }
 
@@ -503,13 +557,14 @@ public:
             rtx_trace_rays_batch_with_timings(&disc_rays[b_start], &disc_hits[b_start], cur_batch, &timings);
         }
 
-        // 4. Process Direct Hits, Classify Blockers & Store Regeneration Anchors (Part 1, 2, 3)
+        // 4. Process Direct Hits, Classify Termination & Store Regeneration Anchors
         uint32_t node_counter = 0;
         uint32_t anchor_counter = 0;
         std::unordered_map<uint32_t, std::vector<ASTGTransportNode>> light_to_b0_map;
         total_discovery_rays_hit = 0;
 
         for (uint32_t i = 0; i < total_discovery_rays; ++i) {
+            terminal_branches_total++;
             if (disc_hits[i].hit) {
                 total_discovery_rays_hit++;
                 ASTGTransportNode b0;
@@ -523,7 +578,7 @@ public:
                 b0.material_id = disc_hits[i].material_id;
                 b0.position = { disc_hits[i].pos_x, disc_hits[i].pos_y, disc_hits[i].pos_z };
                 b0.geometric_normal = { disc_hits[i].normal_x, disc_hits[i].normal_y, disc_hits[i].normal_z };
-                b0.generation = current_geometry_generation;
+                b0.generation = geometry_generation;
 
                 float dist = std::max(0.2f, disc_hits[i].distance);
                 float ndotl = std::max(0.05f, -(disc_rays[i].dir_x * b0.geometric_normal.x + 
@@ -532,11 +587,12 @@ public:
                 b0.geometric_factor = ndotl / (dist * dist + 1.0f);
                 b0.diffuse_albedo = 0.75f;
 
-                // Blocker Classification (Part 2)
+                // Strict Blocker Classification (Priority 1)
+                // Anchor is created ONLY if hit is on a destructible chunk that can reopen on destruction!
                 if (b0.destruction_chunk_id > 0) {
                     b0.termination_reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
+                    termination_blocked_destructible++;
 
-                    // Create and preserve Regeneration Anchor for destructible frontier (Part 1, 2)
                     ASTGRegenerationAnchor anchor;
                     anchor.anchor_id = anchor_counter++;
                     anchor.source_light_id = b0.source_light_id;
@@ -549,11 +605,13 @@ public:
                     anchor.t_min = disc_rays[i].t_min;
                     anchor.t_max = disc_rays[i].t_max;
                     anchor.reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
-                    anchor.geometry_generation = current_geometry_generation;
+                    anchor.geometry_generation = geometry_generation;
+                    anchor.as_generation = as_generation;
                     anchor.is_active = true;
                     regeneration_anchors.push_back(anchor);
+                    regeneration_anchors_created++;
+                    regeneration_anchors_active++;
 
-                    // Register in reverse chunk dependency map (Part 3)
                     auto& dep = chunk_dependencies[b0.destruction_chunk_id];
                     dep.chunk_id = b0.destruction_chunk_id;
                     dep.transport_node_ids.push_back(b0.node_id);
@@ -561,10 +619,13 @@ public:
                     dep.blocked_anchor_ids.push_back(anchor.anchor_id);
                 } else {
                     b0.termination_reason = TERMINATION_VISIBLE_SURFACE;
+                    termination_visible_surface++;
                 }
 
                 bounce0_nodes.push_back(b0);
                 light_to_b0_map[b0.source_light_id].push_back(b0);
+            } else {
+                termination_empty++;
             }
         }
 
@@ -619,14 +680,13 @@ public:
                     b1.material_id = b1_hits[i].material_id;
                     b1.position = { b1_hits[i].pos_x, b1_hits[i].pos_y, b1_hits[i].pos_z };
                     b1.geometric_normal = { b1_hits[i].normal_x, b1_hits[i].normal_y, b1_hits[i].normal_z };
-                    b1.generation = current_geometry_generation;
+                    b1.generation = geometry_generation;
 
                     float dist = std::max(0.5f, b1_hits[i].distance);
                     b1.geometric_factor = 0.5f / (dist * dist + 1.0f);
                     b1.diffuse_albedo = 0.70f;
                     b1.termination_reason = (b1.destruction_chunk_id > 0) ? TERMINATION_BLOCKED_DESTRUCTIBLE : TERMINATION_VISIBLE_SURFACE;
 
-                    // Track parent reference for DAG merging (Part 14)
                     DAGParentRef pref;
                     pref.parent_node_id = bounce1_rays[i].transport_node_id;
                     pref.source_light_id = b1.source_light_id;
@@ -636,7 +696,6 @@ public:
 
                     bounce1_nodes.push_back(b1);
 
-                    // Authentic DAG Edge
                     ASTGDAGEdge dag_edge;
                     dag_edge.edge_id = (uint32_t)dag_edges.size();
                     dag_edge.parent_node_id = bounce1_rays[i].transport_node_id;
@@ -682,7 +741,7 @@ public:
 
                     if (ndot >= 0.8f) {
                         float tf = (b0.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                        float importance = tf * ndot; // Pure static transfer potential (Part 23)
+                        float importance = tf * ndot;
 
                         ProbeDepositCandidate cand;
                         cand.source_light_id = b0.source_light_id;
@@ -698,7 +757,7 @@ public:
             }
         }
 
-        // 7. Deduplicate & Select Contributions (Top-K vs Adaptive Energy Retention - Part 17, 18, 20)
+        // 7. Deduplicate & Select Contributions
         probe_contribution_offsets.resize(probes.size(), 0);
         probe_contribution_counts.resize(probes.size(), 0);
 
@@ -739,7 +798,6 @@ public:
             probe_candidate_counts[p] = candidate_count;
             total_candidate_contributions += candidate_count;
 
-            // Sort descending by static importance
             std::sort(
                 candidate_entries.begin(),
                 candidate_entries.end(),
@@ -748,12 +806,10 @@ public:
                 }
             );
 
-            // Determine retention count k based on mode
             uint32_t k = 0;
             if (retention_mode == RETENTION_UNLIMITED) {
                 k = candidate_count;
             } else if (retention_mode == RETENTION_ADAPTIVE_ENERGY) {
-                // Adaptive Energy Retention (Part 17): min K = 8, max K = 128
                 double accumulated_energy = 0.0;
                 double threshold = total_probe_energy * (target_energy_pct / 100.0);
                 uint32_t min_k = std::min(8u, candidate_count);
@@ -768,11 +824,9 @@ public:
                 }
                 if (k == 0) k = candidate_count;
             } else {
-                // Fixed Top-K
                 k = std::min(candidate_count, fan_in_cap);
             }
 
-            // Retain top k entries
             for (uint32_t i = 0; i < k; ++i) {
                 const auto& entry = candidate_entries[i];
                 ProbeLightContribution plc;
@@ -804,7 +858,6 @@ public:
             probes[p].sample_count += k;
         }
 
-        // Upload persistent CSR contributions to GPU
         rtx_upload_probe_contributions(
             persistent_contributions.data(),
             (uint32_t)persistent_contributions.size(),
@@ -821,20 +874,83 @@ public:
     }
 
     // =========================================================================
-    // PART 6, 7, 15: INCREMENTAL REPAIR & SURGICAL REGROWTH ALGORITHM
+    // PRIORITY 2: EXACT REPAIR-MEMORY ACCOUNTING
     // =========================================================================
-    bool repair_geometry_change(uint32_t destroyed_chunk_id, uint32_t repair_ray_budget = 4096) {
-        current_geometry_generation++;
+    ASTGExactMemoryAudit compute_exact_memory_audit(uint32_t light_count) const {
+        ASTGExactMemoryAudit audit;
+        audit.sizeof_anchor = sizeof(ASTGRegenerationAnchor);
+        audit.anchor_count = regeneration_anchors.size();
+        audit.anchor_bytes = audit.anchor_count * audit.sizeof_anchor;
 
-        // 1. Look up Reverse Chunk Dependencies (Part 3)
+        size_t total_parent_refs = 0;
+        for (const auto& n : bounce1_nodes) {
+            total_parent_refs += n.parent_refs.size();
+        }
+        audit.sizeof_parent_ref = sizeof(DAGParentRef);
+        audit.parent_ref_count = total_parent_refs;
+        audit.parent_ref_bytes = total_parent_refs * audit.sizeof_parent_ref;
+
+        size_t reverse_bytes = 0;
+        for (const auto& pair : chunk_dependencies) {
+            reverse_bytes += sizeof(uint32_t); // chunk_id
+            reverse_bytes += pair.second.transport_node_ids.size() * sizeof(uint32_t);
+            reverse_bytes += pair.second.angular_cell_ids.size() * sizeof(uint32_t);
+            reverse_bytes += pair.second.blocked_anchor_ids.size() * sizeof(uint32_t);
+            reverse_bytes += pair.second.attached_probe_ids.size() * sizeof(uint32_t);
+        }
+        audit.reverse_chunk_dependency_bytes = reverse_bytes;
+        audit.angular_frontier_bytes = regeneration_anchors.size() * sizeof(float) * 4;
+        audit.generation_metadata_bytes = sizeof(uint32_t) * 3;
+
+        audit.total_repair_metadata_bytes = audit.anchor_bytes + audit.parent_ref_bytes +
+                                            audit.reverse_chunk_dependency_bytes +
+                                            audit.angular_frontier_bytes + audit.generation_metadata_bytes;
+
+        audit.transport_graph_bytes = bounce0_nodes.size() * sizeof(ASTGTransportNode) +
+                                      bounce1_nodes.size() * sizeof(ASTGTransportNode) +
+                                      dag_edges.size() * sizeof(ASTGDAGEdge) +
+                                      probe_deposition_links.size() * sizeof(ASTGProbeDepositionLink);
+
+        audit.runtime_contribution_bytes = persistent_contributions.size() * sizeof(ProbeLightContribution) +
+                                           probe_contribution_offsets.size() * sizeof(uint32_t) +
+                                           probe_contribution_counts.size() * sizeof(uint32_t);
+
+        audit.probe_bytes = probes.size() * sizeof(SurfaceAttachedProbe);
+
+        if (light_count > 0) {
+            audit.bytes_per_light = double(audit.total_repair_metadata_bytes) / double(light_count);
+        }
+        if (!chunk_dependencies.empty()) {
+            audit.bytes_per_destructible_chunk = double(audit.total_repair_metadata_bytes) / double(chunk_dependencies.size());
+        }
+        if (!regeneration_anchors.empty()) {
+            audit.bytes_per_blocked_frontier = double(audit.total_repair_metadata_bytes) / double(regeneration_anchors.size());
+        }
+
+        return audit;
+    }
+
+    // =========================================================================
+    // INCREMENTAL REPAIR & SURGICAL REGROWTH WITH GENERATION CHECKING (Priority 8, 9)
+    // =========================================================================
+    bool repair_geometry_change(uint32_t destroyed_chunk_id, uint32_t repair_ray_budget = 4096, uint32_t target_gen = 0) {
+        geometry_generation++;
+        as_generation++;
+        repair_generation++;
+
+        if (target_gen != 0 && target_gen < geometry_generation - 1) {
+            stale_jobs_discarded++;
+            stale_graph_commits_rejected++;
+            return false; // Stale generation job discarded!
+        }
+
         auto it = chunk_dependencies.find(destroyed_chunk_id);
         if (it == chunk_dependencies.end()) {
-            return true; // No ASTG structures depended on this chunk
+            return true;
         }
 
         const auto& dep_list = it->second;
 
-        // 2. Invalidate affected transport nodes and attached probes
         std::unordered_set<uint32_t> invalidated_nodes;
         for (uint32_t node_id : dep_list.transport_node_ids) {
             if (node_id < bounce0_nodes.size()) {
@@ -849,12 +965,10 @@ public:
             }
         }
 
-        // 3. Invalidate dependent DAG edges and probe deposition links
         for (auto& edge : dag_edges) {
             if (invalidated_nodes.count(edge.parent_node_id)) {
                 edge.is_active = false;
                 if (edge.child_node_id < bounce1_nodes.size()) {
-                    // Check partial invalidation of multi-parent merged nodes (Part 15)
                     auto& child = bounce1_nodes[edge.child_node_id];
                     bool has_other_valid_parents = false;
                     for (auto& pref : child.parent_refs) {
@@ -878,7 +992,6 @@ public:
             }
         }
 
-        // 4. Retrieve Regeneration Anchors for BLOCKED_DESTRUCTIBLE paths (Part 6)
         std::vector<ASTGRay> regrowth_rays;
         std::vector<uint32_t> active_anchor_indices;
 
@@ -903,7 +1016,6 @@ public:
             }
         }
 
-        // 5. Retrace Reopened Cells on Updated Hardware RT TLAS
         if (!regrowth_rays.empty()) {
             std::vector<ASTGRayHit> regrowth_hits(regrowth_rays.size());
             RTGPUTimings timings;
@@ -912,7 +1024,6 @@ public:
             for (size_t i = 0; i < regrowth_rays.size(); ++i) {
                 uint32_t a_idx = active_anchor_indices[i];
                 if (regrowth_hits[i].hit) {
-                    // Path reopened and struck new geometry: regrow transport node
                     ASTGTransportNode new_node;
                     new_node.node_id = (uint32_t)bounce0_nodes.size();
                     new_node.source_light_id = regrowth_rays[i].source_light_id;
@@ -924,7 +1035,7 @@ public:
                     new_node.material_id = regrowth_hits[i].material_id;
                     new_node.position = { regrowth_hits[i].pos_x, regrowth_hits[i].pos_y, regrowth_hits[i].pos_z };
                     new_node.geometric_normal = { regrowth_hits[i].normal_x, regrowth_hits[i].normal_y, regrowth_hits[i].normal_z };
-                    new_node.generation = current_geometry_generation;
+                    new_node.generation = geometry_generation;
 
                     float dist = std::max(0.2f, regrowth_hits[i].distance);
                     new_node.geometric_factor = 0.5f / (dist * dist + 1.0f);
@@ -933,7 +1044,6 @@ public:
                     new_node.is_active = true;
                     bounce0_nodes.push_back(new_node);
 
-                    // Deposit into nearby compatible probes
                     for (size_t p = 0; p < probes.size(); ++p) {
                         if (!probes[p].is_valid) continue;
                         float dx = new_node.position.x - probes[p].world_position.x;
@@ -956,12 +1066,59 @@ public:
                         }
                     }
                 } else {
-                    // Path opened into sky/empty space
                     regeneration_anchors[a_idx].reason = TERMINATION_EMPTY_SPACE;
                 }
             }
         }
 
         return true;
+    }
+
+    // =========================================================================
+    // PRIORITY 12: GEOMETRY ADDITION IN OPEN SPACE
+    // =========================================================================
+    bool notify_geometry_added(uint32_t new_chunk_id, RTXVector3 chunk_center, float chunk_radius) {
+        geometry_generation++;
+        as_generation++;
+        repair_generation++;
+
+        uint32_t blocked_count = 0;
+        for (auto& node : bounce0_nodes) {
+            if (!node.is_active) continue;
+            float dx = node.position.x - chunk_center.x;
+            float dy = node.position.y - chunk_center.y;
+            float dz = node.position.z - chunk_center.z;
+            float d_sq = dx * dx + dy * dy + dz * dz;
+
+            if (d_sq <= chunk_radius * chunk_radius) {
+                node.is_active = false;
+                node.termination_reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
+                node.destruction_chunk_id = new_chunk_id;
+                blocked_count++;
+
+                ASTGRegenerationAnchor anchor;
+                anchor.anchor_id = (uint32_t)regeneration_anchors.size();
+                anchor.source_light_id = node.source_light_id;
+                anchor.angular_cell_id = node.angular_cell_id;
+                anchor.parent_node_id = node.node_id;
+                anchor.blocking_chunk_id = new_chunk_id;
+                anchor.bounce_depth = 0;
+                anchor.ray_origin = node.position;
+                anchor.ray_direction = node.geometric_normal;
+                anchor.reason = TERMINATION_BLOCKED_DESTRUCTIBLE;
+                anchor.geometry_generation = geometry_generation;
+                anchor.as_generation = as_generation;
+                anchor.is_active = true;
+                regeneration_anchors.push_back(anchor);
+
+                auto& dep = chunk_dependencies[new_chunk_id];
+                dep.chunk_id = new_chunk_id;
+                dep.transport_node_ids.push_back(node.node_id);
+                dep.angular_cell_ids.push_back(node.angular_cell_id);
+                dep.blocked_anchor_ids.push_back(anchor.anchor_id);
+            }
+        }
+
+        return (blocked_count > 0);
     }
 };

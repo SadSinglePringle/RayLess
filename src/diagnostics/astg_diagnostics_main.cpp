@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv) {
     std::cout << "================================================================================\n";
-    std::cout << "🚀 ASTG TRANSPORT SCALING DIAGNOSTIC & SAFE OPTIMIZATION VERIFICATION SUITE\n";
+    std::cout << "🚀 ASTG ADVERSARIAL REPAIR VALIDATION & SAFE OPTIMIZATION SUITE\n";
     std::cout << "================================================================================\n\n";
 
     if (!rtx_init()) {
@@ -21,43 +21,40 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // 1. Run full 8-tier scaling ladder with Scene-Valid Lights & Distributed Bounce 1
+    // 1. Full 8-Tier Scaling Ladder with Distributed Bounce 1
     diag.run_full_tier_scaling_diagnostics();
 
-    // 2. Run Phase 33: Probe Locality Test
-    diag.test_probe_locality();
+    // 2. Priority 1: Regeneration-Anchor Semantics Audit
+    diag.test_anchor_semantics_audit();
 
-    // 3. Run Phase 34: Source Isolation Test
-    diag.test_source_isolation();
+    // 3. Priority 2: Exact Repair-Memory Accounting
+    diag.test_exact_repair_memory_accounting();
 
-    // 4. Run Phase 35: Provenance Test
-    diag.test_provenance();
+    // 4. Priority 3, 4, 12: Baseline vs 8x Discovery & Lifetime Ray Cost
+    diag.test_baseline_vs_8x_discovery_comparison();
 
-    // 5. Run Phases 36 & 37: Fan-In Sweep & 512-Light Spatial Variation Test
-    diag.test_fan_in_variations();
+    // 5. Priority 5, 10, 11, 12, 13: Multi-Chunk Adversarial Destruction Matrix
+    diag.test_multi_chunk_adversarial_matrix();
 
-    // 6. Run Part 8 & 9: Fresh-Rebuild Equivalence Test (Incremental vs Rebuild)
-    diag.test_fresh_rebuild_equivalence();
+    // 6. Priority 6 & 7: Merged-Node Partial Invalidation & Source Attribution
+    diag.test_merged_node_partial_invalidation();
 
-    // 7. Run Part 10 & 29: Destruction Matrix & 1000x Mutation Stress Test
-    diag.test_destruction_matrix_and_stability();
+    // 7. Priority 8 & 9: Stale Generation Attack Test & AS Generation Safety
+    diag.test_stale_generation_attack();
 
-    // 8. Run Part 34: Repair Budget Invariance Test (64 vs 4096 rays/frame)
-    diag.test_repair_budget_invariance();
+    // 8. Priority 18 & 19: Frontier Completeness & Recall Test
+    diag.test_frontier_completeness_and_recall();
 
-    // 9. Run Part 17 & 20: Adaptive Energy Retention Quality Sweep (Energy95-99.5 vs K8-128)
+    // 9. Priority 24, 25, 32: Adaptive Energy Retention Quality & Runtime Benchmark
     diag.run_adaptive_energy_retention_sweep();
 
-    // 10. Run Part 21: Equal-Contribution Many-Light Torture Test
-    diag.run_equal_contribution_torture_test();
+    // 10. Priority 26 & 28: Pruned-Source Activation Test
+    diag.test_pruned_source_activation();
 
-    // 11. Run Part 4 & 11: Adaptive 2-Stage Discovery Optimization Test
-    diag.run_adaptive_discovery_optimization();
-
-    // 12. Export all clean telemetry deliverables
+    // 11. Export Clean CSV/JSON Telemetry Deliverables
     diag.export_all_diagnostics_files();
 
-    // 13. Output Definition of Done verification summary
+    // 12. Final Report & Definition of Done
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();
