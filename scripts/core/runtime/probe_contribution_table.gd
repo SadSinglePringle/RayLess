@@ -145,3 +145,17 @@ func get_or_refresh_probe_irradiance(probe_id: int, light_mgr: RefCounted) -> Co
 	last_eval_time_us = float(Time.get_ticks_usec() - t0)
 
 	return total_rad
+
+func refresh_batch(requested_probe_ids: Array, light_mgr: RefCounted) -> Dictionary:
+	var refreshed = 0
+	var cached = 0
+	for p_id in requested_probe_ids:
+		var prev_sig = cached_signatures.get(p_id, -1)
+		get_or_refresh_probe_irradiance(p_id, light_mgr)
+		var new_sig = cached_signatures.get(p_id, -1)
+		if prev_sig == new_sig and prev_sig != -1:
+			cached += 1
+		else:
+			refreshed += 1
+	return {"refreshed_probes": refreshed, "cached_probes": cached}
+

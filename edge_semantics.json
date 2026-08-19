@@ -1,6 +1,6 @@
 {
   "edge_semantics_audit": {
-    "dag_edges_node_to_node": 1280,
+    "dag_edges_node_to_node": 3995,
     "probe_deposition_links": 38400,
     "persistent_contribution_records": 38400,
     "merge_links": 0,

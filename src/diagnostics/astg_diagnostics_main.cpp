@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // 1. Run full 8-tier scaling ladder with Scene-Valid Lights & Top-32 Ranking
+    // 1. Run full 8-tier scaling ladder with Scene-Valid Lights & Distributed Bounce 1
     diag.run_full_tier_scaling_diagnostics();
 
     // 2. Run Phase 33: Probe Locality Test
@@ -36,10 +36,19 @@ int main(int argc, char** argv) {
     // 5. Run Phases 36 & 37: Fan-In Sweep & 512-Light Spatial Variation Test
     diag.test_fan_in_variations();
 
-    // 6. Export all clean telemetry deliverables
+    // 6. Run Step 5: Top-K Quality Sweeps Against Unlimited Reference
+    diag.run_top_k_quality_sweep();
+
+    // 7. Run Step 6: Equal-Contribution Many-Light Torture Test
+    diag.run_equal_contribution_torture_test();
+
+    // 8. Run Step 7: Adaptive 2-Stage Discovery Optimization Test
+    diag.run_adaptive_discovery_optimization();
+
+    // 9. Export all clean telemetry deliverables
     diag.export_all_diagnostics_files();
 
-    // 7. Output Definition of Done verification summary
+    // 10. Output Definition of Done verification summary
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

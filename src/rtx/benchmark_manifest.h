@@ -68,7 +68,7 @@ struct BenchmarkManifest {
     BenchmarkCategory category = BENCHMARK_FULL_SCENE;
     LightPlacementMode placement_mode = PLACEMENT_SCENE_VALID;
     std::string scene_name = "NVIDIA Bistro";
-    std::string commit_hash = "f4ee155";
+    std::string commit_hash = "4aa9600";
     std::string build_timestamp = __DATE__ " " __TIME__;
     std::string build_type = "Release (D3D12/DXR 1.1 Native)";
     std::string gpu_name = "NVIDIA GeForce RTX 4070 Laptop GPU";
@@ -85,6 +85,12 @@ struct BenchmarkManifest {
     uint32_t light_count = 0;
     uint32_t probe_count = 1200;
     uint32_t fan_in_cap = 32;
+
+    // Explicit Discovery Telemetry (Disambiguated Coverage vs Ray Hit Rate)
+    uint64_t discovery_rays_traced = 0;
+    uint64_t discovery_rays_hit = 0;
+    double discovery_light_coverage_pct = 0.0; // Percentage of lights that hit >= 1 surface
+    double discovery_ray_hit_rate_pct = 0.0;    // Percentage of traced rays that hit geometry
 
     // Disambiguated Light Coverage Counts
     uint32_t lights_with_discovery_hit = 0;
@@ -111,6 +117,12 @@ struct BenchmarkManifest {
     double max_candidate_fanin = 0.0;
     double max_retained_fanin = 0.0;
     double p95_retained_fanin = 0.0;
+
+    // GPU Buffer Capacities
+    uint32_t gpu_rays_batch_capacity = 131072;
+    uint32_t gpu_lights_capacity = 131072;
+    uint32_t gpu_probes_capacity = 65536;
+    uint32_t gpu_contributions_capacity = 1048576;
 
     uint32_t angular_allocated_cells = 0;
     uint32_t angular_constructed_cells = 0;
@@ -187,6 +199,10 @@ struct BenchmarkManifest {
         ss << "    \"light_count\": " << light_count << ",\n";
         ss << "    \"probe_count\": " << probe_count << ",\n";
         ss << "    \"fan_in_cap\": " << fan_in_cap << ",\n";
+        ss << "    \"discovery_rays_traced\": " << discovery_rays_traced << ",\n";
+        ss << "    \"discovery_rays_hit\": " << discovery_rays_hit << ",\n";
+        ss << "    \"discovery_light_coverage_pct\": " << std::fixed << std::setprecision(2) << discovery_light_coverage_pct << ",\n";
+        ss << "    \"discovery_ray_hit_rate_pct\": " << std::setprecision(4) << discovery_ray_hit_rate_pct << ",\n";
         ss << "    \"bounce0_nodes\": " << bounce0_nodes << ",\n";
         ss << "    \"bounce1_nodes\": " << bounce1_nodes << ",\n";
         ss << "    \"dag_edges\": " << dag_edges << ",\n";
@@ -207,6 +223,10 @@ struct BenchmarkManifest {
         ss << "    \"max_candidate_fanin\": " << max_candidate_fanin << ",\n";
         ss << "    \"max_retained_fanin\": " << max_retained_fanin << ",\n";
         ss << "    \"p95_retained_fanin\": " << p95_retained_fanin << ",\n";
+        ss << "    \"gpu_rays_batch_capacity\": " << gpu_rays_batch_capacity << ",\n";
+        ss << "    \"gpu_lights_capacity\": " << gpu_lights_capacity << ",\n";
+        ss << "    \"gpu_probes_capacity\": " << gpu_probes_capacity << ",\n";
+        ss << "    \"gpu_contributions_capacity\": " << gpu_contributions_capacity << ",\n";
         ss << "    \"synthetic_geometry\": " << (synthetic_geometry ? "true" : "false") << ",\n";
         ss << "    \"synthetic_transport\": " << (synthetic_transport ? "true" : "false") << ",\n";
         ss << "    \"synthetic_probe_contributions\": " << (synthetic_probe_contributions ? "true" : "false") << "\n";

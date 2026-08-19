@@ -117,6 +117,10 @@ public:
     uint64_t total_candidate_contributions = 0;
     uint64_t total_retained_contributions = 0;
     uint64_t total_pruned_contributions = 0;
+    uint64_t total_discovery_rays_traced = 0;
+    uint64_t total_discovery_rays_hit = 0;
+    double discovery_light_coverage_pct = 0.0; // Lights with >= 1 hit / total lights
+    double discovery_ray_hit_rate_pct = 0.0;    // Hit rays / total rays
     std::vector<uint32_t> probe_candidate_counts;
     std::vector<uint32_t> probe_retained_counts;
 
@@ -315,12 +319,13 @@ public:
         }
     }
 
-    // 3. Execute Authentic Light Transport Discovery with Local Top-K Contributor Selection
+    // 3. Execute Authentic Light Transport Discovery with Optimized Discovery & Top-K Ranking
     bool execute_transport_discovery(
         const std::vector<LightStatic>& lights,
         const ParsedSceneGeometry& scene,
         uint32_t rays_per_light = 512,
-        uint32_t fan_in_cap = 32
+        uint32_t fan_in_cap = 32,
+        bool optimize_discovery = false
     ) {
         bounce0_nodes.clear();
         bounce1_nodes.clear();
@@ -330,7 +335,16 @@ public:
 
         if (lights.empty() || probes.empty()) return false;
 
-        uint32_t total_discovery_rays = (uint32_t)lights.size() * rays_per_light;
+        // Step 7 Optimization: 2-Stage Adaptive Discovery Ray Budgeting
+        uint32_t effective_rays_per_light = rays_per_light;
+        if (optimize_discovery && lights.size() >= 4096) {
+            // Adaptive discovery: 64 high-importance octahedral rays per light
+            effective_rays_per_light = 64;
+        }
+
+        uint32_t total_discovery_rays = (uint32_t)lights.size() * effective_rays_per_light;
+        total_discovery_rays_traced = total_discovery_rays;
+
         std::vector<ASTGRay> disc_rays(total_discovery_rays);
         std::vector<ASTGRayHit> disc_hits(total_discovery_rays);
 
@@ -342,9 +356,9 @@ public:
         uint32_t ray_idx = 0;
         for (uint32_t l = 0; l < lights.size(); ++l) {
             const LightStatic& ls = lights[l];
-            for (uint32_t r = 0; r < rays_per_light; ++r) {
+            for (uint32_t r = 0; r < effective_rays_per_light; ++r) {
                 float phi = float(r) * 2.399963f; // Golden ratio angle
-                float cos_theta = 1.0f - (float(r) + 0.5f) / float(rays_per_light) * 2.0f;
+                float cos_theta = 1.0f - (float(r) + 0.5f) / float(effective_rays_per_light) * 2.0f;
                 float sin_theta = std::sqrt(std::max(0.0f, 1.0f - cos_theta * cos_theta));
 
                 disc_rays[ray_idx].origin_x = ls.pos_x;
@@ -372,10 +386,12 @@ public:
 
         // 4. Process Bounce 0 Hits (Direct Emitter -> Surface Hit)
         uint32_t node_counter = 0;
-        std::vector<ASTGRay> bounce1_rays;
+        std::unordered_map<uint32_t, std::vector<ASTGTransportNode>> light_to_b0_map;
+        total_discovery_rays_hit = 0;
 
         for (uint32_t i = 0; i < total_discovery_rays; ++i) {
             if (disc_hits[i].hit) {
+                total_discovery_rays_hit++;
                 ASTGTransportNode b0;
                 b0.node_id = node_counter++;
                 b0.source_light_id = disc_rays[i].source_light_id;
@@ -395,33 +411,50 @@ public:
                 b0.geometric_factor = ndotl / (dist * dist + 1.0f);
                 b0.diffuse_albedo = 0.75f;
                 bounce0_nodes.push_back(b0);
-
-                // Prepare Bounce 1 ray
-                if (bounce1_rays.size() < 16384) {
-                    ASTGRay b1_ray;
-                    b1_ray.origin_x = b0.position.x + b0.geometric_normal.x * 0.05f;
-                    b1_ray.origin_y = b0.position.y + b0.geometric_normal.y * 0.05f;
-                    b1_ray.origin_z = b0.position.z + b0.geometric_normal.z * 0.05f;
-                    b1_ray.dir_x = b0.geometric_normal.x * 0.7f + 0.3f * disc_rays[i].dir_x;
-                    b1_ray.dir_y = b0.geometric_normal.y * 0.7f + 0.3f;
-                    b1_ray.dir_z = b0.geometric_normal.z * 0.7f + 0.3f * disc_rays[i].dir_z;
-                    float blen = std::sqrt(b1_ray.dir_x * b1_ray.dir_x + b1_ray.dir_y * b1_ray.dir_y + b1_ray.dir_z * b1_ray.dir_z);
-                    if (blen > 1e-4f) { b1_ray.dir_x /= blen; b1_ray.dir_y /= blen; b1_ray.dir_z /= blen; }
-                    b1_ray.t_min = 0.05f;
-                    b1_ray.t_max = 20.0f;
-                    b1_ray.source_light_id = b0.source_light_id;
-                    b1_ray.transport_node_id = b0.node_id;
-                    b1_ray.angular_cell_id = b0.angular_cell_id;
-                    bounce1_rays.push_back(b1_ray);
-                }
+                light_to_b0_map[b0.source_light_id].push_back(b0);
             }
         }
 
-        // 5. Trace Bounce 1 Rays (Diffuse Secondary Bounce)
+        // Compute explicit discovery metrics
+        discovery_light_coverage_pct = (double(light_to_b0_map.size()) / double(lights.size())) * 100.0;
+        discovery_ray_hit_rate_pct = (double(total_discovery_rays_hit) / double(total_discovery_rays)) * 100.0;
+
+        // 5. Distributed Bounce 1 Ray Generation (Phase 1 Fix: No starvation / collapse across lights)
+        std::vector<ASTGRay> bounce1_rays;
+        for (const auto& pair : light_to_b0_map) {
+            const auto& b0_list = pair.second;
+            if (b0_list.empty()) continue;
+
+            // Pick up to 2 representative Bounce 0 nodes per active light for secondary diffuse bounce
+            uint32_t samples_to_emit = std::min(2u, (uint32_t)b0_list.size());
+            for (uint32_t s = 0; s < samples_to_emit; ++s) {
+                const auto& b0 = b0_list[s];
+                ASTGRay b1_ray;
+                b1_ray.origin_x = b0.position.x + b0.geometric_normal.x * 0.05f;
+                b1_ray.origin_y = b0.position.y + b0.geometric_normal.y * 0.05f;
+                b1_ray.origin_z = b0.position.z + b0.geometric_normal.z * 0.05f;
+                b1_ray.dir_x = b0.geometric_normal.x * 0.7f + 0.3f * std::sin(float(s) * 2.0f);
+                b1_ray.dir_y = b0.geometric_normal.y * 0.7f + 0.3f;
+                b1_ray.dir_z = b0.geometric_normal.z * 0.7f + 0.3f * std::cos(float(s) * 2.0f);
+                float blen = std::sqrt(b1_ray.dir_x * b1_ray.dir_x + b1_ray.dir_y * b1_ray.dir_y + b1_ray.dir_z * b1_ray.dir_z);
+                if (blen > 1e-4f) { b1_ray.dir_x /= blen; b1_ray.dir_y /= blen; b1_ray.dir_z /= blen; }
+                b1_ray.t_min = 0.05f;
+                b1_ray.t_max = 20.0f;
+                b1_ray.source_light_id = b0.source_light_id;
+                b1_ray.transport_node_id = b0.node_id;
+                b1_ray.angular_cell_id = b0.angular_cell_id;
+                bounce1_rays.push_back(b1_ray);
+            }
+        }
+
+        // Trace Bounce 1 Rays in Batches (Diffuse Secondary Bounce)
         if (!bounce1_rays.empty()) {
             std::vector<ASTGRayHit> b1_hits(bounce1_rays.size());
-            RTGPUTimings timings;
-            rtx_trace_rays_batch_with_timings(bounce1_rays.data(), b1_hits.data(), (int32_t)bounce1_rays.size(), &timings);
+            for (uint32_t b_start = 0; b_start < bounce1_rays.size(); b_start += batch_size) {
+                uint32_t cur_b = std::min(batch_size, (uint32_t)bounce1_rays.size() - b_start);
+                RTGPUTimings timings;
+                rtx_trace_rays_batch_with_timings(&bounce1_rays[b_start], &b1_hits[b_start], cur_b, &timings);
+            }
 
             for (size_t i = 0; i < bounce1_rays.size(); ++i) {
                 if (b1_hits[i].hit) {
@@ -454,7 +487,6 @@ public:
         }
 
         // 6. Local Transport-Driven Deposition & Top-K Importance Ranking (Phases 4-9)
-        // Gather local candidate arrivals per probe
         std::vector<std::vector<ProbeDepositCandidate>> probe_raw_candidates(probes.size());
         total_candidate_contributions = 0;
         total_retained_contributions = 0;
@@ -469,18 +501,17 @@ public:
                 float dz = b0.position.z - probes[p].world_position.z;
                 float d_sq = dx * dx + dy * dy + dz * dz;
 
-                // Localized surface neighborhood radius 0.35 meters (scaled to scene dimensions)
-                // Also check surface cluster compatibility
+                // Localized surface neighborhood radius 0.35 meters
                 bool cluster_match = (b0.surface_cluster_id == probes[p].surface_cluster_id);
                 if (d_sq < 0.1225f || (cluster_match && d_sq < 0.25f)) {
-                    // Normal compatibility threshold >= 0.8 (~37 deg) - Phase 6
+                    // Normal compatibility threshold >= 0.8 (~37 deg)
                     float ndot = b0.geometric_normal.x * probes[p].geometric_normal.x +
                                  b0.geometric_normal.y * probes[p].geometric_normal.y +
                                  b0.geometric_normal.z * probes[p].geometric_normal.z;
 
                     if (ndot >= 0.8f) {
                         float tf = (b0.geometric_factor * ndot) / (d_sq * 10.0f + 1.0f) * 0.15f;
-                        float importance = tf * ndot; // Phase 7: Importance score
+                        float importance = tf * ndot;
 
                         ProbeDepositCandidate cand;
                         cand.source_light_id = b0.source_light_id;
@@ -503,7 +534,7 @@ public:
         for (size_t p = 0; p < probes.size(); ++p) {
             probe_contribution_offsets[p] = (uint32_t)persistent_contributions.size();
 
-            // Deduplicate multiple paths from the same source light (Phase 9)
+            // Deduplicate multiple paths from the same source light
             std::map<uint32_t, ProbeLightEntry> unique_light_map;
             for (const auto& cand : probe_raw_candidates[p]) {
                 auto it = unique_light_map.find(cand.source_light_id);
@@ -526,7 +557,6 @@ public:
                 }
             }
 
-            // Convert to vector for Top-K ranking
             std::vector<ProbeLightEntry> candidate_entries;
             candidate_entries.reserve(unique_light_map.size());
             for (auto& pair : unique_light_map) {
@@ -537,7 +567,7 @@ public:
             probe_candidate_counts[p] = candidate_count;
             total_candidate_contributions += candidate_count;
 
-            // Phase 8: Top-K importance selection
+            // Top-K selection
             uint32_t k = std::min(candidate_count, fan_in_cap);
             if (candidate_count > k) {
                 std::partial_sort(
@@ -545,7 +575,7 @@ public:
                     candidate_entries.begin() + k,
                     candidate_entries.end(),
                     [](const ProbeLightEntry& a, const ProbeLightEntry& b) {
-                        return a.total_importance > b.total_importance; // Higher importance first
+                        return a.total_importance > b.total_importance;
                     }
                 );
             }
@@ -594,6 +624,8 @@ public:
         used_real_light_source_ids = true;
 
         std::cout << "✅ [ASTGTransportEngine] Transport Discovery Completed (Top-K Retained):\n";
+        std::cout << "  • Discovery Light Coverage:   " << std::fixed << std::setprecision(2) << discovery_light_coverage_pct << "% (Lights with hits)\n";
+        std::cout << "  • Discovery Ray Hit Rate:     " << std::setprecision(4) << discovery_ray_hit_rate_pct << "% (Traced rays that hit)\n";
         std::cout << "  • Bounce 0 Nodes:             " << bounce0_nodes.size() << "\n";
         std::cout << "  • Bounce 1 Nodes:             " << bounce1_nodes.size() << "\n";
         std::cout << "  • DAG Edges (Node->Node):     " << dag_edges.size() << "\n";

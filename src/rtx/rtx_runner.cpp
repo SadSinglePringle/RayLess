@@ -341,6 +341,10 @@ void run_authentic_bistro_benchmark(
     manifest.lights_with_bounce1 = (uint32_t)b1_lights.size();
     manifest.lights_with_probe_deposition = (uint32_t)dep_lights.size();
     manifest.lights_with_persistent_contribution = (uint32_t)contrib_lights.size();
+    manifest.discovery_rays_traced = transport_engine.total_discovery_rays_traced;
+    manifest.discovery_rays_hit = transport_engine.total_discovery_rays_hit;
+    manifest.discovery_light_coverage_pct = transport_engine.discovery_light_coverage_pct;
+    manifest.discovery_ray_hit_rate_pct = transport_engine.discovery_ray_hit_rate_pct;
 
     // Fan-In Distributions
     std::vector<double> cand_samples, ret_samples;
