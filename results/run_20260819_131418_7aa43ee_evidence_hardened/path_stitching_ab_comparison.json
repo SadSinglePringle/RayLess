@@ -1,0 +1,30 @@
+{
+  "stitching_off_rays_completed": 17,
+  "stitching_on_rays_completed": 1,
+  "avoided_rays": 16,
+  "measured_ray_reduction_pct": 94.1,
+  "csr": {
+    "key_sets_match": true,
+    "rmse_rgb": 0.00000,
+    "p95_abs_error": 0.00000,
+    "p95_rel_error_pct": 0.00,
+    "p99_rel_error_pct": 0.00,
+    "max_abs_error": 0.00000,
+    "max_rel_error_pct": 0.00
+  },
+  "path_provenance": {
+    "semantic_match": true,
+    "compared_records": 2,
+    "missing_records": 0,
+    "extra_records": 0
+  },
+  "graph": {
+    "semantic_equivalence": true,
+    "matched_states": 4,
+    "missing_states": 0,
+    "extra_states": 0,
+    "matched_edges": 3,
+    "missing_edges": 0,
+    "extra_edges": 0
+  }
+}

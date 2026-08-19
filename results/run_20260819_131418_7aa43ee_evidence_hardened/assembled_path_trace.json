@@ -1,0 +1,44 @@
+[
+  {
+    "depth": 1,
+    "origin": "cached",
+    "node_id": 10,
+    "stitch_id": 0,
+    "transfer_rgb": [0.0149825, 0.0149825, 0.0149825]
+  },
+  {
+    "depth": 2,
+    "origin": "cached",
+    "node_id": 11,
+    "stitch_id": 0,
+    "transfer_rgb": [0.00561845, 0.00561845, 0.00561845]
+  },
+  {
+    "depth": 3,
+    "origin": "fresh",
+    "node_id": 2,
+    "stitch_id": 1,
+    "transfer_rgb": [0.000421384, 0.000421384, 0.000421384]
+  },
+  {
+    "depth": 4,
+    "origin": "fresh",
+    "node_id": 3,
+    "stitch_id": 1,
+    "transfer_rgb": [3.16038e-05, 3.16038e-05, 3.16038e-05]
+  },
+  {
+    "depth": 5,
+    "origin": "fresh",
+    "node_id": 4,
+    "stitch_id": 1,
+    "transfer_rgb": [2.37028e-06, 2.37028e-06, 2.37028e-06]
+  },
+  {
+    "depth": 6,
+    "origin": "fresh",
+    "node_id": 5,
+    "stitch_id": 1,
+    "transfer_rgb": [1.77771e-07, 1.77771e-07, 1.77771e-07]
+  }
+]

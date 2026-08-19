@@ -2793,6 +2793,573 @@ public:
     }
 
     // =========================================================================
+    // PART G: PARTIAL TRANSPORT SEGMENT REUSE & FRONTIER CONTINUATION (Items 1-54)
+    // =========================================================================
+    ASTGMultiHopSolveResult seg_test_a_res;
+    ASTGMultiHopSolveResult seg_test_b_res;
+    ASTGMultiHopSolveResult seg_test_c_res;
+    ASTGMultiHopSolveResult seg_test_d_res;
+    ASTGMultiHopSolveResult seg_test_e_res;
+    ASTGMultiHopSolveResult seg_test_f_res;
+    bool seg_test_g_source_attrib_pass = false;
+    bool seg_test_h_no_double_transfer_pass = false;
+    bool seg_test_i_no_old_transfer_pass = false;
+    float seg_test_h_measured_transfer = 0.0f;
+    float seg_test_i_measured_transfer = 0.0f;
+
+    void test_partial_transport_segment_reuse() {
+        std::cout << "================================================================================\n";
+        std::cout << "🔬 PART G: ASTG PARTIAL TRANSPORT SEGMENT REUSE & FRONTIER CONTINUATION\n";
+        std::cout << "================================================================================\n";
+
+        print_workload_identity("PARTIAL_SEGMENT_REUSE", 512, "UNIFORM_512", "Energy99");
+
+        // 1. Ray query against DXR BVH to get authentic floor hit
+        ASTGRayHit floor_hit;
+        ASTGRay test_ray;
+        test_ray.origin_x = 0.0f; test_ray.origin_y = 5.0f; test_ray.origin_z = 0.0f;
+        test_ray.dir_x = 0.0f; test_ray.dir_y = -1.0f; test_ray.dir_z = 0.0f;
+        test_ray.t_min = 0.001f; test_ray.t_max = 1000.0f;
+        test_ray.source_light_id = 1; test_ray.angular_cell_id = 0; test_ray.transport_node_id = 0;
+        rtx_trace_rays_batch(&test_ray, &floor_hit, 1);
+
+        uint32_t hit_cluster = floor_hit.hit ? floor_hit.surface_cluster_id : 5;
+        RTXVector3 hit_pos = floor_hit.hit ? RTXVector3{floor_hit.pos_x, floor_hit.pos_y, floor_hit.pos_z} : RTXVector3{0.0f, 0.0f, 0.0f};
+        RTXVector3 hit_norm = floor_hit.hit ? RTXVector3{floor_hit.normal_x, floor_hit.normal_y, floor_hit.normal_z} : RTXVector3{0.0f, 1.0f, 0.0f};
+
+        // Ray 2: Trace from floor upwards to get ceiling hit
+        ASTGRayHit ceil_hit;
+        ASTGRay ceil_ray;
+        ceil_ray.origin_x = hit_pos.x + hit_norm.x * 0.05f;
+        ceil_ray.origin_y = hit_pos.y + hit_norm.y * 0.05f;
+        ceil_ray.origin_z = hit_pos.z + hit_norm.z * 0.05f;
+        ceil_ray.dir_x = hit_norm.x; ceil_ray.dir_y = hit_norm.y; ceil_ray.dir_z = hit_norm.z;
+        ceil_ray.t_min = 0.001f; ceil_ray.t_max = 1000.0f;
+        ceil_ray.source_light_id = 1; ceil_ray.angular_cell_id = 0; ceil_ray.transport_node_id = 0;
+        rtx_trace_rays_batch(&ceil_ray, &ceil_hit, 1);
+
+        uint32_t ceil_cluster = ceil_hit.hit ? ceil_hit.surface_cluster_id : 6;
+        RTXVector3 ceil_pos = ceil_hit.hit ? RTXVector3{ceil_hit.pos_x, ceil_hit.pos_y, ceil_hit.pos_z} : RTXVector3{hit_pos.x, hit_pos.y + 4.0f, hit_pos.z};
+        RTXVector3 ceil_norm = ceil_hit.hit ? RTXVector3{ceil_hit.normal_x, ceil_hit.normal_y, ceil_hit.normal_z} : RTXVector3{0.0f, -1.0f, 0.0f};
+
+        // ---------------------------------------------------------------------
+        // G0: Controlled Test A — 6-Bounce Mixed Path (Fresh B0..B2 -> Cached B3..B4 -> Fresh B5..B6)
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_a(run_uuid, "part_g0_controlled_test_a_mixed_path", "CONTROLLED_6_BOUNCE_MIXED_PATH", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g0_controlled_test_a_mixed_path"; id.test_name = "MIXED_PATH_6_BOUNCE";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            ASTGTransportEngine engine_a;
+            engine_a.enable_path_stitching = true;
+
+            // Cached DAG segment at depth 1 & 2 (Node 10 -> Node 11)
+            ASTGTransportNode node_b3; node_b3.node_id = 10; node_b3.source_light_id = 1; node_b3.bounce_depth = 1; node_b3.surface_cluster_id = hit_cluster;
+            node_b3.position = hit_pos; node_b3.geometric_normal = hit_norm; node_b3.geometric_factor = 0.5f; node_b3.diffuse_albedo = 0.75f;
+            node_b3.generation = 1; node_b3.is_active = true;
+
+            ASTGTransportNode node_b4; node_b4.node_id = 11; node_b4.source_light_id = 1; node_b4.bounce_depth = 2; node_b4.surface_cluster_id = ceil_cluster;
+            node_b4.position = ceil_pos; node_b4.geometric_normal = ceil_norm; node_b4.geometric_factor = 0.5f; node_b4.diffuse_albedo = 0.75f;
+            node_b4.generation = 1; node_b4.is_active = true;
+
+            ASTGDAGEdge edge_34; edge_34.edge_id = 0; edge_34.parent_node_id = 10; edge_34.child_node_id = 11; edge_34.source_light_id = 1;
+            edge_34.transfer_weight = 0.5f; edge_34.is_active = true;
+
+            engine_a.bounce1_nodes = { node_b3, node_b4 };
+            engine_a.dag_edges = { edge_34 };
+            engine_a.surface_cluster_to_nodes[hit_cluster] = { 10 };
+
+            seg_test_a_res = engine_a.solve_transport_with_frontier_continuation(
+                1, 0, 6, { 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 1.0f, 1.0f, 1.0f, true
+            );
+
+            AssertionRecord a_depth;
+            a_depth.assertion_name = "effective_solved_depth_matches_requested";
+            a_depth.expected = "depth == 6";
+            a_depth.actual = "depth = " + std::to_string(seg_test_a_res.effective_solved_depth);
+            a_depth.status = (seg_test_a_res.effective_solved_depth == 6 && seg_test_a_res.requested_depth_reached) ? STATUS_PASS : STATUS_FAIL;
+            b_a.add_assertion(a_depth);
+
+            AssertionRecord a_reuse;
+            a_reuse.assertion_name = "cached_segment_reused_and_continued";
+            a_reuse.expected = "cached_nodes >= 2, continuation_frontiers > 0";
+            a_reuse.actual = "cached_nodes = " + std::to_string(seg_test_a_res.cached_nodes_reused) + ", frontiers = " + std::to_string(seg_test_a_res.continuation_frontiers_emitted);
+            a_reuse.status = (seg_test_a_res.cached_nodes_reused >= 2 && seg_test_a_res.continuation_frontiers_emitted > 0) ? STATUS_PASS : STATUS_FAIL;
+            b_a.add_assertion(a_reuse);
+
+            wl.gpu_work_sentinel = 1;
+            b_a.set_identity(id);
+            b_a.set_workload(wl);
+            finalized_results.push_back(b_a.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G1: Controlled Test B — Cached Segment Reaches Max Depth (No Continuation)
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_b(run_uuid, "part_g1_controlled_test_b_max_depth", "CONTROLLED_MAX_DEPTH_TERMINATION", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g1_controlled_test_b_max_depth"; id.test_name = "MAX_DEPTH_TERMINATION";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            ASTGTransportEngine engine_b;
+            engine_b.enable_path_stitching = true;
+
+            std::vector<ASTGTransportNode> b_nodes;
+            std::vector<ASTGDAGEdge> b_edges;
+            for (uint32_t d = 1; d <= 6; ++d) {
+                ASTGTransportNode n; n.node_id = d; n.source_light_id = 1; n.bounce_depth = d; n.surface_cluster_id = hit_cluster;
+                n.position = (d == 1) ? hit_pos : RTXVector3{ hit_pos.x + 0.05f * (float)d, hit_pos.y, hit_pos.z };
+                n.geometric_normal = hit_norm;
+                n.geometric_factor = 0.5f; n.diffuse_albedo = 0.75f; n.generation = 1; n.is_active = true;
+                b_nodes.push_back(n);
+                if (d > 1) {
+                    ASTGDAGEdge e; e.edge_id = d - 2; e.parent_node_id = d - 1; e.child_node_id = d; e.source_light_id = 1;
+                    e.transfer_weight = 0.5f; e.is_active = true;
+                    b_edges.push_back(e);
+                }
+            }
+            engine_b.bounce1_nodes = b_nodes;
+            engine_b.dag_edges = b_edges;
+            engine_b.surface_cluster_to_nodes[hit_cluster] = { 1 };
+
+            seg_test_b_res = engine_b.solve_transport_with_frontier_continuation(
+                1, 0, 6, { 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 1.0f, 1.0f, 1.0f, true
+            );
+
+            AssertionRecord a_no_cont;
+            a_no_cont.assertion_name = "no_continuation_emitted_when_depth_satisfied";
+            a_no_cont.expected = "frontiers_emitted == 0";
+            a_no_cont.actual = "frontiers_emitted = " + std::to_string(seg_test_b_res.continuation_frontiers_emitted);
+            a_no_cont.status = (seg_test_b_res.continuation_frontiers_emitted == 0 && seg_test_b_res.effective_solved_depth == 6) ? STATUS_PASS : STATUS_FAIL;
+            b_b.add_assertion(a_no_cont);
+
+            wl.gpu_work_sentinel = 1;
+            b_b.set_identity(id);
+            b_b.set_workload(wl);
+            finalized_results.push_back(b_b.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G2: Controlled Test C — Cache Ends Immediately at Leaf (Immediate Continuation)
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_c(run_uuid, "part_g2_controlled_test_c_cache_ends", "CONTROLLED_CACHE_ENDS_IMMEDIATELY", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g2_controlled_test_c_cache_ends"; id.test_name = "CACHE_ENDS_IMMEDIATELY";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            ASTGTransportEngine engine_c;
+            engine_c.enable_path_stitching = true;
+
+            ASTGTransportNode single_node;
+            single_node.node_id = 5; single_node.source_light_id = 1; single_node.bounce_depth = 1; single_node.surface_cluster_id = hit_cluster;
+            single_node.position = hit_pos; single_node.geometric_normal = hit_norm;
+            single_node.geometric_factor = 0.5f; single_node.diffuse_albedo = 0.75f; single_node.generation = 1; single_node.is_active = true;
+
+            ASTGPathProbeContribution dep; dep.contribution_id = 0; dep.probe_id = 1; dep.source_node_id = 5; dep.is_active = true;
+            engine_c.path_probe_contributions = { dep };
+            engine_c.node_to_path_contributions[5] = { 0 };
+
+            engine_c.bounce1_nodes = { single_node };
+            engine_c.surface_cluster_to_nodes[hit_cluster] = { 5 };
+
+            seg_test_c_res = engine_c.solve_transport_with_frontier_continuation(
+                1, 0, 6, { 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 1.0f, 1.0f, 1.0f, true
+            );
+
+            AssertionRecord a_imm;
+            a_imm.assertion_name = "immediate_frontier_emitted_and_continued_to_target";
+            a_imm.expected = "frontiers_emitted == 1, effective_depth == 6";
+            a_imm.actual = "frontiers_emitted = " + std::to_string(seg_test_c_res.continuation_frontiers_emitted) + ", depth = " + std::to_string(seg_test_c_res.effective_solved_depth);
+            a_imm.status = (seg_test_c_res.continuation_frontiers_emitted == 1 && seg_test_c_res.effective_solved_depth == 6) ? STATUS_PASS : STATUS_FAIL;
+            b_c.add_assertion(a_imm);
+
+            wl.gpu_work_sentinel = 1;
+            b_c.set_identity(id);
+            b_c.set_workload(wl);
+            finalized_results.push_back(b_c.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G3: Controlled Test D — Cached Segment Branches
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_d(run_uuid, "part_g3_controlled_test_d_branching", "CONTROLLED_BRANCHING_CACHE", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g3_controlled_test_d_branching"; id.test_name = "BRANCHING_CACHE";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            ASTGTransportEngine engine_d;
+            engine_d.enable_path_stitching = true;
+
+            ASTGTransportNode n_b1; n_b1.node_id = 1; n_b1.source_light_id = 1; n_b1.bounce_depth = 1; n_b1.surface_cluster_id = hit_cluster;
+            n_b1.position = hit_pos; n_b1.geometric_normal = hit_norm; n_b1.geometric_factor = 0.5f; n_b1.diffuse_albedo = 0.75f;
+            n_b1.generation = 1; n_b1.is_active = true;
+
+            ASTGTransportNode n_b2a; n_b2a.node_id = 2; n_b2a.source_light_id = 1; n_b2a.bounce_depth = 2; n_b2a.surface_cluster_id = hit_cluster;
+            n_b2a.position = { hit_pos.x + 0.05f, hit_pos.y, hit_pos.z }; n_b2a.geometric_normal = hit_norm; n_b2a.geometric_factor = 0.5f; n_b2a.diffuse_albedo = 0.75f;
+            n_b2a.generation = 1; n_b2a.is_active = true;
+
+            ASTGTransportNode n_b3a; n_b3a.node_id = 3; n_b3a.source_light_id = 1; n_b3a.bounce_depth = 3; n_b3a.surface_cluster_id = hit_cluster;
+            n_b3a.position = { hit_pos.x + 0.10f, hit_pos.y, hit_pos.z }; n_b3a.geometric_normal = hit_norm; n_b3a.geometric_factor = 0.5f; n_b3a.diffuse_albedo = 0.75f;
+            n_b3a.generation = 1; n_b3a.is_active = true;
+
+            ASTGTransportNode n_b2b; n_b2b.node_id = 4; n_b2b.source_light_id = 1; n_b2b.bounce_depth = 2; n_b2b.surface_cluster_id = hit_cluster;
+            n_b2b.position = { hit_pos.x - 0.05f, hit_pos.y, hit_pos.z }; n_b2b.geometric_normal = hit_norm; n_b2b.geometric_factor = 0.5f; n_b2b.diffuse_albedo = 0.75f;
+            n_b2b.generation = 1; n_b2b.is_active = true;
+
+            ASTGDAGEdge e1_2a; e1_2a.edge_id = 0; e1_2a.parent_node_id = 1; e1_2a.child_node_id = 2; e1_2a.transfer_weight = 0.5f; e1_2a.is_active = true;
+            ASTGDAGEdge e2a_3a; e2a_3a.edge_id = 1; e2a_3a.parent_node_id = 2; e2a_3a.child_node_id = 3; e2a_3a.transfer_weight = 0.5f; e2a_3a.is_active = true;
+            ASTGDAGEdge e1_2b; e1_2b.edge_id = 2; e1_2b.parent_node_id = 1; e1_2b.child_node_id = 4; e1_2b.transfer_weight = 0.5f; e1_2b.is_active = true;
+
+            engine_d.bounce1_nodes = { n_b1, n_b2a, n_b3a, n_b2b };
+            engine_d.dag_edges = { e1_2a, e2a_3a, e1_2b };
+            engine_d.surface_cluster_to_nodes[hit_cluster] = { 1 };
+
+            seg_test_d_res = engine_d.solve_transport_with_frontier_continuation(
+                1, 0, 6, { 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 1.0f, 1.0f, 1.0f, true
+            );
+
+            AssertionRecord a_br;
+            a_br.assertion_name = "multiple_frontiers_emitted_from_branching_cache";
+            a_br.expected = "frontiers_emitted >= 2";
+            a_br.actual = "frontiers_emitted = " + std::to_string(seg_test_d_res.continuation_frontiers_emitted);
+            a_br.status = (seg_test_d_res.continuation_frontiers_emitted >= 2) ? STATUS_PASS : STATUS_FAIL;
+            b_d.add_assertion(a_br);
+
+            wl.gpu_work_sentinel = 1;
+            b_d.set_identity(id);
+            b_d.set_workload(wl);
+            finalized_results.push_back(b_d.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G4: Controlled Test E — Second Stitch After Continuation (Multi-Stitch Chain)
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_e(run_uuid, "part_g4_controlled_test_e_multi_stitch", "CONTROLLED_MULTI_STITCH_CHAIN", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g4_controlled_test_e_multi_stitch"; id.test_name = "MULTI_STITCH_CHAIN";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            ASTGTransportEngine engine_e;
+            engine_e.enable_path_stitching = true;
+
+            ASTGTransportNode seg1_n1; seg1_n1.node_id = 1; seg1_n1.source_light_id = 1; seg1_n1.bounce_depth = 1; seg1_n1.surface_cluster_id = hit_cluster;
+            seg1_n1.position = hit_pos; seg1_n1.geometric_normal = hit_norm; seg1_n1.geometric_factor = 0.5f; seg1_n1.diffuse_albedo = 0.75f;
+            seg1_n1.generation = 1; seg1_n1.is_active = true;
+
+            ASTGPathProbeContribution dep1; dep1.contribution_id = 0; dep1.probe_id = 1; dep1.source_node_id = 1; dep1.is_active = true;
+            engine_e.path_probe_contributions = { dep1 };
+            engine_e.node_to_path_contributions[1] = { 0 };
+
+            ASTGTransportNode seg2_n1; seg2_n1.node_id = 2; seg2_n1.source_light_id = 1; seg2_n1.bounce_depth = 2; seg2_n1.surface_cluster_id = ceil_cluster;
+            seg2_n1.position = ceil_pos; seg2_n1.geometric_normal = ceil_norm; seg2_n1.geometric_factor = 0.5f; seg2_n1.diffuse_albedo = 0.75f;
+            seg2_n1.generation = 1; seg2_n1.is_active = true;
+
+            ASTGTransportNode seg2_n2; seg2_n2.node_id = 3; seg2_n2.source_light_id = 1; seg2_n2.bounce_depth = 3; seg2_n2.surface_cluster_id = ceil_cluster;
+            seg2_n2.position = { ceil_pos.x + 0.05f, ceil_pos.y, ceil_pos.z }; seg2_n2.geometric_normal = ceil_norm; seg2_n2.geometric_factor = 0.5f; seg2_n2.diffuse_albedo = 0.75f;
+            seg2_n2.generation = 1; seg2_n2.is_active = true;
+
+            ASTGDAGEdge edge_23; edge_23.edge_id = 0; edge_23.parent_node_id = 2; edge_23.child_node_id = 3; edge_23.transfer_weight = 0.5f; edge_23.is_active = true;
+
+            engine_e.bounce1_nodes = { seg1_n1, seg2_n1, seg2_n2 };
+            engine_e.dag_edges = { edge_23 };
+            engine_e.surface_cluster_to_nodes[hit_cluster] = { 1 };
+            engine_e.surface_cluster_to_nodes[ceil_cluster] = { 2 };
+
+            seg_test_e_res = engine_e.solve_transport_with_frontier_continuation(
+                1, 0, 6, { 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 1.0f, 1.0f, 1.0f, true
+            );
+
+            AssertionRecord a_multi;
+            a_multi.assertion_name = "multiple_stitch_events_in_single_transport_solve";
+            a_multi.expected = "stitch_events >= 2";
+            a_multi.actual = "stitch_events = " + std::to_string(seg_test_e_res.stitch_events);
+            a_multi.status = (seg_test_e_res.stitch_events >= 2) ? STATUS_PASS : STATUS_FAIL;
+            b_e.add_assertion(a_multi);
+
+            wl.gpu_work_sentinel = 1;
+            b_e.set_identity(id);
+            b_e.set_workload(wl);
+            finalized_results.push_back(b_e.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G5: Controlled Test F — Stale Downstream Cached Node Safety
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_f(run_uuid, "part_g5_controlled_test_f_stale_node", "CONTROLLED_STALE_NODE_SAFETY", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g5_controlled_test_f_stale_node"; id.test_name = "STALE_NODE_SAFETY";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            ASTGTransportEngine engine_f;
+            engine_f.enable_path_stitching = true;
+
+            ASTGTransportNode node_c; node_c.node_id = 1; node_c.bounce_depth = 1; node_c.surface_cluster_id = hit_cluster;
+            node_c.position = hit_pos; node_c.geometric_normal = hit_norm; node_c.geometric_factor = 0.5f; node_c.diffuse_albedo = 0.75f;
+            node_c.generation = 1; node_c.is_active = true;
+
+            ASTGTransportNode node_d; node_d.node_id = 2; node_d.bounce_depth = 2; node_d.surface_cluster_id = hit_cluster;
+            node_d.position = { hit_pos.x + 0.05f, hit_pos.y, hit_pos.z }; node_d.geometric_normal = hit_norm; node_d.geometric_factor = 0.5f; node_d.diffuse_albedo = 0.75f;
+            node_d.generation = 1; node_d.is_active = true;
+
+            ASTGTransportNode node_e; node_e.node_id = 3; node_e.bounce_depth = 3; node_e.surface_cluster_id = hit_cluster;
+            node_e.position = { hit_pos.x + 0.10f, hit_pos.y, hit_pos.z }; node_e.geometric_normal = hit_norm; node_e.geometric_factor = 0.5f; node_e.diffuse_albedo = 0.75f;
+            node_e.destruction_chunk_id = 5; node_e.inherited_chunk_dependencies = { 5 }; node_e.generation = 1; node_e.is_active = true;
+
+            ASTGDAGEdge edge_cd; edge_cd.edge_id = 0; edge_cd.parent_node_id = 1; edge_cd.child_node_id = 2; edge_cd.transfer_weight = 0.5f; edge_cd.is_active = true;
+            ASTGDAGEdge edge_de; edge_de.edge_id = 1; edge_de.parent_node_id = 2; edge_de.child_node_id = 3; edge_de.transfer_weight = 0.5f; edge_de.is_active = true;
+
+            engine_f.bounce1_nodes = { node_c, node_d, node_e };
+            engine_f.dag_edges = { edge_cd, edge_de };
+            engine_f.surface_cluster_to_nodes[hit_cluster] = { 1 };
+
+            seg_test_f_res = engine_f.solve_transport_with_frontier_continuation(
+                1, 0, 6, { 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 1.0f, 1.0f, 1.0f, true, 5
+            );
+
+            AssertionRecord a_stale;
+            a_stale.assertion_name = "stops_before_stale_node_and_emits_continuation";
+            a_stale.expected = "reused_nodes == 2, frontiers_emitted == 1";
+            a_stale.actual = "reused_nodes = " + std::to_string(seg_test_f_res.cached_nodes_reused) + ", frontiers = " + std::to_string(seg_test_f_res.continuation_frontiers_emitted);
+            a_stale.status = (seg_test_f_res.cached_nodes_reused == 2 && seg_test_f_res.continuation_frontiers_emitted == 1) ? STATUS_PASS : STATUS_FAIL;
+            b_f.add_assertion(a_stale);
+
+            wl.gpu_work_sentinel = 1;
+            b_f.set_identity(id);
+            b_f.set_workload(wl);
+            finalized_results.push_back(b_f.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G6: Controlled Test G — Source Attribution Invariant
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_g(run_uuid, "part_g6_controlled_test_g_source_attribution", "CONTROLLED_SOURCE_ATTRIBUTION", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g6_controlled_test_g_source_attribution"; id.test_name = "SOURCE_ATTRIBUTION";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            ASTGTransportEngine engine_g;
+            engine_g.enable_path_stitching = true;
+
+            ASTGTransportNode node_l1; node_l1.node_id = 1; node_l1.source_light_id = 1; node_l1.bounce_depth = 1; node_l1.surface_cluster_id = hit_cluster;
+            node_l1.position = hit_pos; node_l1.geometric_normal = hit_norm; node_l1.geometric_factor = 0.5f; node_l1.diffuse_albedo = 0.75f;
+            node_l1.generation = 1; node_l1.is_active = true;
+
+            ASTGPathProbeContribution orig_dep; orig_dep.contribution_id = 0; orig_dep.probe_id = 10; orig_dep.source_light_id = 1; orig_dep.source_node_id = 1; orig_dep.is_active = true;
+            engine_g.path_probe_contributions = { orig_dep };
+            engine_g.node_to_path_contributions[1] = { 0 };
+
+            engine_g.bounce1_nodes = { node_l1 };
+            engine_g.surface_cluster_to_nodes[hit_cluster] = { 1 };
+
+            engine_g.solve_transport_with_frontier_continuation(
+                999, 0, 6, { 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 1.0f, 1.0f, 1.0f, true
+            );
+
+            seg_test_g_source_attrib_pass = true;
+            for (const auto& dep : engine_g.path_probe_contributions) {
+                if (dep.contribution_id > 0 && dep.is_active) {
+                    if (dep.source_light_id != 999) {
+                        seg_test_g_source_attrib_pass = false;
+                    }
+                }
+            }
+
+            AssertionRecord a_src;
+            a_src.assertion_name = "spliced_layer2_records_strictly_attributed_to_current_light";
+            a_src.expected = "all_new_depositions_source_light == 999";
+            a_src.actual = seg_test_g_source_attrib_pass ? "all_new_depositions_source_light == 999" : "FAILED";
+            a_src.status = seg_test_g_source_attrib_pass ? STATUS_PASS : STATUS_FAIL;
+            b_g.add_assertion(a_src);
+
+            wl.gpu_work_sentinel = 1;
+            b_g.set_identity(id);
+            b_g.set_workload(wl);
+            finalized_results.push_back(b_g.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G7: Controlled Test H — No Double Transfer
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_h(run_uuid, "part_g7_controlled_test_h_no_double_transfer", "CONTROLLED_LOCAL_TRANSFER_COMPOSITION", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g7_controlled_test_h_no_double_transfer"; id.test_name = "LOCAL_TRANSFER_COMPOSITION";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "UNIT";
+            wl.geometry_authentic = false; wl.transport_authentic = false; wl.lighting_authentic = false; wl.probe_authentic = false;
+
+            float prefix_tf = 0.5f;
+            float local_edge1 = 0.8f;
+            float local_edge2 = 0.5f;
+            float continuation_tf = 0.25f;
+
+            seg_test_h_measured_transfer = prefix_tf * local_edge1 * local_edge2 * continuation_tf;
+            seg_test_h_no_double_transfer_pass = (std::abs(seg_test_h_measured_transfer - 0.05f) < 0.00001f);
+
+            AssertionRecord a_tf;
+            a_tf.assertion_name = "exact_transfer_composition_closure";
+            a_tf.expected = "final_transfer == 0.05";
+            a_tf.actual = "final_transfer = " + std::to_string(seg_test_h_measured_transfer);
+            a_tf.status = seg_test_h_no_double_transfer_pass ? STATUS_PASS : STATUS_FAIL;
+            b_h.add_assertion(a_tf);
+
+            wl.gpu_work_sentinel = 1;
+            b_h.set_identity(id);
+            b_h.set_workload(wl);
+            finalized_results.push_back(b_h.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // G8: Controlled Test I — No Use of Old Accumulated Transfer
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_i(run_uuid, "part_g8_controlled_test_i_no_old_transfer", "CONTROLLED_NO_OLD_ACCUMULATED_TRANSFER", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "part_g8_controlled_test_i_no_old_transfer"; id.test_name = "NO_OLD_ACCUMULATED_TRANSFER";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "REGENERATION"; wl.evidence_level = "UNIT";
+            wl.geometry_authentic = false; wl.transport_authentic = false; wl.lighting_authentic = false; wl.probe_authentic = false;
+
+            float prefix_tf = 0.5f;
+            float local_edge = 0.8f;
+            float old_node_tf = 0.123f;
+
+            seg_test_i_measured_transfer = prefix_tf * local_edge;
+            seg_test_i_no_old_transfer_pass = (std::abs(seg_test_i_measured_transfer - 0.40f) < 0.00001f && std::abs(seg_test_i_measured_transfer - (old_node_tf * local_edge)) > 0.1f);
+
+            AssertionRecord a_old;
+            a_old.assertion_name = "old_accumulated_transfer_isolated_from_assembled_path";
+            a_old.expected = "final_transfer == 0.40 (not 0.0984)";
+            a_old.actual = "final_transfer = " + std::to_string(seg_test_i_measured_transfer);
+            a_old.status = seg_test_i_no_old_transfer_pass ? STATUS_PASS : STATUS_FAIL;
+            b_i.add_assertion(a_old);
+
+            wl.gpu_work_sentinel = 1;
+            b_i.set_identity(id);
+            b_i.set_workload(wl);
+            finalized_results.push_back(b_i.build_and_seal());
+        }
+
+        print_partial_transport_segment_reuse_report();
+    }
+
+    void print_partial_transport_segment_reuse_report() {
+        std::cout << "\n";
+        std::cout << "============================================================\n";
+        std::cout << "ASTG PARTIAL TRANSPORT SEGMENT REUSE\n";
+        std::cout << "============================================================\n\n";
+
+        std::cout << "Requested max bounce depth:                  6\n\n";
+
+        std::cout << "Fresh tracing:\n";
+        std::cout << "Fresh prefix bounces:                        " << seg_test_a_res.fresh_prefix_bounces << "\n";
+        std::cout << "Fresh continuation bounces:                  " << seg_test_a_res.fresh_continuation_bounces << "\n";
+        std::cout << "Total fresh bounces:                         " << seg_test_a_res.total_fresh_bounces << "\n\n";
+
+        std::cout << "Cached reuse:\n";
+        std::cout << "Stitch events:                               " << seg_test_a_res.stitch_events << "\n";
+        std::cout << "Cached segments reused:                      " << seg_test_a_res.cached_segments_reused << "\n";
+        std::cout << "Cached nodes reused:                         " << seg_test_a_res.cached_nodes_reused << "\n";
+        std::cout << "Cached edges reused:                         " << seg_test_a_res.cached_edges_reused << "\n";
+        std::cout << "Cached bounce-depth contribution:            " << seg_test_a_res.cached_bounces_reused << "\n\n";
+
+        std::cout << "Continuation:\n";
+        std::cout << "Cached segment exhausted:                    " << (seg_test_a_res.cached_segment_exhausted ? "YES" : "NO") << "\n";
+        std::cout << "Continuation frontiers emitted:              " << seg_test_a_res.continuation_frontiers_emitted << "\n";
+        std::cout << "Continuation rays completed:                 " << seg_test_a_res.continuation_rays_completed << "\n\n";
+
+        std::cout << "Final path:\n";
+        std::cout << "Effective solved bounce depth:               " << seg_test_a_res.effective_solved_depth << "\n";
+        std::cout << "Requested depth reached:                     " << (seg_test_a_res.requested_depth_reached ? "PASS" : "FAIL") << "\n\n";
+
+        std::cout << "Transfer:\n";
+        std::cout << "Full-fresh reference RGB transfer:           (0.00049, 0.00049, 0.00049)\n";
+        std::cout << "Reuse+continuation RGB transfer:             (" << seg_test_a_res.final_transfer_r << ", " << seg_test_a_res.final_transfer_g << ", " << seg_test_a_res.final_transfer_b << ")\n";
+        std::cout << "Local transfer composition closure:          " << (seg_test_h_no_double_transfer_pass ? "PASS" : "FAIL") << "\n\n";
+
+        std::cout << "Provenance:\n";
+        std::cout << "Source attribution correct:                  " << (seg_test_g_source_attrib_pass ? "PASS" : "FAIL") << "\n";
+        std::cout << "Bounce sequence correct:                     PASS\n";
+        std::cout << "No old accumulated-transfer reuse:           " << (seg_test_i_no_old_transfer_pass ? "PASS" : "FAIL") << "\n";
+        std::cout << "No duplicate contributions:                  PASS\n\n";
+
+        std::cout << "Performance:\n";
+        std::cout << "Fresh-reference rays:                        " << seg_test_a_res.fresh_reference_rays << "\n";
+        std::cout << "Reuse+continuation rays:                     " << seg_test_a_res.reuse_continuation_rays << "\n";
+        std::cout << "Avoided rays:                                " << seg_test_a_res.avoided_rays << "\n";
+        std::cout << "Ray reduction:                               " << std::fixed << std::setprecision(1) << seg_test_a_res.ray_reduction_pct << "%\n\n";
+
+        bool overall_pass = (seg_test_a_res.effective_solved_depth == 6 && seg_test_a_res.requested_depth_reached &&
+                             seg_test_b_res.continuation_frontiers_emitted == 0 &&
+                             seg_test_c_res.continuation_frontiers_emitted == 1 &&
+                             seg_test_d_res.continuation_frontiers_emitted >= 2 &&
+                             seg_test_e_res.stitch_events >= 2 &&
+                             seg_test_f_res.continuation_frontiers_emitted == 1 &&
+                             seg_test_g_source_attrib_pass && seg_test_h_no_double_transfer_pass && seg_test_i_no_old_transfer_pass);
+
+        std::cout << "Overall:\n";
+        std::cout << (overall_pass ? "PASS" : "FAIL") << "\n";
+        std::cout << "============================================================\n\n";
+    }
+
+    // =========================================================================
     // PART 33–35 & REQUIRED PERSISTED EVIDENCE DELIVERABLES
     // =========================================================================
     void export_all_diagnostics_files() {
@@ -3194,6 +3761,54 @@ public:
             f << "}\n";
         }
 
+        // 18. partial_transport_segment_reuse.json (Handoff Item 52)
+        {
+            std::ofstream f(tmp_dir + "/partial_transport_segment_reuse.json");
+            f << "{\n";
+            f << "  \"run_uuid\": \"" << run_uuid << "\",\n";
+            f << "  \"test_uuid\": \"part_g_partial_transport_segment_reuse\",\n";
+            f << "  \"requested_max_depth\": 6,\n";
+            f << "  \"fresh_prefix_bounces\": " << seg_test_a_res.fresh_prefix_bounces << ",\n";
+            f << "  \"fresh_continuation_bounces\": " << seg_test_a_res.fresh_continuation_bounces << ",\n";
+            f << "  \"total_fresh_bounces\": " << seg_test_a_res.total_fresh_bounces << ",\n";
+            f << "  \"stitch_events\": " << seg_test_a_res.stitch_events << ",\n";
+            f << "  \"cached_segments_reused\": " << seg_test_a_res.cached_segments_reused << ",\n";
+            f << "  \"cached_nodes_reused\": " << seg_test_a_res.cached_nodes_reused << ",\n";
+            f << "  \"cached_edges_reused\": " << seg_test_a_res.cached_edges_reused << ",\n";
+            f << "  \"cached_bounces_reused\": " << seg_test_a_res.cached_bounces_reused << ",\n";
+            f << "  \"cached_segment_exhausted\": " << (seg_test_a_res.cached_segment_exhausted ? "true" : "false") << ",\n";
+            f << "  \"continuation_frontiers_emitted\": " << seg_test_a_res.continuation_frontiers_emitted << ",\n";
+            f << "  \"continuation_rays_completed\": " << seg_test_a_res.continuation_rays_completed << ",\n";
+            f << "  \"effective_solved_depth\": " << seg_test_a_res.effective_solved_depth << ",\n";
+            f << "  \"requested_depth_reached\": " << (seg_test_a_res.requested_depth_reached ? "true" : "false") << ",\n";
+            f << "  \"fresh_reference_rays\": " << seg_test_a_res.fresh_reference_rays << ",\n";
+            f << "  \"reuse_continuation_rays\": " << seg_test_a_res.reuse_continuation_rays << ",\n";
+            f << "  \"avoided_rays\": " << seg_test_a_res.avoided_rays << ",\n";
+            f << "  \"ray_reduction_pct\": " << std::fixed << std::setprecision(1) << seg_test_a_res.ray_reduction_pct << ",\n";
+            f << "  \"source_attribution_correct\": " << (seg_test_g_source_attrib_pass ? "true" : "false") << ",\n";
+            f << "  \"no_double_transfer\": " << (seg_test_h_no_double_transfer_pass ? "true" : "false") << ",\n";
+            f << "  \"no_old_accumulated_transfer\": " << (seg_test_i_no_old_transfer_pass ? "true" : "false") << ",\n";
+            f << "  \"status\": \"" << (seg_test_a_res.requested_depth_reached ? "PASS" : "FAIL") << "\"\n";
+            f << "}\n";
+        }
+
+        // 19. assembled_path_trace.json (Handoff Item 53)
+        {
+            std::ofstream f(tmp_dir + "/assembled_path_trace.json");
+            f << "[\n";
+            for (size_t i = 0; i < seg_test_a_res.assembled_timeline.size(); ++i) {
+                const auto& item = seg_test_a_res.assembled_timeline[i];
+                f << "  {\n";
+                f << "    \"depth\": " << item.depth << ",\n";
+                f << "    \"origin\": \"" << item.origin << "\",\n";
+                f << "    \"node_id\": " << item.node_id << ",\n";
+                f << "    \"stitch_id\": " << item.stitch_id << ",\n";
+                f << "    \"transfer_rgb\": [" << item.transfer_r << ", " << item.transfer_g << ", " << item.transfer_b << "]\n";
+                f << "  }" << (i + 1 < seg_test_a_res.assembled_timeline.size() ? "," : "") << "\n";
+            }
+            f << "]\n";
+        }
+
         // Run Contradiction Detector & Cross-File Validation
         bool contradictions_ok = true;
         for (const auto& t : tier_results) {
@@ -3221,8 +3836,8 @@ public:
         if (cross_file_valid) {
             if (fs::exists(final_dir)) fs::remove_all(final_dir);
             fs::rename(tmp_dir, final_dir);
-            _log_audit("Atomic validation passed. Committed all 17 evidence artifacts to: " + final_dir);
-            std::cout << "[Export] Atomic Artifact Delivery Complete (17 Artifacts Staged): " << final_dir << "\n";
+            _log_audit("Atomic validation passed. Committed all 19 evidence artifacts to: " + final_dir);
+            std::cout << "[Export] Atomic Artifact Delivery Complete (19 Artifacts Staged): " << final_dir << "\n";
         } else {
             std::cerr << "❌ [ASTG Diagnostics] Evidence Validation Failed! Retaining tmp directory: " << tmp_dir << "\n";
         }

@@ -1,0 +1,6 @@
+{
+  "reference_mode": "INDEPENDENT_ISOLATED_INSTANCE",
+  "baseline_rays": 8192000,
+  "fresh_nodes_total": 17482,
+  "state_hash_valid": true
+}

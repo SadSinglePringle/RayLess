@@ -39,10 +39,13 @@ int main(int argc, char** argv) {
     // 6. PART F: ASTG Regeneration Path-Stitching Validation
     diag.test_path_stitching_regeneration();
 
-    // 7. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
+    // 7. PART G: Partial Transport Segment Reuse & Stitched Frontier Continuation
+    diag.test_partial_transport_segment_reuse();
+
+    // 8. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
     diag.export_all_diagnostics_files();
 
-    // 8. PART 90: Final Evidence Integrity Report
+    // 9. PART 90: Final Evidence Integrity Report
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

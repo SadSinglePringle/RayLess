@@ -1,0 +1,9 @@
+{
+  "run_uuid": "run_20260819_131418_7aa43ee_evidence_hardened",
+  "test_uuid": "part_f4_no_match_fallback_integration",
+  "no_match_workload_executed": true,
+  "runtime_stitch_candidates_accepted": 0,
+  "normal_node_creation_observed": true,
+  "normal_repair_completion_observed": true,
+  "status": "PASS"
+}

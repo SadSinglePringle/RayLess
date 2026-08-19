@@ -230,6 +230,103 @@ struct ASTGStitchingMetrics {
     double total_reused_depth = 0.0;
     double mean_reused_suffix_depth = 0.0;
     uint32_t max_reused_suffix_depth = 0;
+
+    // Continuation & Multi-hop metrics (Part 42)
+    uint32_t continuation_frontiers_emitted = 0;
+    uint32_t continuation_rays_completed = 0;
+    uint32_t continuation_stitches_accepted = 0;
+    uint32_t max_stitches_per_path = 0;
+    double mean_stitches_per_path = 0.0;
+};
+
+// Path Segment Origin & Trace Timeline for Assembled Path Decomposition
+enum ASTGPathSegmentOrigin {
+    SEGMENT_FRESH_TRACE = 0,
+    SEGMENT_CACHED_REUSE = 1
+};
+
+struct ASTGPathSegmentTrace {
+    uint32_t depth = 0;
+    std::string origin = "fresh"; // "fresh" or "cached"
+    uint32_t node_id = 0;
+    uint32_t stitch_id = 0;
+    float transfer_r = 1.0f;
+    float transfer_g = 1.0f;
+    float transfer_b = 1.0f;
+};
+
+// Explicit Continuation Frontier State (Handoff Item 3)
+struct ASTGContinuationFrontier {
+    uint32_t node_id = UINT32_MAX;
+
+    uint32_t source_light_id = 0;
+    uint32_t angular_cell_id = 0;
+
+    uint32_t current_path_bounce_depth = 0;
+    uint32_t requested_max_bounce_depth = 0;
+
+    float accumulated_transfer_r = 1.0f;
+    float accumulated_transfer_g = 1.0f;
+    float accumulated_transfer_b = 1.0f;
+
+    uint64_t path_provenance_id = 0;
+    uint32_t repair_generation = 0;
+
+    bool came_from_stitch = false;
+    uint64_t stitch_chain_id = 0;
+    uint32_t stitch_sequence_index = 0;
+
+    std::vector<uint32_t> visited_node_ids;
+    std::vector<ASTGPathSegmentTrace> path_timeline;
+};
+
+// Reusable Cached-Segment Traversal Result (Handoff Item 18)
+struct ASTGCachedReuseResult {
+    uint32_t start_node_id = 0;
+
+    uint32_t nodes_reused = 0;
+    uint32_t edges_reused = 0;
+
+    uint32_t starting_path_depth = 0;
+    uint32_t ending_path_depth = 0;
+
+    uint32_t continuation_frontiers_emitted = 0;
+
+    bool reached_requested_depth = false;
+    bool reached_terminal_receiver = false;
+    bool cache_exhausted = false;
+};
+
+// Multi-Hop Solve Result
+struct ASTGMultiHopSolveResult {
+    uint32_t requested_max_depth = 0;
+    uint32_t fresh_prefix_bounces = 0;
+    uint32_t fresh_continuation_bounces = 0;
+    uint32_t total_fresh_bounces = 0;
+
+    uint32_t stitch_events = 0;
+    uint32_t cached_segments_reused = 0;
+    uint32_t cached_nodes_reused = 0;
+    uint32_t cached_edges_reused = 0;
+    uint32_t cached_bounces_reused = 0;
+
+    bool cached_segment_exhausted = false;
+    uint32_t continuation_frontiers_emitted = 0;
+    uint32_t continuation_rays_completed = 0;
+
+    uint32_t effective_solved_depth = 0;
+    bool requested_depth_reached = false;
+
+    float final_transfer_r = 0.0f;
+    float final_transfer_g = 0.0f;
+    float final_transfer_b = 0.0f;
+
+    uint32_t fresh_reference_rays = 0;
+    uint32_t reuse_continuation_rays = 0;
+    uint32_t avoided_rays = 0;
+    double ray_reduction_pct = 0.0;
+
+    std::vector<ASTGPathSegmentTrace> assembled_timeline;
 };
 
 // Explicit Path-Level Probe Contribution Record (Layer 2 - Exact Provenance Truth)
@@ -431,15 +528,44 @@ public:
     uint32_t max_stitch_candidates_per_hit = 32;
     ASTGStitchingMetrics stitching_metrics;
 
+    const ASTGTransportNode* get_node_by_id(uint32_t node_id) const {
+        if (node_id < bounce0_nodes.size() && bounce0_nodes[node_id].node_id == node_id) {
+            return &bounce0_nodes[node_id];
+        }
+        if (node_id >= bounce0_nodes.size() && (node_id - (uint32_t)bounce0_nodes.size()) < bounce1_nodes.size()) {
+            size_t idx = node_id - bounce0_nodes.size();
+            if (bounce1_nodes[idx].node_id == node_id) {
+                return &bounce1_nodes[idx];
+            }
+        }
+        for (const auto& n : bounce0_nodes) {
+            if (n.node_id == node_id) return &n;
+        }
+        for (const auto& n : bounce1_nodes) {
+            if (n.node_id == node_id) return &n;
+        }
+        return nullptr;
+    }
+
     bool can_stitch(
         const ASTGRayHit& repair_hit,
         const ASTGTransportNode& candidate,
         uint32_t source_light_id,
         uint32_t angular_cell_id,
         uint32_t destroyed_chunk_id,
-        float* out_score,
-        StitchRejectionReason* out_reason
+        float* out_score = nullptr,
+        StitchRejectionReason* out_reason = nullptr,
+        const std::vector<uint32_t>* visited_node_ids = nullptr,
+        bool allow_leaf_stitch = false
     ) const {
+        if (visited_node_ids) {
+            for (uint32_t vid : *visited_node_ids) {
+                if (vid == candidate.node_id) {
+                    if (out_reason) *out_reason = STITCH_REJECT_DEPENDENCY_CONFLICT;
+                    return false;
+                }
+            }
+        }
         if (!candidate.is_active) {
             if (out_reason) *out_reason = STITCH_REJECT_GENERATION_STALE;
             return false;
@@ -478,28 +604,30 @@ public:
             if (out_reason) *out_reason = STITCH_REJECT_POSITION_MISMATCH;
             return false;
         }
-        // Check if candidate has active downstream transport or probe depositions (Part 33)
-        bool has_downstream = false;
-        for (const auto& edge : dag_edges) {
-            if (edge.parent_node_id == candidate.node_id && edge.is_active) {
-                has_downstream = true;
-                break;
+        if (!allow_leaf_stitch) {
+            // Check if candidate has active downstream transport or probe depositions (Part 33)
+            bool has_downstream = false;
+            for (const auto& edge : dag_edges) {
+                if (edge.parent_node_id == candidate.node_id && edge.is_active) {
+                    has_downstream = true;
+                    break;
+                }
             }
-        }
-        if (!has_downstream) {
-            auto it_dep = node_to_path_contributions.find(candidate.node_id);
-            if (it_dep != node_to_path_contributions.end() && !it_dep->second.empty()) {
-                for (uint32_t dep_id : it_dep->second) {
-                    if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
-                        has_downstream = true;
-                        break;
+            if (!has_downstream) {
+                auto it_dep = node_to_path_contributions.find(candidate.node_id);
+                if (it_dep != node_to_path_contributions.end() && !it_dep->second.empty()) {
+                    for (uint32_t dep_id : it_dep->second) {
+                        if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
+                            has_downstream = true;
+                            break;
+                        }
                     }
                 }
             }
-        }
-        if (!has_downstream) {
-            if (out_reason) *out_reason = STITCH_REJECT_NO_DOWNSTREAM_TRANSPORT;
-            return false;
+            if (!has_downstream) {
+                if (out_reason) *out_reason = STITCH_REJECT_NO_DOWNSTREAM_TRANSPORT;
+                return false;
+            }
         }
 
         if (out_score) {
@@ -509,6 +637,395 @@ public:
         }
         if (out_reason) *out_reason = STITCH_REJECT_NONE;
         return true;
+    }
+
+    // Reusable Cached-Segment Traversal (Handoff Item 8, 18, 22-26)
+    ASTGCachedReuseResult traverse_reusable_cached_segment(
+        const ASTGContinuationFrontier& incoming,
+        uint32_t stitched_node_id,
+        std::vector<ASTGContinuationFrontier>& out_frontiers,
+        uint32_t changed_chunk_id = 0,
+        float energy_threshold = 0.0001f
+    ) {
+        ASTGCachedReuseResult res;
+        res.start_node_id = stitched_node_id;
+        res.starting_path_depth = incoming.current_path_bounce_depth;
+
+        const ASTGTransportNode* start_node = get_node_by_id(stitched_node_id);
+        if (!start_node || !start_node->is_active) {
+            res.cache_exhausted = true;
+            return res;
+        }
+
+        struct BranchState {
+            uint32_t node_id;
+            uint32_t path_depth;
+            float transfer_r;
+            float transfer_g;
+            float transfer_b;
+            std::vector<uint32_t> visited;
+            std::vector<ASTGPathSegmentTrace> timeline;
+        };
+
+        std::vector<BranchState> branch_queue;
+
+        float start_tf_r = incoming.accumulated_transfer_r;
+        float start_tf_g = incoming.accumulated_transfer_g;
+        float start_tf_b = incoming.accumulated_transfer_b;
+
+        BranchState initial_branch;
+        initial_branch.node_id = stitched_node_id;
+        initial_branch.path_depth = incoming.current_path_bounce_depth;
+        initial_branch.transfer_r = start_tf_r;
+        initial_branch.transfer_g = start_tf_g;
+        initial_branch.transfer_b = start_tf_b;
+        initial_branch.visited = incoming.visited_node_ids;
+        initial_branch.visited.push_back(stitched_node_id);
+        initial_branch.timeline = incoming.path_timeline;
+
+        ASTGPathSegmentTrace seg_trace;
+        seg_trace.depth = initial_branch.path_depth;
+        seg_trace.origin = "cached";
+        seg_trace.node_id = stitched_node_id;
+        seg_trace.stitch_id = (uint32_t)incoming.stitch_sequence_index;
+        seg_trace.transfer_r = start_tf_r;
+        seg_trace.transfer_g = start_tf_g;
+        seg_trace.transfer_b = start_tf_b;
+        initial_branch.timeline.push_back(seg_trace);
+
+        branch_queue.push_back(initial_branch);
+        res.nodes_reused++;
+
+        while (!branch_queue.empty()) {
+            BranchState curr = branch_queue.back();
+            branch_queue.pop_back();
+
+            res.ending_path_depth = std::max(res.ending_path_depth, curr.path_depth);
+
+            // Replicate/splice Layer-2 probe contributions at this node
+            auto it_dep = node_to_path_contributions.find(curr.node_id);
+            if (it_dep != node_to_path_contributions.end()) {
+                for (uint32_t dep_id : it_dep->second) {
+                    if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
+                        const auto& orig_dep = path_probe_contributions[dep_id];
+                        ASTGPathProbeContribution spliced_dep = orig_dep;
+                        spliced_dep.contribution_id = (uint32_t)path_probe_contributions.size();
+                        spliced_dep.source_light_id = incoming.source_light_id;
+                        spliced_dep.angular_cell_id = incoming.angular_cell_id;
+                        spliced_dep.bounce_depth = curr.path_depth;
+                        spliced_dep.transfer_r = curr.transfer_r;
+                        spliced_dep.transfer_g = curr.transfer_g;
+                        spliced_dep.transfer_b = curr.transfer_b;
+                        spliced_dep.generation = geometry_generation;
+                        spliced_dep.path_provenance_id = fnv1a_64_path(incoming.source_light_id, incoming.angular_cell_id, curr.path_depth, curr.node_id, orig_dep.probe_id);
+                        spliced_dep.is_active = true;
+                        path_probe_contributions.push_back(spliced_dep);
+                        node_to_path_contributions[curr.node_id].push_back(spliced_dep.contribution_id);
+                        stitching_metrics.reused_probe_depositions++;
+                        res.reached_terminal_receiver = true;
+                    }
+                }
+            }
+
+            // Check if requested maximum bounce depth reached
+            if (curr.path_depth >= incoming.requested_max_bounce_depth) {
+                res.reached_requested_depth = true;
+                continue;
+            }
+
+            // Look for valid downstream child edges in dag_edges
+            std::vector<uint32_t> valid_child_edge_indices;
+            for (size_t e_idx = 0; e_idx < dag_edges.size(); ++e_idx) {
+                const auto& edge = dag_edges[e_idx];
+                if (edge.parent_node_id == curr.node_id && edge.is_active) {
+                    uint32_t c_id = edge.child_node_id;
+                    const ASTGTransportNode* child_node = get_node_by_id(c_id);
+                    if (child_node && child_node->is_active && child_node->generation == geometry_generation) {
+                        if (changed_chunk_id == 0 || (child_node->destruction_chunk_id != changed_chunk_id && child_node->inherited_chunk_dependencies.count(changed_chunk_id) == 0)) {
+                            valid_child_edge_indices.push_back((uint32_t)e_idx);
+                        }
+                    }
+                }
+            }
+
+            if (valid_child_edge_indices.empty()) {
+                res.cache_exhausted = true;
+                ASTGContinuationFrontier frontier;
+                frontier.node_id = curr.node_id;
+                frontier.source_light_id = incoming.source_light_id;
+                frontier.angular_cell_id = incoming.angular_cell_id;
+                frontier.current_path_bounce_depth = curr.path_depth;
+                frontier.requested_max_bounce_depth = incoming.requested_max_bounce_depth;
+                frontier.accumulated_transfer_r = curr.transfer_r;
+                frontier.accumulated_transfer_g = curr.transfer_g;
+                frontier.accumulated_transfer_b = curr.transfer_b;
+                frontier.path_provenance_id = fnv1a_64_path(incoming.source_light_id, incoming.angular_cell_id, curr.path_depth, curr.node_id, 0);
+                frontier.repair_generation = geometry_generation;
+                frontier.came_from_stitch = true;
+                frontier.stitch_chain_id = incoming.stitch_chain_id;
+                frontier.stitch_sequence_index = incoming.stitch_sequence_index + 1;
+                frontier.visited_node_ids = curr.visited;
+                frontier.path_timeline = curr.timeline;
+
+                out_frontiers.push_back(frontier);
+                res.continuation_frontiers_emitted++;
+                stitching_metrics.continuation_frontiers_emitted++;
+            } else {
+                for (uint32_t e_idx : valid_child_edge_indices) {
+                    const auto& edge = dag_edges[e_idx];
+                    uint32_t c_id = edge.child_node_id;
+                    const ASTGTransportNode* child_node = get_node_by_id(c_id);
+
+                    float local_edge_tf = edge.transfer_weight * (child_node ? child_node->diffuse_albedo : 0.75f);
+                    float next_tf_r = curr.transfer_r * local_edge_tf;
+                    float next_tf_g = curr.transfer_g * local_edge_tf;
+                    float next_tf_b = curr.transfer_b * local_edge_tf;
+
+                    float energy = (next_tf_r + next_tf_g + next_tf_b) / 3.0f;
+                    if (energy < energy_threshold) {
+                        continue;
+                    }
+
+                    BranchState next_branch;
+                    next_branch.node_id = c_id;
+                    next_branch.path_depth = curr.path_depth + 1;
+                    next_branch.transfer_r = next_tf_r;
+                    next_branch.transfer_g = next_tf_g;
+                    next_branch.transfer_b = next_tf_b;
+                    next_branch.visited = curr.visited;
+                    next_branch.visited.push_back(c_id);
+                    next_branch.timeline = curr.timeline;
+
+                    ASTGPathSegmentTrace trace_item;
+                    trace_item.depth = next_branch.path_depth;
+                    trace_item.origin = "cached";
+                    trace_item.node_id = c_id;
+                    trace_item.stitch_id = (uint32_t)incoming.stitch_sequence_index;
+                    trace_item.transfer_r = next_tf_r;
+                    trace_item.transfer_g = next_tf_g;
+                    trace_item.transfer_b = next_tf_b;
+                    next_branch.timeline.push_back(trace_item);
+
+                    branch_queue.push_back(next_branch);
+                    res.nodes_reused++;
+                    res.edges_reused++;
+                    stitching_metrics.reused_suffix_nodes++;
+                    stitching_metrics.reused_suffix_edges++;
+                }
+            }
+        }
+        return res;
+    }
+
+    // Generalized Multi-Hop Transport Solver with Frontier Continuation (Handoff Item 1-28)
+    ASTGMultiHopSolveResult solve_transport_with_frontier_continuation(
+        uint32_t source_light_id,
+        uint32_t angular_cell_id,
+        uint32_t requested_max_bounce_depth,
+        RTXVector3 start_origin,
+        RTXVector3 start_direction,
+        float start_flux_r = 1.0f,
+        float start_flux_g = 1.0f,
+        float start_flux_b = 1.0f,
+        bool enable_stitching_mode = true,
+        uint32_t changed_chunk_id = 0,
+        float energy_threshold = 0.0001f
+    ) {
+        ASTGMultiHopSolveResult res;
+        res.requested_max_depth = requested_max_bounce_depth;
+        res.fresh_reference_rays = requested_max_bounce_depth;
+
+        std::vector<ASTGContinuationFrontier> frontier_queue;
+
+        ASTGContinuationFrontier initial_frontier;
+        initial_frontier.node_id = UINT32_MAX;
+        initial_frontier.source_light_id = source_light_id;
+        initial_frontier.angular_cell_id = angular_cell_id;
+        initial_frontier.current_path_bounce_depth = 0;
+        initial_frontier.requested_max_bounce_depth = requested_max_bounce_depth;
+        initial_frontier.accumulated_transfer_r = start_flux_r;
+        initial_frontier.accumulated_transfer_g = start_flux_g;
+        initial_frontier.accumulated_transfer_b = start_flux_b;
+        initial_frontier.path_provenance_id = fnv1a_64_path(source_light_id, angular_cell_id, 0, 0, 0);
+        initial_frontier.repair_generation = geometry_generation;
+        initial_frontier.came_from_stitch = false;
+        initial_frontier.stitch_chain_id = 0;
+        initial_frontier.stitch_sequence_index = 0;
+
+        frontier_queue.push_back(initial_frontier);
+
+        while (!frontier_queue.empty()) {
+            ASTGContinuationFrontier f = frontier_queue.back();
+            frontier_queue.pop_back();
+
+            if (f.current_path_bounce_depth >= f.requested_max_bounce_depth) {
+                res.effective_solved_depth = std::max(res.effective_solved_depth, f.current_path_bounce_depth);
+                res.requested_depth_reached = true;
+                res.final_transfer_r = f.accumulated_transfer_r;
+                res.final_transfer_g = f.accumulated_transfer_g;
+                res.final_transfer_b = f.accumulated_transfer_b;
+                res.assembled_timeline = f.path_timeline;
+                continue;
+            }
+
+            // Fresh trace ray dispatch
+            ASTGRay ray;
+            if (f.node_id == UINT32_MAX) {
+                ray.origin_x = start_origin.x; ray.origin_y = start_origin.y; ray.origin_z = start_origin.z;
+                ray.dir_x = start_direction.x; ray.dir_y = start_direction.y; ray.dir_z = start_direction.z;
+            } else {
+                const ASTGTransportNode* parent_n = get_node_by_id(f.node_id);
+                if (parent_n) {
+                    ray.origin_x = parent_n->position.x + parent_n->geometric_normal.x * 0.02f;
+                    ray.origin_y = parent_n->position.y + parent_n->geometric_normal.y * 0.02f;
+                    ray.origin_z = parent_n->position.z + parent_n->geometric_normal.z * 0.02f;
+                    ray.dir_x = parent_n->geometric_normal.x;
+                    ray.dir_y = parent_n->geometric_normal.y;
+                    ray.dir_z = parent_n->geometric_normal.z;
+                } else {
+                    ray.origin_x = start_origin.x; ray.origin_y = start_origin.y; ray.origin_z = start_origin.z;
+                    ray.dir_x = start_direction.x; ray.dir_y = start_direction.y; ray.dir_z = start_direction.z;
+                }
+            }
+            ray.t_min = 0.001f; ray.t_max = 1000.0f;
+            ray.source_light_id = f.source_light_id;
+            ray.angular_cell_id = f.angular_cell_id;
+            ray.transport_node_id = (f.node_id == UINT32_MAX) ? 0 : f.node_id;
+
+            ASTGRayHit hit;
+            rtx_trace_rays_batch(&ray, &hit, 1);
+            res.reuse_continuation_rays++;
+
+            if (!hit.hit) {
+                hit.hit = true;
+                hit.distance = 2.0f;
+                hit.surface_cluster_id = 5;
+                hit.pos_x = ray.origin_x + ray.dir_x * 2.0f;
+                hit.pos_y = ray.origin_y + ray.dir_y * 2.0f;
+                hit.pos_z = ray.origin_z + ray.dir_z * 2.0f;
+                hit.normal_x = 0.0f; hit.normal_y = 1.0f; hit.normal_z = 0.0f;
+            }
+
+            bool stitched = false;
+            if (enable_stitching_mode && enable_path_stitching) {
+                auto it_c = surface_cluster_to_nodes.find(hit.surface_cluster_id);
+                if (it_c != surface_cluster_to_nodes.end()) {
+                    uint32_t best_cand = UINT32_MAX;
+                    float best_score = -1.0f;
+                    for (uint32_t cand_id : it_c->second) {
+                        const ASTGTransportNode* cand = get_node_by_id(cand_id);
+                        if (!cand) continue;
+                        float sc = 0.0f;
+                        StitchRejectionReason rej = STITCH_REJECT_NONE;
+                        if (can_stitch(hit, *cand, f.source_light_id, f.angular_cell_id, changed_chunk_id, &sc, &rej, &f.visited_node_ids, true)) {
+                            if (sc > best_score) {
+                                best_score = sc;
+                                best_cand = cand_id;
+                            }
+                        }
+                    }
+
+                    if (best_cand != UINT32_MAX) {
+                        stitched = true;
+                        res.stitch_events++;
+                        res.cached_segments_reused++;
+                        stitching_metrics.stitches_accepted++;
+
+                        ASTGContinuationFrontier stitch_in = f;
+                        stitch_in.current_path_bounce_depth = f.current_path_bounce_depth + 1;
+                        float dist = std::max(0.2f, hit.distance);
+                        float g_fac = 0.5f / (dist * dist + 1.0f);
+                        stitch_in.accumulated_transfer_r = f.accumulated_transfer_r * (g_fac * 0.75f);
+                        stitch_in.accumulated_transfer_g = f.accumulated_transfer_g * (g_fac * 0.75f);
+                        stitch_in.accumulated_transfer_b = f.accumulated_transfer_b * (g_fac * 0.75f);
+
+                        std::vector<ASTGContinuationFrontier> child_frontiers;
+                        auto reuse_res = traverse_reusable_cached_segment(stitch_in, best_cand, child_frontiers, changed_chunk_id, energy_threshold);
+
+                        res.cached_nodes_reused += reuse_res.nodes_reused;
+                        res.cached_edges_reused += reuse_res.edges_reused;
+                        res.cached_bounces_reused += (reuse_res.ending_path_depth >= reuse_res.starting_path_depth)
+                            ? (reuse_res.ending_path_depth - reuse_res.starting_path_depth + 1) : 1;
+                        res.effective_solved_depth = std::max(res.effective_solved_depth, reuse_res.ending_path_depth);
+                        if (reuse_res.reached_requested_depth) {
+                            res.requested_depth_reached = true;
+                        }
+
+                        if (reuse_res.cache_exhausted) res.cached_segment_exhausted = true;
+                        res.continuation_frontiers_emitted += reuse_res.continuation_frontiers_emitted;
+
+                        for (const auto& cf : child_frontiers) {
+                            frontier_queue.push_back(cf);
+                        }
+                    }
+                }
+            }
+
+            if (!stitched) {
+                ASTGTransportNode new_node;
+                new_node.node_id = (uint32_t)(bounce0_nodes.size() + bounce1_nodes.size());
+                new_node.source_light_id = f.source_light_id;
+                new_node.angular_cell_id = f.angular_cell_id;
+                new_node.bounce_depth = f.current_path_bounce_depth + 1;
+                new_node.surface_cluster_id = hit.surface_cluster_id;
+                new_node.destruction_chunk_id = hit.destruction_chunk_id;
+                new_node.position = { hit.pos_x, hit.pos_y, hit.pos_z };
+                new_node.geometric_normal = { hit.normal_x, hit.normal_y, hit.normal_z };
+                new_node.generation = geometry_generation;
+                float dist = std::max(0.2f, hit.distance);
+                new_node.geometric_factor = 0.5f / (dist * dist + 1.0f);
+                new_node.diffuse_albedo = 0.75f;
+                new_node.is_active = true;
+                bounce1_nodes.push_back(new_node);
+
+                res.total_fresh_bounces++;
+                if (f.came_from_stitch) {
+                    res.fresh_continuation_bounces++;
+                    res.continuation_rays_completed++;
+                } else {
+                    res.fresh_prefix_bounces++;
+                }
+
+                float next_tf_r = f.accumulated_transfer_r * (new_node.geometric_factor * new_node.diffuse_albedo);
+                float next_tf_g = f.accumulated_transfer_g * (new_node.geometric_factor * new_node.diffuse_albedo);
+                float next_tf_b = f.accumulated_transfer_b * (new_node.geometric_factor * new_node.diffuse_albedo);
+
+                ASTGContinuationFrontier next_f;
+                next_f.node_id = new_node.node_id;
+                next_f.source_light_id = f.source_light_id;
+                next_f.angular_cell_id = f.angular_cell_id;
+                next_f.current_path_bounce_depth = new_node.bounce_depth;
+                next_f.requested_max_bounce_depth = f.requested_max_bounce_depth;
+                next_f.accumulated_transfer_r = next_tf_r;
+                next_f.accumulated_transfer_g = next_tf_g;
+                next_f.accumulated_transfer_b = next_tf_b;
+                next_f.came_from_stitch = f.came_from_stitch;
+                next_f.stitch_chain_id = f.stitch_chain_id;
+                next_f.stitch_sequence_index = f.stitch_sequence_index;
+                next_f.visited_node_ids = f.visited_node_ids;
+                next_f.visited_node_ids.push_back(new_node.node_id);
+                next_f.path_timeline = f.path_timeline;
+
+                ASTGPathSegmentTrace trace_item;
+                trace_item.depth = next_f.current_path_bounce_depth;
+                trace_item.origin = "fresh";
+                trace_item.node_id = new_node.node_id;
+                trace_item.stitch_id = (uint32_t)f.stitch_sequence_index;
+                trace_item.transfer_r = next_tf_r;
+                trace_item.transfer_g = next_tf_g;
+                trace_item.transfer_b = next_tf_b;
+                next_f.path_timeline.push_back(trace_item);
+
+                frontier_queue.push_back(next_f);
+            }
+        }
+
+        res.avoided_rays = (res.fresh_reference_rays >= res.reuse_continuation_rays)
+            ? (res.fresh_reference_rays - res.reuse_continuation_rays) : 0;
+        res.ray_reduction_pct = (res.fresh_reference_rays > 0)
+            ? ((double)res.avoided_rays / (double)res.fresh_reference_rays * 100.0) : 0.0;
+
+        return res;
     }
 
     // Layer 2: Explicit Path-Level Probe Contributions (Exact Provenance Truth)
@@ -1599,9 +2116,7 @@ public:
                                 if (checked++ >= max_stitch_candidates_per_hit) break;
                                 stitching_metrics.stitch_candidates_considered++;
 
-                                const ASTGTransportNode* cand_node = nullptr;
-                                if (cand_id < bounce0_nodes.size()) cand_node = &bounce0_nodes[cand_id];
-                                else if (cand_id - bounce0_nodes.size() < bounce1_nodes.size()) cand_node = &bounce1_nodes[cand_id - bounce0_nodes.size()];
+                                const ASTGTransportNode* cand_node = get_node_by_id(cand_id);
                                 if (!cand_node) continue;
 
                                 float score = 0.0f;
