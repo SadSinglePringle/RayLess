@@ -1464,6 +1464,18 @@ struct ASTGRepairDetailedTimings {
     uint32_t repair_rays_rejected_stale = 0;
 };
 
+// Runtime telemetry for the production receiver-visibility batching path.
+// These values are reset for each evaluate_dynamic_receiver_indirect call.
+struct ASTGVisibilityBatchTelemetry {
+    uint32_t ambiguous_candidates_gathered = 0;
+    uint32_t rays_requested = 0;
+    uint32_t rays_dispatched = 0;
+    uint32_t dispatch_count = 0;
+    uint32_t largest_dispatch_size = 0;
+    uint32_t rays_completed = 0;
+    bool cap_compliant = true;
+};
+
 // Exact Memory Accounting Structure (Part A3)
 struct ASTGExactMemoryAudit {
     size_t sizeof_anchor = sizeof(ASTGRegenerationAnchor);
@@ -1524,6 +1536,7 @@ public:
     float stitch_normal_threshold = 0.80f;
     uint32_t max_stitch_candidates_per_hit = 32;
     ASTGStitchingMetrics stitching_metrics;
+    ASTGVisibilityBatchTelemetry visibility_batch_telemetry;
 
     // Dynamic Occlusion State & Spatial Tracking (Phase 4 & 5)
     ASTGDynamicOcclusionMode global_occlusion_mode = ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES;
@@ -1939,6 +1952,7 @@ public:
         bool enable_gpu_visibility_refinement = false,
         uint32_t max_batch_size = 8192
     ) {
+        visibility_batch_telemetry = ASTGVisibilityBatchTelemetry{};
         auto it = dynamic_occluder_groups.find(group_id);
         if (it == dynamic_occluder_groups.end() || !it->second.enable_surface_receivers) return;
 
@@ -2001,6 +2015,7 @@ public:
                                         cand.weight = w;
                                         cand.dist = dist;
                                         visibility_candidates.push_back(cand);
+                                        visibility_batch_telemetry.ambiguous_candidates_gathered++;
 
                                         ASTGRay ray;
                                         ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
@@ -2061,6 +2076,7 @@ public:
                                     cand.weight = w;
                                     cand.dist = dist;
                                     visibility_candidates.push_back(cand);
+                                    visibility_batch_telemetry.ambiguous_candidates_gathered++;
 
                                     ASTGRay ray;
                                     ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
@@ -2088,11 +2104,17 @@ public:
             batched_hits.resize(batched_rays.size());
             size_t total_rays = batched_rays.size();
             size_t chunk_size = (max_batch_size > 0) ? max_batch_size : 8192;
+            visibility_batch_telemetry.rays_requested = (uint32_t)total_rays;
 
             for (size_t offset = 0; offset < total_rays; offset += chunk_size) {
                 size_t count = std::min(chunk_size, total_rays - offset);
+                visibility_batch_telemetry.dispatch_count++;
+                visibility_batch_telemetry.rays_dispatched += (uint32_t)count;
+                visibility_batch_telemetry.largest_dispatch_size = std::max(visibility_batch_telemetry.largest_dispatch_size, (uint32_t)count);
+                visibility_batch_telemetry.cap_compliant &= count <= chunk_size;
                 rtx_trace_rays_batch(&batched_rays[offset], &batched_hits[offset], (int32_t)count);
             }
+            visibility_batch_telemetry.rays_completed = (uint32_t)batched_hits.size();
 
             // 3. Consume Phase: Filter unoccluded candidates and accumulate irradiance
             for (size_t i = 0; i < total_rays; ++i) {
