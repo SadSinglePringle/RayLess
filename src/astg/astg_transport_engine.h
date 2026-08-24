@@ -1558,6 +1558,41 @@ public:
     std::vector<ASTGDynamicEdgeTimelineEvent> dynamic_edge_timeline;
     uint32_t dynamic_timeline_frame = 0;
 
+    // ==============================================================================
+    // Milestone 1 (R1 & R2): Persistent GPU ASTG Transport Shadow Caches & Dirty State
+    // ==============================================================================
+    std::vector<ASTGGPUNode> gpu_nodes_shadow;
+    std::vector<ASTGGPUDAGEdge> gpu_edges_shadow;
+
+    struct DirtyInterval {
+        uint32_t dirty_min = UINT32_MAX;
+        uint32_t dirty_max = 0;
+
+        void mark(uint32_t index) {
+            dirty_min = std::min(dirty_min, index);
+            dirty_max = std::max(dirty_max, index + 1);
+        }
+
+        void mark_range(uint32_t start, uint32_t count) {
+            if (count == 0) return;
+            dirty_min = std::min(dirty_min, start);
+            dirty_max = std::max(dirty_max, start + count);
+        }
+
+        void reset() {
+            dirty_min = UINT32_MAX;
+            dirty_max = 0;
+        }
+
+        bool is_dirty() const {
+            return dirty_min < dirty_max;
+        }
+    };
+
+    DirtyInterval node_dirty_interval;
+    DirtyInterval edge_dirty_interval;
+    bool is_gpu_astg_synced = false;
+
     void compute_edge_spatial_bounds(ASTGDAGEdge& edge, float corridor_radius = 0.05f) {
         const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
         const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
@@ -2541,33 +2576,72 @@ public:
 
             std::unordered_set<uint32_t> new_blocked_edge_set;
             auto t_fine_start = std::chrono::high_resolution_clock::now();
-
+            std::vector<uint32_t> gpu_candidate_edges;
+            gpu_candidate_edges.reserve(candidate_edges.size());
             for (uint32_t edge_idx : candidate_edges) {
                 if (edge_idx >= dag_edges.size()) continue;
                 const auto& edge = dag_edges[edge_idx];
                 if (!edge.is_active && edge.state == ASTG_EDGE_INVALID_STATIC) continue;
+                // In Mode B, B0 edges are handled by angular projection.
+                if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS && edge.source_bounce_depth == 0) continue;
+                if (!get_node_by_id(edge.parent_node_id) || !get_node_by_id(edge.child_node_id)) continue;
+                gpu_candidate_edges.push_back(edge_idx);
+            }
 
-                // In Mode B, B0 edges are handled via angular projection; only test B1+ (Handoff Item 10, 28)
-                if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS && edge.source_bounce_depth == 0) {
-                    continue;
-                }
-
-                const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
-                const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
-                if (!parent_n || !child_n) continue;
-
-                m.fine_tested_edges++;
-                bool edge_hit = false;
-                for (const auto& ob : group.bounds) {
-                    if (segment_intersects_aabb(parent_n->position, child_n->position, ob.aabb)) {
-                        edge_hit = true;
-                        break;
+            // GPU construction/traversal is used for representative workloads;
+            // tiny updates retain the low-latency CPU fast path. GPU results are
+            // only used to form the candidate blocked set; canonical DAG
+            // mutation below remains CPU-owned.
+            const bool use_gpu_visibility = rtx_is_hardware_active() && gpu_candidate_edges.size() >= 256;
+            if (use_gpu_visibility) {
+                std::vector<ASTGEdgeVisibilityResult> gpu_results;
+                ASTGVisibilityCounters gpu_counters = {};
+                RTGPUTimings gpu_timings = {};
+                trace_candidates_gpu(gpu_candidate_edges, group_id, gpu_results, gpu_counters, &gpu_timings);
+                for (size_t i = 0; i < gpu_candidate_edges.size() && i < gpu_results.size(); ++i) {
+                    m.fine_tested_edges++;
+                    // The current GPU TLAS contains scene geometry while the
+                    // dynamic group is represented by uploaded bounds. A
+                    // slab miss is therefore a definitive cheap rejection;
+                    // surviving candidates retain the CPU-owned canonical
+                    // AABB classification until dynamic geometry is attached
+                    // to the TLAS. This preserves exact ASTG semantics while
+                    // eliminating host ray construction for rejected work.
+                    if (gpu_results[i].visibility_state != 3) {
+                        const auto& edge = dag_edges[gpu_candidate_edges[i]];
+                        const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
+                        const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
+                        bool edge_hit = false;
+                        if (parent_n && child_n) {
+                            for (const auto& ob : group.bounds) {
+                                if (segment_intersects_aabb(parent_n->position, child_n->position, ob.aabb)) {
+                                    edge_hit = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!edge_hit) continue;
+                        new_blocked_edge_set.insert(gpu_candidate_edges[i]);
+                        m.intersected_edges++;
                     }
                 }
-
-                if (edge_hit) {
-                    new_blocked_edge_set.insert(edge_idx);
-                    m.intersected_edges++;
+            } else {
+                for (uint32_t edge_idx : gpu_candidate_edges) {
+                    const auto& edge = dag_edges[edge_idx];
+                    const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
+                    const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
+                    m.fine_tested_edges++;
+                    bool edge_hit = false;
+                    for (const auto& ob : group.bounds) {
+                        if (segment_intersects_aabb(parent_n->position, child_n->position, ob.aabb)) {
+                            edge_hit = true;
+                            break;
+                        }
+                    }
+                    if (edge_hit) {
+                        new_blocked_edge_set.insert(edge_idx);
+                        m.intersected_edges++;
+                    }
                 }
             }
             auto t_fine_end = std::chrono::high_resolution_clock::now();
@@ -2704,6 +2778,191 @@ public:
             if (n.node_id == node_id) return &n;
         }
         return nullptr;
+    }
+
+    // Marks a specific node as dirty and synchronizes shadow state
+    void mark_node_dirty(uint32_t node_id) {
+        if (node_id >= gpu_nodes_shadow.size()) return;
+        const ASTGTransportNode* src = get_node_by_id(node_id);
+        if (!src) return;
+
+        ASTGGPUNode& dst = gpu_nodes_shadow[node_id];
+        dst.pos_x = src->position.x;
+        dst.pos_y = src->position.y;
+        dst.pos_z = src->position.z;
+        dst.active_flags = (src->is_active ? 1u : 0u) | ((src->bounce_depth > 0 ? 1u : 0u) << 1);
+        dst.normal_x = src->geometric_normal.x;
+        dst.normal_y = src->geometric_normal.y;
+        dst.normal_z = src->geometric_normal.z;
+        dst.generation = src->generation;
+        dst.albedo_r = src->path_transfer_r;
+        dst.albedo_g = src->path_transfer_g;
+        dst.albedo_b = src->path_transfer_b;
+        dst.chunk_id = src->destruction_chunk_id;
+
+        node_dirty_interval.mark(node_id);
+    }
+
+    // Marks a specific DAG edge as dirty and synchronizes shadow state
+    void mark_edge_dirty(uint32_t edge_id) {
+        if (edge_id >= dag_edges.size() || edge_id >= gpu_edges_shadow.size()) return;
+        const ASTGDAGEdge& src = dag_edges[edge_id];
+
+        ASTGGPUDAGEdge& dst = gpu_edges_shadow[edge_id];
+        dst.source_node_id = src.parent_node_id;
+        dst.dest_node_id = src.child_node_id;
+        dst.generation = src.repair_generation;
+        dst.edge_state = (uint32_t)src.state;
+        dst.source_light_id = src.source_light_id;
+        dst.angular_cell_id = src.angular_cell_id;
+        dst.destruction_chunk_id = 0xFFFFFFFF;
+        dst.flags = (src.is_active ? 1u : 0u) | (src.is_stitch_edge ? 2u : 0u) | (src.source_bounce_depth << 2);
+
+        edge_dirty_interval.mark(edge_id);
+    }
+
+    // Full synchronization on initial graph creation or structural reallocation
+    void full_sync_gpu_astg() {
+        size_t total_nodes = bounce0_nodes.size() + bounce1_nodes.size();
+        gpu_nodes_shadow.resize(total_nodes);
+
+        for (size_t i = 0; i < bounce0_nodes.size(); ++i) {
+            uint32_t nid = (uint32_t)i;
+            const auto& src = bounce0_nodes[i];
+            auto& dst = gpu_nodes_shadow[nid];
+            dst.pos_x = src.position.x; dst.pos_y = src.position.y; dst.pos_z = src.position.z;
+            dst.active_flags = (src.is_active ? 1u : 0u);
+            dst.normal_x = src.geometric_normal.x; dst.normal_y = src.geometric_normal.y; dst.normal_z = src.geometric_normal.z;
+            dst.generation = src.generation;
+            dst.albedo_r = src.path_transfer_r; dst.albedo_g = src.path_transfer_g; dst.albedo_b = src.path_transfer_b;
+            dst.chunk_id = src.destruction_chunk_id;
+        }
+
+        for (size_t i = 0; i < bounce1_nodes.size(); ++i) {
+            uint32_t nid = (uint32_t)(bounce0_nodes.size() + i);
+            const auto& src = bounce1_nodes[i];
+            auto& dst = gpu_nodes_shadow[nid];
+            dst.pos_x = src.position.x; dst.pos_y = src.position.y; dst.pos_z = src.position.z;
+            dst.active_flags = (src.is_active ? 1u : 0u) | 2u;
+            dst.normal_x = src.geometric_normal.x; dst.normal_y = src.geometric_normal.y; dst.normal_z = src.geometric_normal.z;
+            dst.generation = src.generation;
+            dst.albedo_r = src.path_transfer_r; dst.albedo_g = src.path_transfer_g; dst.albedo_b = src.path_transfer_b;
+            dst.chunk_id = src.destruction_chunk_id;
+        }
+
+        if (total_nodes > 0) {
+            rtx_upload_astg_nodes(gpu_nodes_shadow.data(), 0, (uint32_t)total_nodes);
+        }
+
+        gpu_edges_shadow.resize(dag_edges.size());
+        for (size_t i = 0; i < dag_edges.size(); ++i) {
+            const auto& src = dag_edges[i];
+            auto& dst = gpu_edges_shadow[i];
+            dst.source_node_id = src.parent_node_id;
+            dst.dest_node_id = src.child_node_id;
+            dst.generation = src.repair_generation;
+            dst.edge_state = (uint32_t)src.state;
+            dst.source_light_id = src.source_light_id;
+            dst.angular_cell_id = src.angular_cell_id;
+            dst.destruction_chunk_id = 0xFFFFFFFF;
+            dst.flags = (src.is_active ? 1u : 0u) | (src.is_stitch_edge ? 2u : 0u) | (src.source_bounce_depth << 2);
+        }
+
+        if (!dag_edges.empty()) {
+            rtx_upload_astg_edges(gpu_edges_shadow.data(), 0, (uint32_t)dag_edges.size());
+        }
+
+        node_dirty_interval.reset();
+        edge_dirty_interval.reset();
+        is_gpu_astg_synced = true;
+    }
+
+    // Incremental synchronization: uploads only modified dirty intervals
+    void incremental_sync_gpu_astg() {
+        if (!is_gpu_astg_synced) {
+            full_sync_gpu_astg();
+            return;
+        }
+
+        if (node_dirty_interval.is_dirty()) {
+            uint32_t offset = node_dirty_interval.dirty_min;
+            uint32_t count = node_dirty_interval.dirty_max - node_dirty_interval.dirty_min;
+            rtx_update_gpu_nodes_range(&gpu_nodes_shadow[offset], offset, count);
+            node_dirty_interval.reset();
+        }
+
+        if (edge_dirty_interval.is_dirty()) {
+            uint32_t offset = edge_dirty_interval.dirty_min;
+            uint32_t count = edge_dirty_interval.dirty_max - edge_dirty_interval.dirty_min;
+            rtx_update_gpu_edges_range(&gpu_edges_shadow[offset], offset, count);
+            edge_dirty_interval.reset();
+        }
+    }
+
+    // Synchronizes active dynamic occluder group bounding boxes to the GPU occluder buffer (Milestone 2 - R3)
+    void sync_gpu_dynamic_occluders() {
+        std::vector<ASTGGPUOccluderAABB> gpu_occluders;
+        for (const auto& pair : dynamic_occluder_groups) {
+            const auto& group = pair.second;
+            if (!group.astg_occlusion_enabled || !group.world_union_bounds.is_valid()) continue;
+            ASTGGPUOccluderAABB occ = {};
+            occ.min_x = group.world_union_bounds.min_bounds.x;
+            occ.min_y = group.world_union_bounds.min_bounds.y;
+            occ.min_z = group.world_union_bounds.min_bounds.z;
+            occ.group_id = group.group_id;
+            occ.max_x = group.world_union_bounds.max_bounds.x;
+            occ.max_y = group.world_union_bounds.max_bounds.y;
+            occ.max_z = group.world_union_bounds.max_bounds.z;
+            occ.flags = 1; // is_active
+            if (group.precision == ASTG_OCCLUSION_BOUNDS_ONLY) {
+                occ.flags |= 2;
+            }
+            if (group.is_skeletal) {
+                occ.flags |= 4;
+            }
+            gpu_occluders.push_back(occ);
+        }
+        if (!gpu_occluders.empty()) {
+            rtx_set_dynamic_occluders_gpu(gpu_occluders.data(), (uint32_t)gpu_occluders.size());
+        }
+    }
+
+    // Dispatches a batch of candidate edges for GPU evaluation via compact 12-byte records
+    int32_t trace_candidates_gpu(
+        const std::vector<uint32_t>& candidate_edge_indices,
+        uint32_t object_id,
+        std::vector<ASTGEdgeVisibilityResult>& out_results,
+        ASTGVisibilityCounters& out_counters,
+        RTGPUTimings* out_timings = nullptr
+    ) {
+        if (candidate_edge_indices.empty()) {
+            out_results.clear();
+            out_counters = {};
+            return 0;
+        }
+
+        incremental_sync_gpu_astg();
+        sync_gpu_dynamic_occluders();
+
+        std::vector<ASTGGPUVisibilityCandidate> candidates(candidate_edge_indices.size());
+        for (size_t i = 0; i < candidate_edge_indices.size(); ++i) {
+            uint32_t eid = candidate_edge_indices[i];
+            candidates[i].edge_id = eid;
+            candidates[i].object_id = object_id;
+            candidates[i].transport_generation = (eid < dag_edges.size()) ? dag_edges[eid].repair_generation : 0;
+        }
+
+        out_results.resize(candidates.size());
+
+        int32_t traced = rtx_trace_candidates_batch(
+            candidates.data(),
+            (uint32_t)candidates.size(),
+            out_results.data(),
+            &out_counters,
+            out_timings
+        );
+
+        return traced;
     }
 
     bool can_stitch(
@@ -4468,6 +4727,7 @@ public:
 
         rebuild_edge_spatial_index();
         build_edge_to_path_mapping();
+        full_sync_gpu_astg();
 
         used_real_transport_discovery = true;
         used_real_material_mapping = true;

@@ -118,6 +118,43 @@ RTX_API const char* rtx_get_device_name();
 // Returns true if hardware RT Cores (DXR 1.1 Tier 1.1) are active
 RTX_API bool rtx_is_hardware_active();
 
+// ==============================================================================
+// ASTG GPU TRANSPORT & COMPACT CANDIDATE EVALUATION APIS (MILESTONE 1 - R1 & R2)
+// ==============================================================================
+
+// Uploads a contiguous or partial range of ASTGGPUNodes to the persistent GPU buffer
+RTX_API bool rtx_upload_astg_nodes(const ASTGGPUNode* nodes, uint32_t offset, uint32_t count);
+
+// Uploads a contiguous or partial range of ASTGGPUDAGEdges to the persistent GPU buffer
+RTX_API bool rtx_upload_astg_edges(const ASTGGPUDAGEdge* edges, uint32_t offset, uint32_t count);
+
+// Updates a dirty range of nodes in the persistent GPU staging buffer
+RTX_API bool rtx_update_gpu_nodes_range(const ASTGGPUNode* nodes, uint32_t offset, uint32_t count);
+
+// Updates a dirty range of edges in the persistent GPU staging buffer
+RTX_API bool rtx_update_gpu_edges_range(const ASTGGPUDAGEdge* edges, uint32_t offset, uint32_t count);
+
+// Synchronizes pending dirty ranges to persistent GPU transport buffers
+RTX_API bool rtx_sync_gpu_transport_buffers();
+
+// Reads back a range of ASTGGPUNodes from the persistent GPU buffer
+RTX_API bool rtx_readback_astg_nodes(ASTGGPUNode* out_nodes, uint32_t offset, uint32_t count);
+
+// Reads back a range of ASTGGPUDAGEdges from the persistent GPU buffer
+RTX_API bool rtx_readback_astg_edges(ASTGGPUDAGEdge* out_edges, uint32_t offset, uint32_t count);
+
+// Uploads dynamic occluder AABBs to persistent GPU buffer (Milestone 2 - R3)
+RTX_API bool rtx_set_dynamic_occluders_gpu(const ASTGGPUOccluderAABB* occluders, uint32_t count);
+
+// Dispatches a batch of compact ASTGGPUVisibilityCandidates to the GPU transport pipeline
+RTX_API int32_t rtx_trace_candidates_batch(
+    const ASTGGPUVisibilityCandidate* candidates,
+    uint32_t candidate_count,
+    ASTGEdgeVisibilityResult* out_results,
+    ASTGVisibilityCounters* out_counters,
+    RTGPUTimings* out_timings
+);
+
 // Releases all D3D12 / RT Core resources
 RTX_API void rtx_shutdown();
 

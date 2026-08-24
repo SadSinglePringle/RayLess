@@ -19,10 +19,14 @@ Write-Host "Compiling HLSL GPU Lazy Probe Refresh compute shader..."
 Write-Host "Compiling HLSL GPU Massive Light Animator compute shader..."
 & $DXC -T cs_6_5 -E CSMain -Fh src/rtx/rtx_light_animator_cso.h -Vn g_rtx_light_animator_bytecode src/rtx/rtx_light_animator.hlsl
 
+Write-Host "Compiling HLSL GPU ASTG Transport Visibility compute shader..."
+& $DXC -T cs_6_5 -E CSMain -Fh src/rtx/rtx_gpu_transport_cso.h -Vn g_rtx_gpu_transport_bytecode src/rtx/rtx_gpu_transport.hlsl
+
 $cl = "$MSVC_DIR\cl.exe"
 $args = @(
     "/LD",
     "/O2",
+    "/std:c++17",
     "/EHsc",
     "/openmp",
     "/I$MSVC_INC",
@@ -48,6 +52,7 @@ Write-Host "Compiling bin\astg_rtx.dll with MSVC and DXR 1.1..."
 
 $runner_args = @(
     "/O2",
+    "/std:c++17",
     "/EHsc",
     "/openmp",
     "/I$MSVC_INC",
