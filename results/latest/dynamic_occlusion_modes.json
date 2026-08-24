@@ -1,0 +1,41 @@
+{
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "modes": [
+    {
+      "mode": "NONE",
+      "b0_detection": "none",
+      "b1_plus_detection": "none",
+      "total_rays": 0,
+      "mean_update_ms": 0.0000,
+      "rmse_vs_reference": 0.016480,
+      "max_error": 0.041200
+    },
+    {
+      "mode": "ANGULAR_B0_ONLY",
+      "b0_detection": "angular",
+      "b1_plus_detection": "none",
+      "total_rays": 0,
+      "mean_update_ms": 0.0023,
+      "rmse_vs_reference": 0.001680,
+      "max_error": 0.008400
+    },
+    {
+      "mode": "ANGULAR_B0_DAG_B1_PLUS",
+      "b0_detection": "angular",
+      "b1_plus_detection": "edges",
+      "total_rays": 16,
+      "mean_update_ms": 0.0028,
+      "rmse_vs_reference": 0.000210,
+      "max_error": 0.000210
+    },
+    {
+      "mode": "DAG_EDGES_ALL_BOUNCES",
+      "b0_detection": "edges",
+      "b1_plus_detection": "edges",
+      "total_rays": 20,
+      "mean_update_ms": 0.0008,
+      "rmse_vs_reference": 0.000000,
+      "max_error": 0.000000
+    }
+  ]
+}

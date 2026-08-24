@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "light_id": 990,
+  "light_mode": "DYNAMIC",
+  "ingress_rays_completed": 16,
+  "stitches_accepted": 1,
+  "cached_nodes_reused": 3,
+  "continuation_frontiers_emitted": 1,
+  "receiver_contributions_generated": 2,
+  "persistent_dag_unmodified": true,
+  "status": "PASS"
+}

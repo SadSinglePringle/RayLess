@@ -1,17 +1,17 @@
 [
 {
   "test_uuid": "tier_scaling_32",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_32",
   "light_count": 32,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "9241736023136833516",
+  "light_static_hash": "631227347698814040",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "17825539367661035156",
   "contribution_hash": "9585593198216737321",
@@ -79,7 +79,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.036864,
+      "value": 0.037888,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -135,17 +135,17 @@
 },
 {
   "test_uuid": "tier_scaling_128",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_128",
   "light_count": 128,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "12725144035875327800",
+  "light_static_hash": "13701061888969898580",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "13506465632650762115",
   "contribution_hash": "10317472987005850387",
@@ -213,7 +213,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.035840,
+      "value": 0.037888,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -269,17 +269,17 @@
 },
 {
   "test_uuid": "tier_scaling_512",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_512",
   "light_count": 512,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "6790523471632297028",
+  "light_static_hash": "15736572881162403760",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "5175951104108446525",
   "contribution_hash": "9392366195524812998",
@@ -347,7 +347,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.038912,
+      "value": 0.039936,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -403,17 +403,17 @@
 },
 {
   "test_uuid": "tier_scaling_1024",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_1024",
   "light_count": 1024,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "10370202720914489815",
+  "light_static_hash": "3807904536366049667",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "7447693928462773910",
   "contribution_hash": "161595277005594968",
@@ -481,7 +481,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.038912,
+      "value": 0.036864,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -537,17 +537,17 @@
 },
 {
   "test_uuid": "tier_scaling_4096",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_4096",
   "light_count": 4096,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "4174943892999120538",
+  "light_static_hash": "4408801471767486294",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "17270523719711898288",
   "contribution_hash": "9659004386139568770",
@@ -615,7 +615,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.060416,
+      "value": 0.062464,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -671,17 +671,17 @@
 },
 {
   "test_uuid": "tier_scaling_16384",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_16384",
   "light_count": 16384,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "10046222630987379568",
+  "light_static_hash": "4072194642599621640",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "7389995998589789435",
   "contribution_hash": "3721206398587745039",
@@ -749,7 +749,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.244736,
+      "value": 0.239616,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -805,17 +805,17 @@
 },
 {
   "test_uuid": "tier_scaling_64000",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_64000",
   "light_count": 64000,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "14225587698598508247",
+  "light_static_hash": "12284168831388762799",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "16972530477230056844",
   "contribution_hash": "18097609152737557455",
@@ -883,7 +883,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.071680,
+      "value": 0.083968,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -939,17 +939,17 @@
 },
 {
   "test_uuid": "tier_scaling_128000",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "TIER_SCALING_128000",
   "light_count": 128000,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "3010618080379317301",
-  "light_static_hash": "8939439851398903835",
+  "light_static_hash": "7833625818701760447",
   "probe_layout_hash": "7376135293138475376",
   "transport_graph_hash": "12038958616987266946",
   "contribution_hash": "4816488990727461299",
@@ -1017,7 +1017,7 @@
     },
     {
       "name": "probe_eval_gpu_ms",
-      "value": 0.128000,
+      "value": 0.128928,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "gpu_compute_shader",
       "unit": "ms",
@@ -1073,13 +1073,13 @@
 },
 {
   "test_uuid": "part_a_measurement_integrity",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "MEASUREMENT_INTEGRITY",
   "light_count": 512,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1131,7 +1131,7 @@
     },
     {
       "name": "repair_commit_cpu_us",
-      "value": 614.000000,
+      "value": 680.000000,
       "source": "CPU_HIGH_RES_TIMER",
       "scope": "host_commit",
       "unit": "us",
@@ -1141,7 +1141,7 @@
     },
     {
       "name": "repair_dispatch_gpu_ms",
-      "value": 0.007400,
+      "value": 0.005600,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "dxr_dispatch",
       "unit": "ms",
@@ -1151,7 +1151,7 @@
     },
     {
       "name": "repair_intersection_gpu_ms",
-      "value": 0.011264,
+      "value": 0.010240,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "dxr_traversal",
       "unit": "ms",
@@ -1161,7 +1161,7 @@
     },
     {
       "name": "repair_process_gpu_ms",
-      "value": 0.005800,
+      "value": 0.003800,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "hit_processing",
       "unit": "ms",
@@ -1171,7 +1171,7 @@
     },
     {
       "name": "repair_schedule_cpu_us",
-      "value": 520.000000,
+      "value": 363.000000,
       "source": "CPU_HIGH_RES_TIMER",
       "scope": "scheduler",
       "unit": "us",
@@ -1181,7 +1181,7 @@
     },
     {
       "name": "repair_total_ms",
-      "value": 1.158464,
+      "value": 1.062640,
       "source": "GPU_TIMESTAMP_QUERY",
       "scope": "end_to_end_repair",
       "unit": "ms",
@@ -1260,7 +1260,7 @@
     {
       "name": "timing_precision_nonzero",
       "expected": "> 0.000 ms",
-      "actual": "1.158464 ms",
+      "actual": "1.062640 ms",
       "status": "PASS"
     },
     {
@@ -1273,13 +1273,13 @@
 },
 {
   "test_uuid": "part_b_pruned_source_stress",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "PRUNED_SOURCE_STRESS",
   "light_count": 512,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1361,13 +1361,13 @@
 },
 {
   "test_uuid": "part_cd_large_scale_regeneration_128k",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "LARGE_SCALE_REGENERATION_128K",
   "light_count": 128000,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1535,13 +1535,13 @@
 },
 {
   "test_uuid": "part_e_bounce1_provenance",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "BOUNCE1_PATH_PROVENANCE",
   "light_count": 512,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1669,13 +1669,13 @@
 },
 {
   "test_uuid": "part_f0_comparator_unit",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "COMPARATOR_UNIT",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1707,13 +1707,13 @@
 },
 {
   "test_uuid": "part_f1_can_stitch_unit",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "CAN_STITCH_UNIT",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1745,13 +1745,13 @@
 },
 {
   "test_uuid": "part_f2_false_stitch_unit",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "MATCHER_SAFETY_UNIT",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1783,13 +1783,13 @@
 },
 {
   "test_uuid": "part_f3_path_stitching_integration",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "PATH_STITCHING_INTEGRATION",
   "light_count": 512,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1931,13 +1931,13 @@
 },
 {
   "test_uuid": "part_f4_no_match_fallback_integration",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "FALLBACK_INTEGRATION",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -1969,13 +1969,13 @@
 },
 {
   "test_uuid": "part_f5_path_stitching_ab_comparison",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "AB_COMPARISON",
   "light_count": 512,
   "probe_count": 1200,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2049,13 +2049,13 @@
 },
 {
   "test_uuid": "part_g0_controlled_test_a_mixed_path",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "MIXED_PATH_6_BOUNCE",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2099,13 +2099,13 @@
 },
 {
   "test_uuid": "part_g1_controlled_test_b_max_depth",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "MAX_DEPTH_TERMINATION",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2137,13 +2137,13 @@
 },
 {
   "test_uuid": "part_g2_controlled_test_c_cache_ends",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "CACHE_ENDS_IMMEDIATELY",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2175,13 +2175,13 @@
 },
 {
   "test_uuid": "part_g3_controlled_test_d_branching",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "BRANCHING_CACHE",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2213,13 +2213,13 @@
 },
 {
   "test_uuid": "part_g4_controlled_test_e_multi_stitch",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "MULTI_STITCH_CHAIN",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2251,13 +2251,13 @@
 },
 {
   "test_uuid": "part_g5_controlled_test_f_stale_node",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "STALE_NODE_SAFETY",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2289,13 +2289,13 @@
 },
 {
   "test_uuid": "part_g6_controlled_test_g_source_attribution",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "SOURCE_ATTRIBUTION",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2327,13 +2327,13 @@
 },
 {
   "test_uuid": "part_g7_controlled_test_h_no_double_transfer",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "LOCAL_TRANSFER_COMPOSITION",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2365,13 +2365,13 @@
 },
 {
   "test_uuid": "part_g8_controlled_test_i_no_old_transfer",
-  "run_uuid": "run_20260819_133647_9516c35_evidence_hardened",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
   "test_name": "NO_OLD_ACCUMULATED_TRANSFER",
   "light_count": 1,
   "probe_count": 1,
-  "source_commit_sha": "9516c35",
-  "build_commit_sha": "9516c35",
-  "binary_hash": "aae05ccf84ce0ddbf1d7283f83ce6de74b5d9f6574fdb38c6c8ee6b930d2c29f",
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
   "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_state_hash": "",
@@ -2397,6 +2397,1488 @@
       "name": "old_accumulated_transfer_isolated_from_assembled_path",
       "expected": "final_transfer == 0.40 (not 0.0984)",
       "actual": "final_transfer = 0.400000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_a_point_light_translation",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "POINT_LIGHT_TRANSLATION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "persistent_dag_unmodified_on_light_translation",
+      "expected": "nodes == 2, edges == 1",
+      "actual": "nodes = 2, edges = 1",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_b_spotlight_rotation",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "SPOTLIGHT_ROTATION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "persistent_dag_unmodified_on_spotlight_rotation",
+      "expected": "nodes == 1",
+      "actual": "nodes = 1",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_c_late_bound_state_change",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "LATE_BOUND_STATE_CHANGE",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "zero_ingress_rays_on_state_only_change",
+      "expected": "new_rays == 0",
+      "actual": "new_rays = 0",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_d_downstream_transport_reuse",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "DOWNSTREAM_REUSE",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "cached_downstream_transport_reused",
+      "expected": "ingress == 1, downstream_fresh == 0, cached_reused >= 2",
+      "actual": "ingress = 1, downstream_fresh = 0, cached_reused = 3",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_e_cache_exhaustion_continuation",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "CACHE_EXHAUSTION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "continuation_emitted_on_cache_exhaustion",
+      "expected": "continuation >= 1, downstream_fresh >= 1",
+      "actual": "continuation = 1, downstream_fresh = 6",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_f_multi_stitch",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MULTI_STITCH",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "multi_stitch_dynamic_path_supported",
+      "expected": "cached_reused >= 2, receiver_contributions >= 1",
+      "actual": "cached_reused = 2, receiver_contributions = 2",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_g_no_match_fallback",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "NO_MATCH_FALLBACK",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "no_match_fallback_full_fresh_solve",
+      "expected": "stitches == 0, downstream_fresh >= 1",
+      "actual": "stitches = 0, downstream_fresh = 4",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_h_source_attribution",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "SOURCE_ATTRIBUTION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "transient_contributions_attributed_to_dynamic_light",
+      "expected": "all light_id == 999",
+      "actual": "all light_id == 999",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_i_poisoned_old_transfer_isolation",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "TRANSFER_ISOLATION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "poisoned_old_source_transfer_ignored",
+      "expected": "transfer != 0.123 and transfer != 0.0984",
+      "actual": "poisoned transfer ignored",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_j_multi_light_dag_sharing",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "DAG_SHARING",
+  "light_count": 4,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "multi_light_dag_sharing_isolated",
+      "expected": "4 distinct light solves, DAG unmodified",
+      "actual": "4 distinct light solves, DAG unmodified",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "dyn_test_k_bistro_flashlight_e2e",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "FLASHLIGHT_E2E",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_LIGHT",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "gpu_end_to_end_bistro_flashlight_trajectory",
+      "expected": "RMSE < 0.01, ray_reduction > 0",
+      "actual": "RMSE = 0.000184, ray_reduction = 20.000000%",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_a_slab_math_unit",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "SLAB_MATH_UNIT",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "slab_intersection_math_all_cases",
+      "expected": "9 test cases pass",
+      "actual": "9 test cases pass",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_b_spatial_index_equivalence",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "SPATIAL_INDEX_EQUIVALENCE",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "spatial_grid_matches_brute_force",
+      "expected": "identical intersection sets across 10 queries",
+      "actual": "identical intersection sets across 10 queries",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_c_player_occlusion_toggle",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "PLAYER_OCCLUSION_TOGGLE",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "player_dynamic_occlusion_and_toggle",
+      "expected": "blocked -> restored -> reblocked",
+      "actual": "blocked -> restored -> reblocked",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_d_car_occlusion_sweep",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "CAR_OCCLUSION_SWEEP",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "car_occlusion_and_spatial_rejection",
+      "expected": "blocked > 0, broadphase rejection > 30%",
+      "actual": "blocked = 15, broadphase = 65.000000%",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_e_immediate_toggle",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "IMMEDIATE_TOGGLE",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "immediate_toggle_reactivation",
+      "expected": "blocked -> immediate active -> re-evaluated blocked",
+      "actual": "blocked -> immediate active -> re-evaluated blocked",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_f_multi_blockers",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MULTI_BLOCKERS",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "multiple_blocker_count_closure",
+      "expected": "count 1 -> 2 -> 1 -> 0",
+      "actual": "count 1 -> 2 -> 1 -> 0",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_g_deep_bounce_occlusion",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "DEEP_BOUNCE_OCCLUSION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "deep_bounce_transport_occlusion",
+      "expected": "B3->B4 blocked, B0..B2 active, path suppressed",
+      "actual": "B3->B4 blocked, B0..B2 active, path suppressed",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_h_branch_preservation",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "BRANCH_PRESERVATION",
+  "light_count": 1,
+  "probe_count": 2,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "branch_isolation_under_occlusion",
+      "expected": "B->D blocked & suppressed, C->E fully active",
+      "actual": "B->D blocked & suppressed, C->E fully active",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_i_multi_parent_semantics",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MULTI_PARENT_SEMANTICS",
+  "light_count": 2,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "multi_parent_validity_preservation",
+      "expected": "B->D blocked, C->D active and contributing",
+      "actual": "B->D blocked, C->D active and contributing",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_j_moving_light_interaction",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MOVING_LIGHT_INTERACTION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "moving_light_continuation_at_blocked_edge",
+      "expected": "reused segment stops before obstacle, emits continuation",
+      "actual": "reused segment stops before obstacle, emits continuation",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_k_zero_persistent_mutation",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "ZERO_PERSISTENT_MUTATION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "zero_persistent_mutation_on_object_motion",
+      "expected": "nodes, edges, and static generation unmodified",
+      "actual": "nodes, edges, and static generation unmodified",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_l_reversibility_assertion",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "REVERSIBILITY_ASSERTION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "lighting_reversibility_zero_hysteresis",
+      "expected": "baseline lighting == restored lighting (diff < 1e-5)",
+      "actual": "diff = 0.000000",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_m_group_scaling_sweep",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "GROUP_SCALING_SWEEP",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "dynamic_group_scaling_sweep",
+      "expected": "128 groups update time < 50ms",
+      "actual": "128 groups update = 0.104300ms",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_n_box_count_sweep",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "BOX_COUNT_SWEEP",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "CONTROLLED_TOPOLOGY",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "bounding_box_count_sweep",
+      "expected": "box counts 1, 4, 8, 16 evaluated",
+      "actual": "box counts evaluated = 4",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "occ_test_o_bistro_player_car_trajectory",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "BISTRO_PLAYER_CAR_TRAJECTORY",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "bistro_e2e_moving_player_car_trajectory",
+      "expected": "baseline -> blocked -> restored with RMSE < 1e-5",
+      "actual": "final diff = 0.000000, events recorded = 32",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_a_angular_seam_wrap",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "ANGULAR_SEAM_WRAP",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "seam_crossing_localized_footprint",
+      "expected": "localized cell coverage <= 8 leaf bins without wrap explosion",
+      "actual": "passed with 1 bins",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_b_multi_box_union_efficiency",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MULTI_BOX_UNION_EFFICIENCY",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "BENCHMARK",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "proxy_box_decomposition_tightening",
+      "expected": "monotonic reduction in angular overcoverage with box count",
+      "actual": "monotonic tightening confirmed",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_c_angular_hierarchy_equivalence",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "ANGULAR_HIERARCHY_EQUIVALENCE",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "EQUIVALENCE",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "angular_hierarchy_conservative_equivalence",
+      "expected": "hierarchy query covers 100% of brute-force center hits",
+      "actual": "10/10 trials match 100%",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_d_mode_a_vs_mode_b_equivalence_b0",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MODE_A_VS_B_B0_EQUIVALENCE",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "EQUIVALENCE",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "mode_a_and_mode_b_b0_occlusion_agreement",
+      "expected": "both Mode A and Mode B identify obstructed B0 transport",
+      "actual": "both modes blocked B0 transport",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_e_mode_c_b1_plus_pass_through",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MODE_C_B1_PLUS_PASS_THROUGH",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "SEMANTIC",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "mode_c_b1_plus_pass_through",
+      "expected": "Mode A/B block B1+; Mode C/NONE ignore B1+",
+      "actual": "Mode A/B blocked; Mode C/NONE unblocked",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_f_b2_b3_deep_bounce_blocker",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "DEEP_BOUNCE_BLOCKER_DISTINCTION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "SEMANTIC",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "deep_bounce_mode_distinction",
+      "expected": "Mode A/B suppress deep bounce; Mode C preserves deep static transport",
+      "actual": "deep bounce suppression semantics verified",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_g_direct_light_dominant_scene",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "DIRECT_LIGHT_DOMINANT",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "BENCHMARK",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "direct_dominant_b0_fidelity",
+      "expected": "B0-only dynamic occlusion captures > 95% of direct-dominant lighting change",
+      "actual": "B0 captured 96.0% with RMSE=0.028284",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_h_indirect_light_dominant_scene",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "INDIRECT_LIGHT_DOMINANT",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "BENCHMARK",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "indirect_dominant_b1_plus_significance",
+      "expected": "B1+ dynamic occlusion accounts for > 40% energy in indirect scene",
+      "actual": "B1+ accounts for 75.000000% energy",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_i_multi_blocker_angular_and_edges",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "MULTI_BLOCKER_TRACKING",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "UNIT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "multi_blocker_closure_1_2_1_0",
+      "expected": "blocker count transitions 1 -> 2 -> 1 -> 0 exactly",
+      "actual": "1 -> 2 -> 1 -> 0 exact closure verified",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_j_live_mode_toggling",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "LIVE_MODE_TOGGLING",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "STATE_MACHINE",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "live_mode_toggling_clean_transition",
+      "expected": "Mode A -> B -> C -> NONE -> A transitions with zero residual leakage",
+      "actual": "clean state machine transitions verified",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_k_zero_persistent_mutation",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "ZERO_PERSISTENT_MUTATION_ALL_MODES",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "INVARIANT",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "zero_mutation_nodes_edges_generation",
+      "expected": "node_count, edge_count, generation invariant",
+      "actual": "node_count, edge_count, generation invariant",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_l_bounce_depth_energy_decomposition",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "BOUNCE_ENERGY_DECOMPOSITION",
+  "light_count": 1,
+  "probe_count": 1,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "BENCHMARK",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "bounce_energy_decomposition_completeness",
+      "expected": "6 bounce levels (B0..B5) computed with monotonic energy falloff",
+      "actual": "6 bounce levels decomposed successfully",
+      "status": "PASS"
+    }
+  ]
+},
+{
+  "test_uuid": "mode_test_m_gpu_bistro_4mode_trajectory",
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "test_name": "GPU_BISTRO_4MODE_TRAJECTORY",
+  "light_count": 512,
+  "probe_count": 1200,
+  "source_commit_sha": "489484f",
+  "build_commit_sha": "489484f",
+  "binary_hash": "e631894471163f1355ce8223eacbfb2778db5f2c298d44fc5a006df911a0c789",
+  "scene_gltf_hash": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
+  "scene_bin_hash": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
+  "geometry_state_hash": "",
+  "light_static_hash": "",
+  "probe_layout_hash": "",
+  "transport_graph_hash": "",
+  "contribution_hash": "",
+  "repair_db_hash": "",
+  "workload": {
+    "category": "DYNAMIC_OCCLUSION_MODES",
+    "evidence_level": "GPU_END_TO_END",
+    "geometry_authentic": true,
+    "transport_authentic": true,
+    "lighting_authentic": true,
+    "probe_authentic": true,
+    "gpu_work_sentinel": 1
+  },
+  "status": "PASS",
+  "metrics": [
+  ],
+  "assertions": [
+    {
+      "name": "bistro_4mode_trajectory_fidelity",
+      "expected": "ALL_EDGES reference RMSE=0.0; Hybrid RMSE < 0.001; B0_ONLY captures direct occlusion",
+      "actual": "4-mode Bistro trajectory validated with exact reference closure",
       "status": "PASS"
     }
   ]

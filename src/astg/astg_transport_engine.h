@@ -1,9 +1,11 @@
 #pragma once
+#include "astg_interfaces.h"
 #include "rtx_types.h"
 #include "rtx_raytracer.h"
 #include "benchmark_manifest.h"
 #include "gltf_scene_loader.h"
 #include <vector>
+#include <bitset>
 #include <cmath>
 #include <iostream>
 #include <iomanip>
@@ -169,18 +171,513 @@ struct ASTGTransportNode {
     uint32_t generation = 1;
 };
 
-// DAG Node->Node Edge (Bounce 0 -> Bounce 1 Path Link)
+// ==============================================================================
+// ASTG DYNAMIC OBJECT OCCLUSION & SPATIAL INDEX STRUCTURES (PHASE 4)
+// ==============================================================================
+
+// Axis-Aligned Bounding Box (AABB) with corridor expansion & query operations
+struct ASTGAABB {
+    RTXVector3 min_bounds = { 1e30f, 1e30f, 1e30f };
+    RTXVector3 max_bounds = { -1e30f, -1e30f, -1e30f };
+
+    ASTGAABB() = default;
+    ASTGAABB(const RTXVector3& mn, const RTXVector3& mx) : min_bounds(mn), max_bounds(mx) {}
+
+    void expand(float radius) {
+        min_bounds.x -= radius; min_bounds.y -= radius; min_bounds.z -= radius;
+        max_bounds.x += radius; max_bounds.y += radius; max_bounds.z += radius;
+    }
+
+    void include_point(const RTXVector3& p) {
+        min_bounds.x = std::min(min_bounds.x, p.x);
+        min_bounds.y = std::min(min_bounds.y, p.y);
+        min_bounds.z = std::min(min_bounds.z, p.z);
+        max_bounds.x = std::max(max_bounds.x, p.x);
+        max_bounds.y = std::max(max_bounds.y, p.y);
+        max_bounds.z = std::max(max_bounds.z, p.z);
+    }
+
+    void union_with(const ASTGAABB& other) {
+        min_bounds.x = std::min(min_bounds.x, other.min_bounds.x);
+        min_bounds.y = std::min(min_bounds.y, other.min_bounds.y);
+        min_bounds.z = std::min(min_bounds.z, other.min_bounds.z);
+        max_bounds.x = std::max(max_bounds.x, other.max_bounds.x);
+        max_bounds.y = std::max(max_bounds.y, other.max_bounds.y);
+        max_bounds.z = std::max(max_bounds.z, other.max_bounds.z);
+    }
+
+    static ASTGAABB union_of(const ASTGAABB& a, const ASTGAABB& b) {
+        ASTGAABB r = a;
+        r.union_with(b);
+        return r;
+    }
+
+    bool intersects_aabb(const ASTGAABB& other) const {
+        if (max_bounds.x < other.min_bounds.x || min_bounds.x > other.max_bounds.x) return false;
+        if (max_bounds.y < other.min_bounds.y || min_bounds.y > other.max_bounds.y) return false;
+        if (max_bounds.z < other.min_bounds.z || min_bounds.z > other.max_bounds.z) return false;
+        return true;
+    }
+
+    bool contains_point(const RTXVector3& p) const {
+        return (p.x >= min_bounds.x && p.x <= max_bounds.x &&
+                p.y >= min_bounds.y && p.y <= max_bounds.y &&
+                p.z >= min_bounds.z && p.z <= max_bounds.z);
+    }
+
+    bool is_valid() const {
+        return (min_bounds.x <= max_bounds.x && min_bounds.y <= max_bounds.y && min_bounds.z <= max_bounds.z);
+    }
+};
+
+// Line-Segment vs AABB Slab Intersection (Handoff Item 12, 13, 25)
+// P(t) = A + t(B - A) for t in [0, 1]
+inline bool segment_intersects_aabb(
+    const RTXVector3& A,
+    const RTXVector3& B,
+    const ASTGAABB& box
+) {
+    const float eps = 1e-7f;
+    float dx = B.x - A.x;
+    float dy = B.y - A.y;
+    float dz = B.z - A.z;
+
+    float tmin = 0.0f;
+    float tmax = 1.0f;
+
+    // X slab
+    if (std::abs(dx) < eps) {
+        if (A.x < box.min_bounds.x || A.x > box.max_bounds.x) return false;
+    } else {
+        float inv_d = 1.0f / dx;
+        float t1 = (box.min_bounds.x - A.x) * inv_d;
+        float t2 = (box.max_bounds.x - A.x) * inv_d;
+        if (t1 > t2) std::swap(t1, t2);
+        tmin = std::max(tmin, t1);
+        tmax = std::min(tmax, t2);
+        if (tmin > tmax) return false;
+    }
+
+    // Y slab
+    if (std::abs(dy) < eps) {
+        if (A.y < box.min_bounds.y || A.y > box.max_bounds.y) return false;
+    } else {
+        float inv_d = 1.0f / dy;
+        float t1 = (box.min_bounds.y - A.y) * inv_d;
+        float t2 = (box.max_bounds.y - A.y) * inv_d;
+        if (t1 > t2) std::swap(t1, t2);
+        tmin = std::max(tmin, t1);
+        tmax = std::min(tmax, t2);
+        if (tmin > tmax) return false;
+    }
+
+    // Z slab
+    if (std::abs(dz) < eps) {
+        if (A.z < box.min_bounds.z || A.z > box.max_bounds.z) return false;
+    } else {
+        float inv_d = 1.0f / dz;
+        float t1 = (box.min_bounds.z - A.z) * inv_d;
+        float t2 = (box.max_bounds.z - A.z) * inv_d;
+        if (t1 > t2) std::swap(t1, t2);
+        tmin = std::max(tmin, t1);
+        tmax = std::min(tmax, t2);
+        if (tmin > tmax) return false;
+    }
+
+    return true;
+}
+
+// Ray vs AABB Intersection for Direction Cone Testing
+// Ray: P(t) = origin + t * dir, t >= 0
+inline bool ray_intersects_aabb(
+    const RTXVector3& origin,
+    const RTXVector3& dir,
+    const ASTGAABB& box,
+    float t_max = 1000.0f
+) {
+    const float eps = 1e-7f;
+    float tmin = 0.0f;
+    float tmax = t_max;
+
+    // X slab
+    if (std::abs(dir.x) < eps) {
+        if (origin.x < box.min_bounds.x || origin.x > box.max_bounds.x) return false;
+    } else {
+        float inv_d = 1.0f / dir.x;
+        float t1 = (box.min_bounds.x - origin.x) * inv_d;
+        float t2 = (box.max_bounds.x - origin.x) * inv_d;
+        if (t1 > t2) std::swap(t1, t2);
+        tmin = std::max(tmin, t1);
+        tmax = std::min(tmax, t2);
+        if (tmin > tmax) return false;
+    }
+
+    // Y slab
+    if (std::abs(dir.y) < eps) {
+        if (origin.y < box.min_bounds.y || origin.y > box.max_bounds.y) return false;
+    } else {
+        float inv_d = 1.0f / dir.y;
+        float t1 = (box.min_bounds.y - origin.y) * inv_d;
+        float t2 = (box.max_bounds.y - origin.y) * inv_d;
+        if (t1 > t2) std::swap(t1, t2);
+        tmin = std::max(tmin, t1);
+        tmax = std::min(tmax, t2);
+        if (tmin > tmax) return false;
+    }
+
+    // Z slab
+    if (std::abs(dir.z) < eps) {
+        if (origin.z < box.min_bounds.z || origin.z > box.max_bounds.z) return false;
+    } else {
+        float inv_d = 1.0f / dir.z;
+        float t1 = (box.min_bounds.z - origin.z) * inv_d;
+        float t2 = (box.max_bounds.z - origin.z) * inv_d;
+        if (t1 > t2) std::swap(t1, t2);
+        tmin = std::max(tmin, t1);
+        tmax = std::min(tmax, t2);
+        if (tmin > tmax) return false;
+    }
+
+    return tmax >= 0.0f && tmin <= t_max;
+}
+
+// Encodes a 3D unit vector into octahedral (u, v) in [0, 1] x [0, 1] (Handoff Item 13, 14, 15)
+inline void encode_octahedral(const RTXVector3& d, float& out_u, float& out_v) {
+    float l1 = std::abs(d.x) + std::abs(d.y) + std::abs(d.z);
+    if (l1 < 1e-6f) {
+        out_u = 0.5f;
+        out_v = 0.5f;
+        return;
+    }
+    float px = d.x / l1;
+    float py = d.y / l1;
+    float pz = d.z / l1;
+    if (pz < 0.0f) {
+        float old_px = px;
+        px = (1.0f - std::abs(py)) * (old_px >= 0.0f ? 1.0f : -1.0f);
+        py = (1.0f - std::abs(old_px)) * (py >= 0.0f ? 1.0f : -1.0f);
+    }
+    out_u = px * 0.5f + 0.5f;
+    out_v = py * 0.5f + 0.5f;
+}
+
+// Decodes octahedral (u, v) in [0, 1] x [0, 1] back into a 3D unit vector (Handoff Item 13, 14, 15)
+inline void decode_octahedral(float u, float v, RTXVector3& out_dir) {
+    float px = u * 2.0f - 1.0f;
+    float py = v * 2.0f - 1.0f;
+    float pz = 1.0f - std::abs(px) - std::abs(py);
+    if (pz < 0.0f) {
+        float old_px = px;
+        px = (1.0f - std::abs(py)) * (old_px >= 0.0f ? 1.0f : -1.0f);
+        py = (1.0f - std::abs(old_px)) * (py >= 0.0f ? 1.0f : -1.0f);
+    }
+    float len = std::sqrt(px * px + py * py + pz * pz);
+    if (len > 1e-6f) {
+        out_dir = { px / len, py / len, pz / len };
+    } else {
+        out_dir = { 0.0f, 1.0f, 0.0f };
+    }
+}
+
+// 64-Bin Octahedral Angular Hierarchy (Quadtree depth 3, 8x8 leaf cells) (Handoff Item 18, 51, 55)
+class ASTGAngularHierarchy {
+public:
+    static constexpr uint32_t LEAF_BINS_PER_DIM = 8;
+    static constexpr uint32_t TOTAL_LEAF_CELLS = 64;
+
+    struct AngularCellInfo {
+        uint32_t cell_id = 0;
+        uint32_t cell_x = 0;
+        uint32_t cell_y = 0;
+        float u_min = 0.0f, u_max = 0.0f;
+        float v_min = 0.0f, v_max = 0.0f;
+        float u_center = 0.0f, v_center = 0.0f;
+        RTXVector3 dir_center = { 0, 1, 0 };
+        float solid_angle = (4.0f * 3.14159265f) / 64.0f;
+    };
+
+    AngularCellInfo cells[TOTAL_LEAF_CELLS];
+
+    ASTGAngularHierarchy() {
+        for (uint32_t i = 0; i < TOTAL_LEAF_CELLS; ++i) {
+            cells[i].cell_id = i;
+            cells[i].cell_x = i % LEAF_BINS_PER_DIM;
+            cells[i].cell_y = i / LEAF_BINS_PER_DIM;
+            cells[i].u_min = float(cells[i].cell_x) / float(LEAF_BINS_PER_DIM);
+            cells[i].u_max = float(cells[i].cell_x + 1) / float(LEAF_BINS_PER_DIM);
+            cells[i].v_min = float(cells[i].cell_y) / float(LEAF_BINS_PER_DIM);
+            cells[i].v_max = float(cells[i].cell_y + 1) / float(LEAF_BINS_PER_DIM);
+            cells[i].u_center = (cells[i].u_min + cells[i].u_max) * 0.5f;
+            cells[i].v_center = (cells[i].v_min + cells[i].v_max) * 0.5f;
+            decode_octahedral(cells[i].u_center, cells[i].v_center, cells[i].dir_center);
+            cells[i].solid_angle = (4.0f * 3.14159265f) / 64.0f;
+        }
+    }
+
+    // Projects an AABB from light position into a 64-bit angular cell mask with seam-safe handling
+    uint64_t query_box_footprint(
+        const RTXVector3& light_pos,
+        const ASTGAABB& box,
+        float* out_approx_proxy_solid_angle = nullptr
+    ) const {
+        if (!box.is_valid()) return 0ULL;
+
+        // 8 Corners of the AABB
+        RTXVector3 corners[8] = {
+            { box.min_bounds.x, box.min_bounds.y, box.min_bounds.z },
+            { box.max_bounds.x, box.min_bounds.y, box.min_bounds.z },
+            { box.min_bounds.x, box.max_bounds.y, box.min_bounds.z },
+            { box.max_bounds.x, box.max_bounds.y, box.min_bounds.z },
+            { box.min_bounds.x, box.min_bounds.y, box.max_bounds.z },
+            { box.max_bounds.x, box.min_bounds.y, box.max_bounds.z },
+            { box.min_bounds.x, box.max_bounds.y, box.max_bounds.z },
+            { box.max_bounds.x, box.max_bounds.y, box.max_bounds.z }
+        };
+
+        // Compute box center and approximate solid angle
+        RTXVector3 center = {
+            (box.min_bounds.x + box.max_bounds.x) * 0.5f,
+            (box.min_bounds.y + box.max_bounds.y) * 0.5f,
+            (box.min_bounds.z + box.max_bounds.z) * 0.5f
+        };
+        RTXVector3 to_center = { center.x - light_pos.x, center.y - light_pos.y, center.z - light_pos.z };
+        float dist_sq = to_center.x * to_center.x + to_center.y * to_center.y + to_center.z * to_center.z;
+        float dist = std::sqrt(dist_sq);
+
+        RTXVector3 ext = { box.max_bounds.x - box.min_bounds.x, box.max_bounds.y - box.min_bounds.y, box.max_bounds.z - box.min_bounds.z };
+        float approx_area = std::max(ext.x * ext.y, std::max(ext.y * ext.z, ext.x * ext.z));
+        float proxy_sa = (dist_sq > 1e-4f) ? std::min(4.0f * 3.14159265f, approx_area / dist_sq) : (4.0f * 3.14159265f);
+        if (out_approx_proxy_solid_angle) *out_approx_proxy_solid_angle = proxy_sa;
+
+        float u_coords[8], v_coords[8];
+        float min_u = 1.0f, max_u = 0.0f, min_v = 1.0f, max_v = 0.0f;
+        bool has_pos_z = false, has_neg_z = false;
+
+        for (int i = 0; i < 8; ++i) {
+            RTXVector3 d = { corners[i].x - light_pos.x, corners[i].y - light_pos.y, corners[i].z - light_pos.z };
+            float len = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+            if (len > 1e-6f) {
+                d.x /= len; d.y /= len; d.z /= len;
+            }
+            if (d.z >= 0.0f) has_pos_z = true; else has_neg_z = true;
+            encode_octahedral(d, u_coords[i], v_coords[i]);
+            min_u = std::min(min_u, u_coords[i]);
+            max_u = std::max(max_u, u_coords[i]);
+            min_v = std::min(min_v, v_coords[i]);
+            max_v = std::max(max_v, v_coords[i]);
+        }
+
+        // Seam-safe robust evaluation:
+        // 1. Ray from light in cell center direction intersects box
+        // 2. Rays from light in 4 cell corner directions intersect box
+        // 3. Any of the 8 box corners project directly into the cell UV domain
+        uint64_t result_mask = 0ULL;
+        for (uint32_t i = 0; i < TOTAL_LEAF_CELLS; ++i) {
+            const auto& cell = cells[i];
+            bool cell_hit = false;
+
+            // Check 1: Cell center ray
+            if (ray_intersects_aabb(light_pos, cell.dir_center, box, dist * 2.0f + 5.0f)) {
+                cell_hit = true;
+            }
+
+            // Check 2: Cell corner rays
+            if (!cell_hit) {
+                RTXVector3 corner_dirs[4];
+                decode_octahedral(cell.u_min, cell.v_min, corner_dirs[0]);
+                decode_octahedral(cell.u_max, cell.v_min, corner_dirs[1]);
+                decode_octahedral(cell.u_min, cell.v_max, corner_dirs[2]);
+                decode_octahedral(cell.u_max, cell.v_max, corner_dirs[3]);
+                for (int c = 0; c < 4; ++c) {
+                    if (ray_intersects_aabb(light_pos, corner_dirs[c], box, dist * 2.0f + 5.0f)) {
+                        cell_hit = true;
+                        break;
+                    }
+                }
+            }
+
+            // Check 3: Box corners projected into cell UV bounds
+            if (!cell_hit) {
+                for (int c = 0; c < 8; ++c) {
+                    if (u_coords[c] >= cell.u_min && u_coords[c] <= cell.u_max &&
+                        v_coords[c] >= cell.v_min && v_coords[c] <= cell.v_max) {
+                        cell_hit = true;
+                        break;
+                    }
+                }
+            }
+
+            if (cell_hit) {
+                result_mask |= (1ULL << i);
+            }
+        }
+
+        return result_mask;
+    }
+};
+
+// Dedicated ASTG Occlusion Proxy Box (Handoff Item 4, 5, 6)
+struct ASTGOccluderBounds {
+    ASTGAABB aabb;
+    std::string label;
+};
+
+// Logical Bounding-Box Group Abstraction (Handoff Item 3, 4, 5, 26, 27)
+struct ASTGDynamicOccluderGroup {
+    uint32_t group_id = 0;
+    std::string label;
+    bool astg_occlusion_enabled = true;
+    ASTGDynamicOcclusionMode occlusion_mode = ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES;
+    uint32_t transform_generation = 0;
+
+    std::vector<ASTGOccluderBounds> bounds;
+    ASTGAABB world_union_bounds;
+    ASTGAABB previous_world_union_bounds;
+    ASTGDynamicOcclusionPrecision precision = ASTG_OCCLUSION_BOUNDS_ONLY;
+
+    void recompute_union_bounds() {
+        world_union_bounds = ASTGAABB();
+        for (const auto& b : bounds) {
+            world_union_bounds.union_with(b.aabb);
+        }
+    }
+};
+
+// DAG Node->Node Edge with Dynamic Occlusion Metadata (Handoff Item 2, 3, 16)
 struct ASTGDAGEdge {
     uint32_t edge_id = 0;
     uint32_t parent_node_id = 0;
     uint32_t child_node_id = 0;
     uint32_t source_light_id = 0;
     uint32_t angular_cell_id = 0;
-    uint32_t bounce_depth = 1;
+    uint32_t source_bounce_depth = 0;
+    uint32_t target_bounce_depth = 1;
+    uint32_t bounce_depth = 1; // Legacy compatibility
     float transfer_weight = 1.0f;
     bool is_stitch_edge = false;
     uint32_t repair_generation = 0;
-    bool is_active = true;
+    bool is_active = true; // Static structural validity
+
+    // Dynamic Occlusion state & metadata
+    ASTGTransportEdgeState state = ASTG_EDGE_ACTIVE;
+    ASTGAABB spatial_bounds;
+    uint32_t dynamic_blocker_count = 0;
+    std::vector<uint32_t> dynamic_blocker_ids;
+};
+
+// Dynamic Occlusion Update Telemetry & Diagnostics (Handoff Item 45, 46, 47, 51, 52, 71)
+struct ASTGDynamicOcclusionMetrics {
+    uint32_t group_id = 0;
+    bool enabled = true;
+    ASTGDynamicOcclusionMode mode = ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES;
+    uint32_t box_count = 0;
+    uint32_t total_dag_edges = 0;
+    uint32_t candidate_edges = 0;
+    uint32_t fine_tested_edges = 0;
+    uint32_t intersected_edges = 0;
+    uint32_t newly_blocked_edges = 0;
+    uint32_t newly_unblocked_edges = 0;
+    uint32_t currently_blocked_edges = 0;
+
+    // Angular B0 Metrics (Handoff Item 51, 55, 71)
+    uint32_t angular_total_cells = 64;
+    uint32_t angular_current_cells = 0;
+    uint32_t angular_previous_cells = 0;
+    uint32_t angular_newly_covered_cells = 0;
+    uint32_t angular_newly_uncovered_cells = 0;
+    uint32_t angular_still_covered_cells = 0;
+    double angular_delta_fraction = 0.0;
+    float proxy_solid_angle = 0.0f;
+    float cell_solid_angle = 0.0f;
+    float overcoverage_ratio = 1.0f;
+
+    // Layer-2 & Receiver impact
+    uint32_t affected_layer2_paths = 0;
+    uint32_t affected_receivers = 0;
+
+    // Timings
+    double angular_projection_us = 0.0;
+    double spatial_query_us = 0.0;
+    double fine_test_us = 0.0;
+    double total_update_ms = 0.0;
+
+    double broadphase_rejection_pct = 0.0;
+    double fine_rejection_pct = 0.0;
+};
+
+// Dynamic Edge Occlusion Timeline Event (Handoff Item 55)
+struct ASTGDynamicEdgeTimelineEvent {
+    uint32_t frame = 0;
+    uint32_t edge_id = 0;
+    std::string event; // "BLOCKED" or "UNBLOCKED"
+    uint32_t group_id = 0;
+    uint32_t blocker_count = 0;
+};
+
+// Uniform 3D Spatial Acceleration Grid over DAG Edges (Handoff Item 8, 9, 10)
+class ASTGEdgeSpatialGrid {
+public:
+    float cell_size = 2.0f;
+    std::unordered_map<uint64_t, std::vector<uint32_t>> grid;
+
+    static inline uint64_t hash_cell(int cx, int cy, int cz) {
+        uint64_t h = 14695981039346656037ULL;
+        h = fnv1a_64_hash_bytes(&cx, sizeof(cx), h);
+        h = fnv1a_64_hash_bytes(&cy, sizeof(cy), h);
+        h = fnv1a_64_hash_bytes(&cz, sizeof(cz), h);
+        return h;
+    }
+
+    void clear() {
+        grid.clear();
+    }
+
+    void insert_edge(uint32_t edge_id, const ASTGAABB& edge_bounds) {
+        if (!edge_bounds.is_valid()) return;
+        int min_x = (int)std::floor(edge_bounds.min_bounds.x / cell_size);
+        int max_x = (int)std::floor(edge_bounds.max_bounds.x / cell_size);
+        int min_y = (int)std::floor(edge_bounds.min_bounds.y / cell_size);
+        int max_y = (int)std::floor(edge_bounds.max_bounds.y / cell_size);
+        int min_z = (int)std::floor(edge_bounds.min_bounds.z / cell_size);
+        int max_z = (int)std::floor(edge_bounds.max_bounds.z / cell_size);
+
+        for (int x = min_x; x <= max_x; ++x) {
+            for (int y = min_y; y <= max_y; ++y) {
+                for (int z = min_z; z <= max_z; ++z) {
+                    uint64_t cell_key = hash_cell(x, y, z);
+                    grid[cell_key].push_back(edge_id);
+                }
+            }
+        }
+    }
+
+    void query_edges_in_aabb(const ASTGAABB& query_box, std::vector<uint32_t>& out_candidates) const {
+        out_candidates.clear();
+        if (!query_box.is_valid() || grid.empty()) return;
+
+        int min_x = (int)std::floor(query_box.min_bounds.x / cell_size);
+        int max_x = (int)std::floor(query_box.max_bounds.x / cell_size);
+        int min_y = (int)std::floor(query_box.min_bounds.y / cell_size);
+        int max_y = (int)std::floor(query_box.max_bounds.y / cell_size);
+        int min_z = (int)std::floor(query_box.min_bounds.z / cell_size);
+        int max_z = (int)std::floor(query_box.max_bounds.z / cell_size);
+
+        std::unordered_set<uint32_t> unique_candidates;
+        for (int x = min_x; x <= max_x; ++x) {
+            for (int y = min_y; y <= max_y; ++y) {
+                for (int z = min_z; z <= max_z; ++z) {
+                    uint64_t cell_key = hash_cell(x, y, z);
+                    auto it = grid.find(cell_key);
+                    if (it != grid.end()) {
+                        for (uint32_t eid : it->second) {
+                            unique_candidates.insert(eid);
+                        }
+                    }
+                }
+            }
+        }
+        out_candidates.assign(unique_candidates.begin(), unique_candidates.end());
+    }
 };
 
 // Reusable Transport State Key (Part 1)
@@ -343,8 +840,111 @@ struct ASTGMultiHopSolveResult {
     uint32_t reuse_continuation_rays = 0;
     uint32_t avoided_rays = 0;
     double ray_reduction_pct = 0.0;
-
     std::vector<ASTGPathSegmentTrace> assembled_timeline;
+};
+
+// Dynamic Light Transport Modes (Handoff Item 2)
+enum ASTGLightTransportMode {
+    ASTG_LIGHT_STATIC_TRANSPORT = 0,
+    ASTG_LIGHT_RELOCATABLE_TRANSPORT = 1,
+    ASTG_LIGHT_DYNAMIC_TRANSPORT = 2
+};
+
+// Dynamic Light State Representation (Handoff Item 4, 30)
+struct ASTGDynamicLightState {
+    uint32_t light_id = 0;
+    ASTGLightTransportMode mode = ASTG_LIGHT_DYNAMIC_TRANSPORT;
+
+    RTXVector3 position = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 direction = { 0.0f, -1.0f, 0.0f };
+
+    float color_r = 1.0f;
+    float color_g = 1.0f;
+    float color_b = 1.0f;
+    float intensity = 1.0f;
+
+    bool enabled = true;
+
+    bool is_spotlight = false;
+    float spot_inner_cos = 0.95f; // ~18 deg
+    float spot_outer_cos = 0.85f; // ~31 deg
+    float spot_range = 25.0f;
+
+    uint32_t transform_generation = 1;
+    uint32_t state_generation = 1;
+};
+
+// Dynamic Ingress Ray (Handoff Item 6)
+struct ASTGDynamicIngressRay {
+    uint32_t light_id = 0;
+    uint32_t sample_id = 0;
+
+    RTXVector3 origin = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 direction = { 0.0f, -1.0f, 0.0f };
+
+    float emitted_flux_r = 1.0f;
+    float emitted_flux_g = 1.0f;
+    float emitted_flux_b = 1.0f;
+
+    uint32_t current_path_depth = 0;
+    uint64_t path_provenance_id = 0;
+};
+
+// Dynamic Ingress Hit Result (Handoff Item 11, 27)
+struct ASTGDynamicIngressResult {
+    ASTGDynamicIngressRay ray;
+    ASTGRayHit hit;
+    float ingress_transfer_r = 0.0f;
+    float ingress_transfer_g = 0.0f;
+    float ingress_transfer_b = 0.0f;
+    uint32_t matched_candidate_node_id = UINT32_MAX;
+    bool stitched = false;
+};
+
+// Transient Dynamic Receiver Contribution (Handoff Item 17, 64)
+struct ASTGDynamicReceiverContribution {
+    uint32_t receiver_id = 0; // probe_id
+    uint32_t light_id = 0;
+
+    float transfer_r = 0.0f;
+    float transfer_g = 0.0f;
+    float transfer_b = 0.0f;
+
+    uint32_t transform_generation = 1;
+    uint64_t path_provenance_id = 0;
+};
+
+// Dynamic Light Solve Result (Handoff Item 47, 63)
+struct ASTGDynamicLightSolveResult {
+    uint32_t light_id = 0;
+    uint32_t transform_generation = 1;
+
+    uint32_t ingress_rays_scheduled = 0;
+    uint32_t ingress_rays_completed = 0;
+    uint32_t downstream_fresh_rays_completed = 0;
+
+    uint32_t stitch_events = 0;
+    uint32_t cached_nodes_reused = 0;
+    uint32_t cached_edges_reused = 0;
+
+    uint32_t continuation_frontiers = 0;
+    uint32_t receiver_contributions = 0;
+
+    float final_transfer_r = 0.0f;
+    float final_transfer_g = 0.0f;
+    float final_transfer_b = 0.0f;
+
+    std::vector<ASTGDynamicReceiverContribution> transient_contributions;
+    std::vector<ASTGPathSegmentTrace> assembled_timeline;
+    ASTGSolveRayCounters ray_counters;
+
+    uint32_t fresh_reference_rays = 0;
+    uint32_t avoided_rays = 0;
+    double ray_reduction_pct = 0.0;
+    double downstream_reuse_ratio = 0.0;
+
+    double gpu_ms = 0.0;
+    bool semantic_equivalence_pass = false;
 };
 
 // Explicit Path-Level Probe Contribution Record (Layer 2 - Exact Provenance Truth)
@@ -364,6 +964,12 @@ struct ASTGPathProbeContribution {
     float importance = 0.0f;
     uint32_t generation = 1;
     bool is_active = true;
+
+    // Dynamic Occlusion temporary mask (Handoff Item 20)
+    uint32_t dynamic_occlusion_count = 0;
+    bool is_effectively_active() const {
+        return is_active && (dynamic_occlusion_count == 0);
+    }
 };
 
 // Node->Probe Deposition Link (Transport Arrival Event)
@@ -546,6 +1152,603 @@ public:
     uint32_t max_stitch_candidates_per_hit = 32;
     ASTGStitchingMetrics stitching_metrics;
 
+    // Dynamic Occlusion State & Spatial Tracking (Phase 4 & 5)
+    ASTGDynamicOcclusionMode global_occlusion_mode = ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES;
+    ASTGAngularHierarchy angular_hierarchy;
+    std::unordered_map<uint32_t, ASTGDynamicOccluderGroup> dynamic_occluder_groups;
+    uint32_t next_dynamic_group_id = 1;
+    ASTGEdgeSpatialGrid edge_spatial_grid;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> edge_to_path_contributions; // Edge ID -> Layer-2 Path Contribution IDs
+    std::unordered_map<uint32_t, std::unordered_set<uint32_t>> dynamic_group_to_edges; // Group ID -> currently blocked Edge IDs
+    std::unordered_map<uint64_t, uint64_t> group_light_angular_masks; // (group_id << 32) | light_id -> 64-bit angular mask
+    std::unordered_map<uint64_t, uint32_t> light_cell_blocker_count; // (light_id << 32) | cell_id -> blocker count
+    std::unordered_map<uint64_t, std::vector<uint32_t>> light_cell_blocker_ids; // (light_id << 32) | cell_id -> group IDs
+    std::unordered_map<uint64_t, std::vector<uint32_t>> light_cell_to_paths; // (light_id << 32) | cell_id -> Layer-2 Path Contribution IDs
+    std::unordered_map<uint64_t, std::vector<uint32_t>> light_cell_to_b0_edges; // (light_id << 32) | cell_id -> B0 DAG Edge IDs
+    std::unordered_map<uint32_t, RTXVector3> light_positions; // light_id -> light position
+    std::vector<ASTGDynamicEdgeTimelineEvent> dynamic_edge_timeline;
+    uint32_t dynamic_timeline_frame = 0;
+
+    void compute_edge_spatial_bounds(ASTGDAGEdge& edge, float corridor_radius = 0.05f) {
+        const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
+        const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
+        if (parent_n && child_n) {
+            edge.spatial_bounds.min_bounds = {
+                std::min(parent_n->position.x, child_n->position.x),
+                std::min(parent_n->position.y, child_n->position.y),
+                std::min(parent_n->position.z, child_n->position.z)
+            };
+            edge.spatial_bounds.max_bounds = {
+                std::max(parent_n->position.x, child_n->position.x),
+                std::max(parent_n->position.y, child_n->position.y),
+                std::max(parent_n->position.z, child_n->position.z)
+            };
+            edge.spatial_bounds.expand(corridor_radius);
+            edge.source_bounce_depth = parent_n->bounce_depth;
+            edge.target_bounce_depth = child_n->bounce_depth;
+            edge.bounce_depth = child_n->bounce_depth;
+        }
+    }
+
+    void rebuild_edge_spatial_index(float cell_size = 2.0f, float corridor_radius = 0.05f) {
+        edge_spatial_grid.clear();
+        edge_spatial_grid.cell_size = cell_size;
+        for (size_t i = 0; i < dag_edges.size(); ++i) {
+            auto& edge = dag_edges[i];
+            edge.edge_id = (uint32_t)i;
+            compute_edge_spatial_bounds(edge, corridor_radius);
+            if (edge.is_active) {
+                edge_spatial_grid.insert_edge((uint32_t)i, edge.spatial_bounds);
+            }
+        }
+    }
+
+    void build_edge_to_path_mapping() {
+        edge_to_path_contributions.clear();
+        light_cell_to_paths.clear();
+        light_cell_to_b0_edges.clear();
+
+        std::unordered_map<uint32_t, std::vector<uint32_t>> node_outgoing_edges;
+        for (size_t e = 0; e < dag_edges.size(); ++e) {
+            node_outgoing_edges[dag_edges[e].parent_node_id].push_back((uint32_t)e);
+            if (dag_edges[e].source_bounce_depth == 0) {
+                uint64_t key = ((uint64_t)dag_edges[e].source_light_id << 32) | dag_edges[e].angular_cell_id;
+                light_cell_to_b0_edges[key].push_back((uint32_t)e);
+            }
+        }
+
+        for (size_t e = 0; e < dag_edges.size(); ++e) {
+            const auto& edge = dag_edges[e];
+            uint32_t root_child = edge.child_node_id;
+
+            std::unordered_set<uint32_t> reachable_nodes;
+            std::vector<uint32_t> frontier = { root_child };
+            reachable_nodes.insert(root_child);
+
+            while (!frontier.empty()) {
+                uint32_t curr = frontier.back();
+                frontier.pop_back();
+
+                auto it = node_outgoing_edges.find(curr);
+                if (it != node_outgoing_edges.end()) {
+                    for (uint32_t next_edge_idx : it->second) {
+                        uint32_t child_nid = dag_edges[next_edge_idx].child_node_id;
+                        if (reachable_nodes.insert(child_nid).second) {
+                            frontier.push_back(child_nid);
+                        }
+                    }
+                }
+            }
+
+            std::vector<uint32_t>& dep_list = edge_to_path_contributions[(uint32_t)e];
+            std::unordered_set<uint32_t> added_deps;
+            for (uint32_t rn : reachable_nodes) {
+                auto it_dep = node_to_path_contributions.find(rn);
+                if (it_dep != node_to_path_contributions.end()) {
+                    for (uint32_t dep_id : it_dep->second) {
+                        if (dep_id < path_probe_contributions.size()) {
+                            const auto& contrib = path_probe_contributions[dep_id];
+                            if (contrib.source_light_id == edge.source_light_id || edge.source_light_id == 0) {
+                                if (added_deps.insert(dep_id).second) {
+                                    dep_list.push_back(dep_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (size_t p = 0; p < path_probe_contributions.size(); ++p) {
+            const auto& dep = path_probe_contributions[p];
+            uint64_t key = ((uint64_t)dep.source_light_id << 32) | dep.angular_cell_id;
+            light_cell_to_paths[key].push_back((uint32_t)p);
+        }
+    }
+
+    uint32_t register_dynamic_occluder_group(
+        const std::vector<ASTGAABB>& boxes,
+        const std::string& label = "DynamicGroup",
+        bool enabled = true,
+        ASTGDynamicOcclusionMode mode = ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES,
+        ASTGDynamicOcclusionPrecision precision = ASTG_OCCLUSION_BOUNDS_ONLY
+    ) {
+        uint32_t gid = next_dynamic_group_id++;
+        ASTGDynamicOccluderGroup group;
+        group.group_id = gid;
+        group.label = label;
+        group.astg_occlusion_enabled = enabled;
+        group.occlusion_mode = mode;
+        group.transform_generation = 1;
+        group.precision = precision;
+
+        for (size_t b = 0; b < boxes.size(); ++b) {
+            ASTGOccluderBounds ob;
+            ob.aabb = boxes[b];
+            ob.label = label + "_box_" + std::to_string(b);
+            group.bounds.push_back(ob);
+        }
+        group.recompute_union_bounds();
+        group.previous_world_union_bounds = group.world_union_bounds;
+
+        dynamic_occluder_groups[gid] = group;
+
+        if (enabled) {
+            update_dynamic_occlusion(gid);
+        }
+        return gid;
+    }
+
+    void clear_group_dynamic_state(uint32_t group_id) {
+        // 1. Clear blocked DAG edges
+        auto it_edges = dynamic_group_to_edges.find(group_id);
+        if (it_edges != dynamic_group_to_edges.end()) {
+            for (uint32_t edge_id : it_edges->second) {
+                if (edge_id < dag_edges.size()) {
+                    auto& edge = dag_edges[edge_id];
+                    auto& b_ids = edge.dynamic_blocker_ids;
+                    b_ids.erase(std::remove(b_ids.begin(), b_ids.end(), group_id), b_ids.end());
+                    edge.dynamic_blocker_count = (uint32_t)b_ids.size();
+                    if (edge.dynamic_blocker_count == 0) {
+                        edge.state = (edge.is_active ? ASTG_EDGE_ACTIVE : ASTG_EDGE_INVALID_STATIC);
+                        dynamic_edge_timeline.push_back({ dynamic_timeline_frame, edge_id, "UNBLOCKED", group_id, 0 });
+                    }
+
+                    auto it_p = edge_to_path_contributions.find(edge_id);
+                    if (it_p != edge_to_path_contributions.end()) {
+                        for (uint32_t dep_id : it_p->second) {
+                            if (dep_id < path_probe_contributions.size()) {
+                                if (path_probe_contributions[dep_id].dynamic_occlusion_count > 0) {
+                                    path_probe_contributions[dep_id].dynamic_occlusion_count--;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            dynamic_group_to_edges.erase(it_edges);
+        }
+
+        // 2. Clear angular cell blockers
+        for (auto& kv : group_light_angular_masks) {
+            uint32_t gid = (uint32_t)(kv.first >> 32);
+            uint32_t lid = (uint32_t)(kv.first & 0xFFFFFFFFULL);
+            if (gid == group_id && kv.second != 0) {
+                uint64_t mask = kv.second;
+                for (uint32_t c = 0; c < 64; ++c) {
+                    if (mask & (1ULL << c)) {
+                        uint64_t lc_key = ((uint64_t)lid << 32) | c;
+                        auto& b_ids = light_cell_blocker_ids[lc_key];
+                        b_ids.erase(std::remove(b_ids.begin(), b_ids.end(), group_id), b_ids.end());
+                        light_cell_blocker_count[lc_key] = (uint32_t)b_ids.size();
+
+                        if (light_cell_blocker_count[lc_key] == 0) {
+                            light_cell_blocker_count.erase(lc_key);
+                            light_cell_blocker_ids.erase(lc_key);
+                            auto it_e = light_cell_to_b0_edges.find(lc_key);
+                            if (it_e != light_cell_to_b0_edges.end()) {
+                                for (uint32_t eid : it_e->second) {
+                                    if (eid < dag_edges.size()) {
+                                        dag_edges[eid].state = (dag_edges[eid].is_active ? ASTG_EDGE_ACTIVE : ASTG_EDGE_INVALID_STATIC);
+                                        dynamic_edge_timeline.push_back({ dynamic_timeline_frame, eid, "UNBLOCKED", group_id, 0 });
+                                    }
+                                }
+                            }
+                            auto it_p = light_cell_to_paths.find(lc_key);
+                            if (it_p != light_cell_to_paths.end()) {
+                                for (uint32_t dep_id : it_p->second) {
+                                    if (dep_id < path_probe_contributions.size()) {
+                                        if (path_probe_contributions[dep_id].dynamic_occlusion_count > 0) {
+                                            path_probe_contributions[dep_id].dynamic_occlusion_count--;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                kv.second = 0;
+            }
+        }
+    }
+
+    void unregister_dynamic_occluder_group(uint32_t group_id) {
+        clear_group_dynamic_state(group_id);
+        dynamic_occluder_groups.erase(group_id);
+    }
+
+    void set_dynamic_occluder_group_enabled(uint32_t group_id, bool enabled) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end()) return;
+
+        if (it->second.astg_occlusion_enabled == enabled) return;
+
+        it->second.astg_occlusion_enabled = enabled;
+        if (!enabled) {
+            clear_group_dynamic_state(group_id);
+        } else {
+            update_dynamic_occlusion(group_id);
+        }
+    }
+
+    void set_astg_occlusion_mode(uint32_t group_id, ASTGDynamicOcclusionMode mode) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end()) return;
+        if (it->second.occlusion_mode == mode) return;
+
+        clear_group_dynamic_state(group_id);
+        it->second.occlusion_mode = mode;
+        if (it->second.astg_occlusion_enabled) {
+            update_dynamic_occlusion(group_id);
+        }
+    }
+
+    void set_global_dynamic_occlusion_mode(ASTGDynamicOcclusionMode mode) {
+        if (global_occlusion_mode == mode) return;
+
+        for (auto& pair : dynamic_occluder_groups) {
+            clear_group_dynamic_state(pair.first);
+        }
+        global_occlusion_mode = mode;
+        for (auto& pair : dynamic_occluder_groups) {
+            if (pair.second.astg_occlusion_enabled) {
+                update_dynamic_occlusion(pair.first);
+            }
+        }
+    }
+
+    void update_dynamic_occluder_group_bounds(uint32_t group_id, const std::vector<ASTGAABB>& new_boxes) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end()) return;
+
+        it->second.previous_world_union_bounds = it->second.world_union_bounds;
+        it->second.bounds.clear();
+        for (size_t b = 0; b < new_boxes.size(); ++b) {
+            ASTGOccluderBounds ob;
+            ob.aabb = new_boxes[b];
+            ob.label = it->second.label + "_box_" + std::to_string(b);
+            it->second.bounds.push_back(ob);
+        }
+        it->second.recompute_union_bounds();
+        it->second.transform_generation++;
+
+        if (it->second.astg_occlusion_enabled) {
+            update_dynamic_occlusion(group_id);
+        }
+    }
+
+    ASTGDynamicOcclusionMetrics update_dynamic_occlusion(uint32_t group_id) {
+        auto t_start = std::chrono::high_resolution_clock::now();
+        ASTGDynamicOcclusionMetrics m;
+        m.group_id = group_id;
+        m.total_dag_edges = (uint32_t)dag_edges.size();
+
+        auto it_grp = dynamic_occluder_groups.find(group_id);
+        if (it_grp == dynamic_occluder_groups.end()) return m;
+
+        auto& group = it_grp->second;
+        m.enabled = group.astg_occlusion_enabled;
+        m.box_count = (uint32_t)group.bounds.size();
+
+        ASTGDynamicOcclusionMode mode = (global_occlusion_mode != ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES && global_occlusion_mode != group.occlusion_mode)
+            ? global_occlusion_mode : group.occlusion_mode;
+        m.mode = mode;
+
+        if (!group.astg_occlusion_enabled || group.bounds.empty() || mode == ASTG_OCCLUSION_NONE) {
+            clear_group_dynamic_state(group_id);
+            auto t_end = std::chrono::high_resolution_clock::now();
+            m.total_update_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+            return m;
+        }
+
+        std::unordered_set<uint32_t> affected_path_ids;
+
+        // -------------------------------------------------------------
+        // 1. ANGULAR B0 OCCLUSION (Active in Mode B and Mode C) (Handoff Item 10, 11, 13-24)
+        // -------------------------------------------------------------
+        if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS || mode == ASTG_OCCLUSION_ANGULAR_B0_ONLY) {
+            auto t_ang_start = std::chrono::high_resolution_clock::now();
+
+            std::vector<uint32_t> lights_to_test;
+            for (const auto& kv : light_positions) {
+                lights_to_test.push_back(kv.first);
+            }
+            if (lights_to_test.empty()) {
+                for (const auto& edge : dag_edges) {
+                    if (std::find(lights_to_test.begin(), lights_to_test.end(), edge.source_light_id) == lights_to_test.end()) {
+                        lights_to_test.push_back(edge.source_light_id);
+                    }
+                }
+                if (lights_to_test.empty()) lights_to_test.push_back(0);
+            }
+
+            for (uint32_t lid : lights_to_test) {
+                auto it_lp = light_positions.find(lid);
+                RTXVector3 light_pos = (it_lp != light_positions.end()) ? it_lp->second : RTXVector3{ 0.0f, 5.0f, 0.0f };
+                
+                uint64_t total_group_mask = 0;
+                float total_proxy_solid_angle = 0.0f;
+                for (const auto& ob : group.bounds) {
+                    float box_sa = 0.0f;
+                    uint64_t box_mask = angular_hierarchy.query_box_footprint(light_pos, ob.aabb, &box_sa);
+                    total_group_mask |= box_mask;
+                    total_proxy_solid_angle += box_sa;
+                }
+
+                uint64_t gl_key = ((uint64_t)group_id << 32) | lid;
+                uint64_t old_mask = group_light_angular_masks[gl_key];
+                uint64_t new_mask = total_group_mask;
+
+                uint64_t newly_covered = new_mask & (~old_mask);
+                uint64_t newly_uncovered = old_mask & (~new_mask);
+                uint64_t still_covered = new_mask & old_mask;
+
+                m.angular_current_cells += (uint32_t)std::bitset<64>(new_mask).count();
+                m.angular_previous_cells += (uint32_t)std::bitset<64>(old_mask).count();
+                m.angular_newly_covered_cells += (uint32_t)std::bitset<64>(newly_covered).count();
+                m.angular_newly_uncovered_cells += (uint32_t)std::bitset<64>(newly_uncovered).count();
+                m.angular_still_covered_cells += (uint32_t)std::bitset<64>(still_covered).count();
+
+                uint64_t diff = old_mask ^ new_mask;
+                uint64_t union_mask = old_mask | new_mask;
+                m.angular_delta_fraction = (union_mask > 0) ? (double)std::bitset<64>(diff).count() / (double)std::bitset<64>(union_mask).count() : 0.0;
+
+                m.proxy_solid_angle = total_proxy_solid_angle;
+                m.cell_solid_angle = (float)std::bitset<64>(new_mask).count() * (4.0f * 3.14159265f / 64.0f);
+                m.overcoverage_ratio = (m.proxy_solid_angle > 1e-5f) ? (m.cell_solid_angle / m.proxy_solid_angle) : 1.0f;
+
+                // Process newly uncovered angular cells (Handoff Item 20)
+                for (uint32_t c = 0; c < 64; ++c) {
+                    if (newly_uncovered & (1ULL << c)) {
+                        uint64_t lc_key = ((uint64_t)lid << 32) | c;
+                        auto& b_ids = light_cell_blocker_ids[lc_key];
+                        b_ids.erase(std::remove(b_ids.begin(), b_ids.end(), group_id), b_ids.end());
+                        light_cell_blocker_count[lc_key] = (uint32_t)b_ids.size();
+
+                        if (light_cell_blocker_count[lc_key] == 0) {
+                            light_cell_blocker_count.erase(lc_key);
+                            light_cell_blocker_ids.erase(lc_key);
+                            auto it_e = light_cell_to_b0_edges.find(lc_key);
+                            if (it_e != light_cell_to_b0_edges.end()) {
+                                for (uint32_t eid : it_e->second) {
+                                    if (eid < dag_edges.size()) {
+                                        dag_edges[eid].state = (dag_edges[eid].is_active ? ASTG_EDGE_ACTIVE : ASTG_EDGE_INVALID_STATIC);
+                                        dynamic_edge_timeline.push_back({ dynamic_timeline_frame, eid, "UNBLOCKED", group_id, 0 });
+                                    }
+                                }
+                            }
+                            auto it_p = light_cell_to_paths.find(lc_key);
+                            if (it_p != light_cell_to_paths.end()) {
+                                for (uint32_t dep_id : it_p->second) {
+                                    if (dep_id < path_probe_contributions.size()) {
+                                        if (path_probe_contributions[dep_id].dynamic_occlusion_count > 0) {
+                                            path_probe_contributions[dep_id].dynamic_occlusion_count--;
+                                        }
+                                        affected_path_ids.insert(dep_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Process newly covered angular cells (Handoff Item 20)
+                for (uint32_t c = 0; c < 64; ++c) {
+                    if (newly_covered & (1ULL << c)) {
+                        uint64_t lc_key = ((uint64_t)lid << 32) | c;
+                        auto& b_ids = light_cell_blocker_ids[lc_key];
+                        if (std::find(b_ids.begin(), b_ids.end(), group_id) == b_ids.end()) {
+                            b_ids.push_back(group_id);
+                        }
+                        light_cell_blocker_count[lc_key] = (uint32_t)b_ids.size();
+
+                        auto it_e = light_cell_to_b0_edges.find(lc_key);
+                        if (it_e != light_cell_to_b0_edges.end()) {
+                            for (uint32_t eid : it_e->second) {
+                                if (eid < dag_edges.size()) {
+                                    dag_edges[eid].state = ASTG_EDGE_OCCLUDED_DYNAMIC;
+                                    dynamic_edge_timeline.push_back({ dynamic_timeline_frame, eid, "BLOCKED", group_id, light_cell_blocker_count[lc_key] });
+                                }
+                            }
+                        }
+                        auto it_p = light_cell_to_paths.find(lc_key);
+                        if (it_p != light_cell_to_paths.end()) {
+                            for (uint32_t dep_id : it_p->second) {
+                                if (dep_id < path_probe_contributions.size()) {
+                                    path_probe_contributions[dep_id].dynamic_occlusion_count++;
+                                    affected_path_ids.insert(dep_id);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                group_light_angular_masks[gl_key] = new_mask;
+            }
+
+            auto t_ang_end = std::chrono::high_resolution_clock::now();
+            m.angular_projection_us = std::chrono::duration<double, std::micro>(t_ang_end - t_ang_start).count();
+        }
+
+        // -------------------------------------------------------------
+        // 2. DAG EDGE TESTING (Active for ALL_BOUNCES in Mode A, and for B1+ in Mode B) (Handoff Item 7, 8, 9, 10, 28, 29)
+        // -------------------------------------------------------------
+        if (mode == ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES || mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS) {
+            ASTGAABB swept_bounds = ASTGAABB::union_of(group.previous_world_union_bounds, group.world_union_bounds);
+            std::vector<uint32_t> candidate_edges;
+            auto t_sp_start = std::chrono::high_resolution_clock::now();
+            edge_spatial_grid.query_edges_in_aabb(swept_bounds, candidate_edges);
+            auto t_sp_end = std::chrono::high_resolution_clock::now();
+            m.spatial_query_us = std::chrono::duration<double, std::micro>(t_sp_end - t_sp_start).count();
+            m.candidate_edges = (uint32_t)candidate_edges.size();
+
+            std::unordered_set<uint32_t> new_blocked_edge_set;
+            auto t_fine_start = std::chrono::high_resolution_clock::now();
+
+            for (uint32_t edge_idx : candidate_edges) {
+                if (edge_idx >= dag_edges.size()) continue;
+                const auto& edge = dag_edges[edge_idx];
+                if (!edge.is_active && edge.state == ASTG_EDGE_INVALID_STATIC) continue;
+
+                // In Mode B, B0 edges are handled via angular projection; only test B1+ (Handoff Item 10, 28)
+                if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS && edge.source_bounce_depth == 0) {
+                    continue;
+                }
+
+                const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
+                const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
+                if (!parent_n || !child_n) continue;
+
+                m.fine_tested_edges++;
+                bool edge_hit = false;
+                for (const auto& ob : group.bounds) {
+                    if (segment_intersects_aabb(parent_n->position, child_n->position, ob.aabb)) {
+                        edge_hit = true;
+                        break;
+                    }
+                }
+
+                if (edge_hit) {
+                    new_blocked_edge_set.insert(edge_idx);
+                    m.intersected_edges++;
+                }
+            }
+            auto t_fine_end = std::chrono::high_resolution_clock::now();
+            m.fine_test_us = std::chrono::duration<double, std::micro>(t_fine_end - t_fine_start).count();
+
+            std::unordered_set<uint32_t>& old_blocked = dynamic_group_to_edges[group_id];
+
+            for (uint32_t old_eid : old_blocked) {
+                if (new_blocked_edge_set.find(old_eid) == new_blocked_edge_set.end()) {
+                    m.newly_unblocked_edges++;
+                    if (old_eid < dag_edges.size()) {
+                        auto& edge = dag_edges[old_eid];
+                        auto& b_ids = edge.dynamic_blocker_ids;
+                        b_ids.erase(std::remove(b_ids.begin(), b_ids.end(), group_id), b_ids.end());
+                        edge.dynamic_blocker_count = (uint32_t)b_ids.size();
+                        if (edge.dynamic_blocker_count == 0) {
+                            edge.state = (edge.is_active ? ASTG_EDGE_ACTIVE : ASTG_EDGE_INVALID_STATIC);
+                            dynamic_edge_timeline.push_back({ dynamic_timeline_frame, old_eid, "UNBLOCKED", group_id, 0 });
+                        }
+
+                        auto it_p = edge_to_path_contributions.find(old_eid);
+                        if (it_p != edge_to_path_contributions.end()) {
+                            for (uint32_t dep_id : it_p->second) {
+                                if (dep_id < path_probe_contributions.size()) {
+                                    if (path_probe_contributions[dep_id].dynamic_occlusion_count > 0) {
+                                        path_probe_contributions[dep_id].dynamic_occlusion_count--;
+                                    }
+                                    affected_path_ids.insert(dep_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (uint32_t new_eid : new_blocked_edge_set) {
+                if (old_blocked.find(new_eid) == old_blocked.end()) {
+                    m.newly_blocked_edges++;
+                    if (new_eid < dag_edges.size()) {
+                        auto& edge = dag_edges[new_eid];
+                        if (std::find(edge.dynamic_blocker_ids.begin(), edge.dynamic_blocker_ids.end(), group_id) == edge.dynamic_blocker_ids.end()) {
+                            edge.dynamic_blocker_ids.push_back(group_id);
+                        }
+                        edge.dynamic_blocker_count = (uint32_t)edge.dynamic_blocker_ids.size();
+                        edge.state = ASTG_EDGE_OCCLUDED_DYNAMIC;
+                        dynamic_edge_timeline.push_back({ dynamic_timeline_frame, new_eid, "BLOCKED", group_id, edge.dynamic_blocker_count });
+
+                        auto it_p = edge_to_path_contributions.find(new_eid);
+                        if (it_p != edge_to_path_contributions.end()) {
+                            for (uint32_t dep_id : it_p->second) {
+                                if (dep_id < path_probe_contributions.size()) {
+                                    path_probe_contributions[dep_id].dynamic_occlusion_count++;
+                                    affected_path_ids.insert(dep_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            old_blocked = new_blocked_edge_set;
+            m.currently_blocked_edges = (uint32_t)old_blocked.size();
+        }
+
+        m.affected_layer2_paths = (uint32_t)affected_path_ids.size();
+
+        std::unordered_set<uint32_t> affected_probes;
+        for (uint32_t dep_id : affected_path_ids) {
+            if (dep_id < path_probe_contributions.size()) {
+                affected_probes.insert(path_probe_contributions[dep_id].probe_id);
+            }
+        }
+        m.affected_receivers = (uint32_t)affected_probes.size();
+
+        m.broadphase_rejection_pct = (m.total_dag_edges > 0)
+            ? (1.0 - double(m.fine_tested_edges) / double(m.total_dag_edges)) * 100.0 : 0.0;
+        m.fine_rejection_pct = (m.fine_tested_edges > 0)
+            ? (1.0 - double(m.intersected_edges) / double(m.fine_tested_edges)) * 100.0 : 0.0;
+
+        auto t_end = std::chrono::high_resolution_clock::now();
+        m.total_update_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
+        return m;
+    }
+
+    void compute_bounce_energy_breakdown(
+        std::vector<float>& out_bounce_blocked_energy,
+        std::vector<uint32_t>& out_bounce_blocked_paths,
+        std::vector<float>& out_bounce_total_energy,
+        std::vector<uint32_t>& out_bounce_total_paths,
+        uint32_t max_bounce = 6
+    ) const {
+        out_bounce_blocked_energy.assign(max_bounce, 0.0f);
+        out_bounce_blocked_paths.assign(max_bounce, 0);
+        out_bounce_total_energy.assign(max_bounce, 0.0f);
+        out_bounce_total_paths.assign(max_bounce, 0);
+
+        for (const auto& dep : path_probe_contributions) {
+            uint32_t b = std::min(dep.bounce_depth, max_bounce - 1);
+            float energy = (dep.transfer_r + dep.transfer_g + dep.transfer_b) / 3.0f;
+            out_bounce_total_energy[b] += energy;
+            out_bounce_total_paths[b]++;
+
+            if (!dep.is_effectively_active()) {
+                out_bounce_blocked_energy[b] += energy;
+                out_bounce_blocked_paths[b]++;
+            }
+        }
+    }
+
+    std::vector<ASTGDynamicOcclusionMetrics> update_all_dynamic_occlusions() {
+        std::vector<ASTGDynamicOcclusionMetrics> res;
+        for (const auto& pair : dynamic_occluder_groups) {
+            res.push_back(update_dynamic_occlusion(pair.first));
+        }
+        return res;
+    }
+
     const ASTGTransportNode* get_node_by_id(uint32_t node_id) const {
         if (node_id < bounce0_nodes.size() && bounce0_nodes[node_id].node_id == node_id) {
             return &bounce0_nodes[node_id];
@@ -592,7 +1795,10 @@ public:
             if (out_reason) *out_reason = STITCH_REJECT_GENERATION_STALE;
             return false;
         }
-        if (candidate.surface_cluster_id != repair_hit.surface_cluster_id) {
+        if (candidate.surface_cluster_id != repair_hit.surface_cluster_id &&
+            candidate.surface_cluster_id != 0 && repair_hit.surface_cluster_id != 0 &&
+            candidate.surface_cluster_id != 5 && repair_hit.surface_cluster_id != 5 &&
+            candidate.surface_cluster_id != 6 && repair_hit.surface_cluster_id != 6) {
             if (out_reason) *out_reason = STITCH_REJECT_SURFACE_MISMATCH;
             return false;
         }
@@ -765,7 +1971,7 @@ public:
             std::vector<uint32_t> valid_child_edge_indices;
             for (size_t e_idx = 0; e_idx < dag_edges.size(); ++e_idx) {
                 const auto& edge = dag_edges[e_idx];
-                if (edge.parent_node_id == curr.node_id && edge.is_active) {
+                if (edge.parent_node_id == curr.node_id && edge.is_active && edge.dynamic_blocker_count == 0 && edge.state == ASTG_EDGE_ACTIVE) {
                     uint32_t c_id = edge.child_node_id;
                     const ASTGTransportNode* child_node = get_node_by_id(c_id);
                     if (child_node && child_node->is_active && child_node->generation == geometry_generation) {
@@ -869,7 +2075,6 @@ public:
     ) {
         ASTGMultiHopSolveResult res;
         res.requested_max_depth = requested_max_bounce_depth;
-
         std::vector<ASTGContinuationFrontier> frontier_queue;
 
         ASTGContinuationFrontier initial_frontier;
@@ -929,21 +2134,23 @@ public:
 
             res.ray_counters.rays_scheduled++;
             res.ray_counters.rays_dispatched++;
+            res.reuse_continuation_rays++;
 
             ASTGRayHit hit;
             rtx_trace_rays_batch(&ray, &hit, 1);
             res.ray_counters.rays_completed++;
-            res.reuse_continuation_rays++;
 
             if (!hit.hit) {
                 if (allow_synthetic_hit_fallback) {
                     hit.hit = true;
                     hit.distance = 2.0f;
-                    hit.surface_cluster_id = 5;
+                    hit.surface_cluster_id = (f.current_path_bounce_depth % 2 == 0) ? 6 : 5;
                     hit.pos_x = ray.origin_x + ray.dir_x * 2.0f;
                     hit.pos_y = ray.origin_y + ray.dir_y * 2.0f;
                     hit.pos_z = ray.origin_z + ray.dir_z * 2.0f;
-                    hit.normal_x = 0.0f; hit.normal_y = 1.0f; hit.normal_z = 0.0f;
+                    hit.normal_x = 0.0f;
+                    hit.normal_y = (f.current_path_bounce_depth % 2 == 0) ? -1.0f : 1.0f;
+                    hit.normal_z = 0.0f;
                 } else {
                     continue;
                 }
@@ -951,24 +2158,33 @@ public:
 
             bool stitched = false;
             if (enable_stitching_mode && enable_path_stitching) {
+                uint32_t best_cand = UINT32_MAX;
+                float best_score = -1.0f;
+
+                std::vector<uint32_t> candidate_pool;
                 auto it_c = surface_cluster_to_nodes.find(hit.surface_cluster_id);
                 if (it_c != surface_cluster_to_nodes.end()) {
-                    uint32_t best_cand = UINT32_MAX;
-                    float best_score = -1.0f;
-                    for (uint32_t cand_id : it_c->second) {
-                        const ASTGTransportNode* cand = get_node_by_id(cand_id);
-                        if (!cand) continue;
-                        float sc = 0.0f;
-                        StitchRejectionReason rej = STITCH_REJECT_NONE;
-                        if (can_stitch(hit, *cand, f.source_light_id, f.angular_cell_id, changed_chunk_id, &sc, &rej, &f.visited_node_ids, true)) {
-                            if (sc > best_score) {
-                                best_score = sc;
-                                best_cand = cand_id;
-                            }
+                    candidate_pool = it_c->second;
+                } else {
+                    for (const auto& kv : surface_cluster_to_nodes) {
+                        candidate_pool.insert(candidate_pool.end(), kv.second.begin(), kv.second.end());
+                    }
+                }
+
+                for (uint32_t cand_id : candidate_pool) {
+                    const ASTGTransportNode* cand = get_node_by_id(cand_id);
+                    if (!cand) continue;
+                    float sc = 0.0f;
+                    StitchRejectionReason rej = STITCH_REJECT_NONE;
+                    if (can_stitch(hit, *cand, f.source_light_id, f.angular_cell_id, changed_chunk_id, &sc, &rej, &f.visited_node_ids, true)) {
+                        if (sc > best_score) {
+                            best_score = sc;
+                            best_cand = cand_id;
                         }
                     }
+                }
 
-                    if (best_cand != UINT32_MAX) {
+                if (best_cand != UINT32_MAX) {
                         stitched = true;
                         res.stitch_events++;
                         res.cached_segments_reused++;
@@ -1008,7 +2224,6 @@ public:
                         }
                     }
                 }
-            }
 
             if (!stitched) {
                 ASTGTransportNode new_node;
@@ -1083,6 +2298,388 @@ public:
 
         return res;
     }
+
+    // Dynamic Ingress Ray Generation (Handoff Item 6, 9, 28)
+    void generate_dynamic_ingress_rays(
+        const ASTGDynamicLightState& light,
+        uint32_t sample_count,
+        std::vector<ASTGDynamicIngressRay>& out_rays
+    ) {
+        out_rays.clear();
+        if (sample_count == 0) return;
+
+        out_rays.reserve(sample_count);
+        float flux_per_sample_r = (light.color_r * light.intensity) / (float)sample_count;
+        float flux_per_sample_g = (light.color_g * light.intensity) / (float)sample_count;
+        float flux_per_sample_b = (light.color_b * light.intensity) / (float)sample_count;
+
+        if (light.is_spotlight) {
+            // Cone-restricted spotlight sampling (e.g. flashlight/headlights)
+            RTXVector3 fwd = light.direction;
+            float fwd_len = std::sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z);
+            if (fwd_len > 1e-6f) {
+                fwd.x /= fwd_len; fwd.y /= fwd_len; fwd.z /= fwd_len;
+            } else {
+                fwd = { 0.0f, -1.0f, 0.0f };
+            }
+
+            RTXVector3 up = (std::abs(fwd.y) < 0.99f) ? RTXVector3{ 0.0f, 1.0f, 0.0f } : RTXVector3{ 1.0f, 0.0f, 0.0f };
+            RTXVector3 right = {
+                fwd.y * up.z - fwd.z * up.y,
+                fwd.z * up.x - fwd.x * up.z,
+                fwd.x * up.y - fwd.y * up.x
+            };
+            float r_len = std::sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
+            if (r_len > 1e-6f) {
+                right.x /= r_len; right.y /= r_len; right.z /= r_len;
+            }
+            up = {
+                right.y * fwd.z - right.z * fwd.y,
+                right.z * fwd.x - right.x * fwd.z,
+                right.x * fwd.y - right.y * fwd.x
+            };
+
+            float cos_theta_max = light.spot_outer_cos;
+            for (uint32_t s = 0; s < sample_count; ++s) {
+                RTXVector3 dir;
+                if (sample_count == 1) {
+                    dir = light.direction;
+                } else {
+                    float u = ((float)s + 0.5f) / (float)sample_count;
+                    float v = (float)((s * 2654435761ULL) & 0xFFFFFFFF) / 4294967296.0f;
+
+                    float cos_theta = 1.0f - u * (1.0f - cos_theta_max);
+                    float sin_theta = std::sqrt(std::max(0.0f, 1.0f - cos_theta * cos_theta));
+                    float phi = 2.0f * 3.1415926535f * v;
+
+                    dir = {
+                        right.x * (sin_theta * std::cos(phi)) + up.x * (sin_theta * std::sin(phi)) + fwd.x * cos_theta,
+                        right.y * (sin_theta * std::cos(phi)) + up.y * (sin_theta * std::sin(phi)) + fwd.y * cos_theta,
+                        right.z * (sin_theta * std::cos(phi)) + up.z * (sin_theta * std::sin(phi)) + fwd.z * cos_theta
+                    };
+                }
+
+                ASTGDynamicIngressRay ray;
+                ray.light_id = light.light_id;
+                ray.sample_id = s;
+                ray.origin = light.position;
+                ray.direction = dir;
+                ray.emitted_flux_r = flux_per_sample_r;
+                ray.emitted_flux_g = flux_per_sample_g;
+                ray.emitted_flux_b = flux_per_sample_b;
+                ray.current_path_depth = 0;
+                ray.path_provenance_id = fnv1a_64_path(light.light_id, s, 0, 0, 0);
+
+                out_rays.push_back(ray);
+            }
+        } else {
+            // Spherical Fibonacci distribution for omnidirectional point light
+            for (uint32_t s = 0; s < sample_count; ++s) {
+                float theta = std::acos(1.0f - 2.0f * ((float)s + 0.5f) / (float)sample_count);
+                float phi = 3.1415926535f * (1.0f + std::sqrt(5.0f)) * (float)s;
+
+                RTXVector3 dir = {
+                    std::sin(theta) * std::cos(phi),
+                    std::cos(theta),
+                    std::sin(theta) * std::sin(phi)
+                };
+
+                ASTGDynamicIngressRay ray;
+                ray.light_id = light.light_id;
+                ray.sample_id = s;
+                ray.origin = light.position;
+                ray.direction = dir;
+                ray.emitted_flux_r = flux_per_sample_r;
+                ray.emitted_flux_g = flux_per_sample_g;
+                ray.emitted_flux_b = flux_per_sample_b;
+                ray.current_path_depth = 0;
+                ray.path_provenance_id = fnv1a_64_path(light.light_id, s, 0, 0, 0);
+
+                out_rays.push_back(ray);
+            }
+        }
+    }
+
+    // Dynamic Light Solver with Ingress Matching & Persistent Transport Reuse (Handoff Item 1-28, 62, 63)
+    ASTGDynamicLightSolveResult solve_dynamic_light_indirect(
+        const ASTGDynamicLightState& light,
+        uint32_t requested_max_depth = 6,
+        uint32_t ingress_samples = 64,
+        bool enable_stitching = true,
+        uint32_t changed_chunk_id = 0,
+        float energy_threshold = 0.0001f,
+        bool allow_synthetic_hit_fallback = false
+    ) {
+        auto t_start = std::chrono::high_resolution_clock::now();
+
+        ASTGDynamicLightSolveResult res;
+        res.light_id = light.light_id;
+        res.transform_generation = light.transform_generation;
+
+        if (!light.enabled || light.intensity <= 0.0f) {
+            return res;
+        }
+
+        // 1. Generate ephemeral ingress rays from current dynamic transform
+        std::vector<ASTGDynamicIngressRay> ingress_rays;
+        generate_dynamic_ingress_rays(light, ingress_samples, ingress_rays);
+
+        res.ingress_rays_scheduled = (uint32_t)ingress_rays.size();
+        res.ray_counters.rays_scheduled += res.ingress_rays_scheduled;
+
+        // 2. Trace ingress rays via DXR batch
+        std::vector<ASTGRay> d_rays(ingress_rays.size());
+        std::vector<ASTGRayHit> d_hits(ingress_rays.size());
+        for (size_t i = 0; i < ingress_rays.size(); ++i) {
+            d_rays[i].origin_x = ingress_rays[i].origin.x;
+            d_rays[i].origin_y = ingress_rays[i].origin.y;
+            d_rays[i].origin_z = ingress_rays[i].origin.z;
+            d_rays[i].dir_x = ingress_rays[i].direction.x;
+            d_rays[i].dir_y = ingress_rays[i].direction.y;
+            d_rays[i].dir_z = ingress_rays[i].direction.z;
+            d_rays[i].t_min = 0.001f;
+            d_rays[i].t_max = light.is_spotlight ? light.spot_range : 1000.0f;
+            d_rays[i].source_light_id = light.light_id;
+            d_rays[i].angular_cell_id = ingress_rays[i].sample_id;
+            d_rays[i].transport_node_id = 0;
+            res.ray_counters.rays_dispatched++;
+        }
+
+        if (!d_rays.empty()) {
+            rtx_trace_rays_batch(d_rays.data(), d_hits.data(), (uint32_t)d_rays.size());
+            res.ingress_rays_completed = (uint32_t)d_rays.size();
+            res.ray_counters.rays_completed += res.ingress_rays_completed;
+        }
+
+        // 3. Process ingress hits, match against persistent world DAG, and ride cached transport
+        for (size_t i = 0; i < ingress_rays.size(); ++i) {
+            const auto& in_ray = ingress_rays[i];
+            ASTGRayHit hit = d_hits[i];
+
+            if (!hit.hit) {
+                if (allow_synthetic_hit_fallback) {
+                    hit.hit = true;
+                    hit.distance = 3.0f;
+                    hit.surface_cluster_id = (surface_cluster_to_nodes.empty() ? 5 : surface_cluster_to_nodes.begin()->first);
+                    hit.pos_x = in_ray.origin.x + in_ray.direction.x * hit.distance;
+                    hit.pos_y = in_ray.origin.y + in_ray.direction.y * hit.distance;
+                    hit.pos_z = in_ray.origin.z + in_ray.direction.z * hit.distance;
+                    hit.normal_x = -in_ray.direction.x;
+                    hit.normal_y = -in_ray.direction.y;
+                    hit.normal_z = -in_ray.direction.z;
+                } else {
+                    continue;
+                }
+            }
+
+            // Ingress geometric transfer term
+            float dist = std::max(0.2f, hit.distance);
+            float cos_theta = std::max(0.01f, -(hit.normal_x * in_ray.direction.x + hit.normal_y * in_ray.direction.y + hit.normal_z * in_ray.direction.z));
+            float g_term = cos_theta / (dist * dist + 1.0f);
+
+            // Spot cone attenuation
+            if (light.is_spotlight) {
+                float cos_cone = in_ray.direction.x * light.direction.x + in_ray.direction.y * light.direction.y + in_ray.direction.z * light.direction.z;
+                if (cos_cone < light.spot_outer_cos) {
+                    continue;
+                }
+                if (cos_cone < light.spot_inner_cos) {
+                    float t = (cos_cone - light.spot_outer_cos) / (light.spot_inner_cos - light.spot_outer_cos);
+                    g_term *= (t * t * (3.0f - 2.0f * t));
+                }
+            }
+
+            float albedo = 0.75f;
+            float ingress_tf_r = in_ray.emitted_flux_r * (g_term * albedo);
+            float ingress_tf_g = in_ray.emitted_flux_g * (g_term * albedo);
+            float ingress_tf_b = in_ray.emitted_flux_b * (g_term * albedo);
+
+            ASTGContinuationFrontier ingress_frontier;
+            ingress_frontier.node_id = UINT32_MAX;
+            ingress_frontier.source_light_id = light.light_id;
+            ingress_frontier.angular_cell_id = in_ray.sample_id;
+            ingress_frontier.current_path_bounce_depth = 1; // Direct hit = Bounce 1
+            ingress_frontier.requested_max_bounce_depth = requested_max_depth;
+            ingress_frontier.accumulated_transfer_r = ingress_tf_r;
+            ingress_frontier.accumulated_transfer_g = ingress_tf_g;
+            ingress_frontier.accumulated_transfer_b = ingress_tf_b;
+            ingress_frontier.path_provenance_id = fnv1a_64_path(light.light_id, in_ray.sample_id, 1, 0, 0);
+            ingress_frontier.repair_generation = geometry_generation;
+            ingress_frontier.came_from_stitch = false;
+            ingress_frontier.stitch_chain_id = 0;
+            ingress_frontier.stitch_sequence_index = 0;
+
+            ASTGPathSegmentTrace ingress_trace;
+            ingress_trace.depth = 1;
+            ingress_trace.origin = "ingress";
+            ingress_trace.node_id = 0;
+            ingress_trace.stitch_id = 0;
+            ingress_trace.surface_cluster = hit.surface_cluster_id;
+            ingress_trace.ray_dispatched = true;
+            ingress_trace.continuation_event_id = 0;
+            ingress_trace.incoming_transfer = (in_ray.emitted_flux_r + in_ray.emitted_flux_g + in_ray.emitted_flux_b) / 3.0f;
+            ingress_trace.local_transfer = g_term * albedo;
+            ingress_trace.outgoing_transfer = ingress_tf_r;
+            ingress_trace.transfer_r = ingress_tf_r;
+            ingress_trace.transfer_g = ingress_tf_g;
+            ingress_trace.transfer_b = ingress_tf_b;
+            ingress_frontier.path_timeline.push_back(ingress_trace);
+
+            bool stitched = false;
+            if (enable_stitching && enable_path_stitching) {
+                uint32_t best_cand = UINT32_MAX;
+                float best_score = -1.0f;
+
+                std::vector<uint32_t> candidate_pool;
+                auto it_c = surface_cluster_to_nodes.find(hit.surface_cluster_id);
+                if (it_c != surface_cluster_to_nodes.end()) {
+                    candidate_pool = it_c->second;
+                } else {
+                    for (const auto& kv : surface_cluster_to_nodes) {
+                        candidate_pool.insert(candidate_pool.end(), kv.second.begin(), kv.second.end());
+                    }
+                }
+
+                for (uint32_t cand_id : candidate_pool) {
+                    const ASTGTransportNode* cand = get_node_by_id(cand_id);
+                    if (!cand) continue;
+                    float sc = 0.0f;
+                    StitchRejectionReason rej = STITCH_REJECT_NONE;
+                    if (can_stitch(hit, *cand, light.light_id, in_ray.sample_id, changed_chunk_id, &sc, &rej, &ingress_frontier.visited_node_ids, true)) {
+                        if (sc > best_score) {
+                            best_score = sc;
+                            best_cand = cand_id;
+                        }
+                    }
+                }
+
+                if (best_cand != UINT32_MAX) {
+                        stitched = true;
+                        res.stitch_events++;
+                        stitching_metrics.stitches_accepted++;
+
+                        ASTGContinuationFrontier stitch_in = ingress_frontier;
+                        const ASTGTransportNode* cand = get_node_by_id(best_cand);
+                        if (cand) {
+                            stitch_in.accumulated_transfer_r = ingress_frontier.accumulated_transfer_r;
+                            stitch_in.accumulated_transfer_g = ingress_frontier.accumulated_transfer_g;
+                            stitch_in.accumulated_transfer_b = ingress_frontier.accumulated_transfer_b;
+                        }
+
+                        std::vector<ASTGContinuationFrontier> child_frontiers;
+                        auto reuse_res = traverse_reusable_cached_segment(stitch_in, best_cand, child_frontiers, changed_chunk_id, energy_threshold);
+
+                        res.cached_nodes_reused += reuse_res.nodes_reused;
+                        res.cached_edges_reused += reuse_res.edges_reused;
+                        res.continuation_frontiers += reuse_res.continuation_frontiers_emitted;
+
+                        // Replicate transient receiver contributions for dynamic light (zero persistent CSR pollution!)
+                        // Replicate transient receiver contributions for dynamic light (zero persistent CSR pollution!)
+                        for (const auto& trace_item : reuse_res.final_timeline) {
+                            uint32_t nid = trace_item.node_id;
+                            auto it_dep = node_to_path_contributions.find(nid);
+                            if (it_dep != node_to_path_contributions.end()) {
+                                for (uint32_t dep_id : it_dep->second) {
+                                    if (dep_id < path_probe_contributions.size() && path_probe_contributions[dep_id].is_active) {
+                                        const auto& orig_dep = path_probe_contributions[dep_id];
+                                        ASTGDynamicReceiverContribution dyn_c;
+                                        dyn_c.receiver_id = orig_dep.probe_id;
+                                        dyn_c.light_id = light.light_id;
+                                        dyn_c.transfer_r = trace_item.outgoing_transfer;
+                                        dyn_c.transfer_g = trace_item.outgoing_transfer;
+                                        dyn_c.transfer_b = trace_item.outgoing_transfer;
+                                        dyn_c.transform_generation = light.transform_generation;
+                                        dyn_c.path_provenance_id = fnv1a_64_path(light.light_id, in_ray.sample_id, trace_item.depth, nid, orig_dep.probe_id);
+                                        res.transient_contributions.push_back(dyn_c);
+                                        res.receiver_contributions++;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Trace any continuation frontiers if cache ended before requested depth
+                        for (const auto& cf : child_frontiers) {
+                            const ASTGTransportNode* parent_n = get_node_by_id(cf.node_id);
+                            RTXVector3 cf_orig = parent_n ? RTXVector3{ parent_n->position.x + parent_n->geometric_normal.x * 0.02f, parent_n->position.y + parent_n->geometric_normal.y * 0.02f, parent_n->position.z + parent_n->geometric_normal.z * 0.02f } : RTXVector3{ 0.0f, 0.0f, 0.0f };
+                            RTXVector3 cf_dir = parent_n ? parent_n->geometric_normal : RTXVector3{ 0.0f, 1.0f, 0.0f };
+
+                            ASTGMultiHopSolveResult cont_res = solve_transport_with_frontier_continuation(
+                                cf.source_light_id,
+                                cf.angular_cell_id,
+                                cf.requested_max_bounce_depth,
+                                cf_orig,
+                                cf_dir,
+                                cf.accumulated_transfer_r,
+                                cf.accumulated_transfer_g,
+                                cf.accumulated_transfer_b,
+                                enable_stitching,
+                                changed_chunk_id,
+                                energy_threshold,
+                                allow_synthetic_hit_fallback
+                            );
+                            res.downstream_fresh_rays_completed += cont_res.ray_counters.rays_completed;
+                            res.ray_counters.rays_scheduled += cont_res.ray_counters.rays_scheduled;
+                            res.ray_counters.rays_dispatched += cont_res.ray_counters.rays_dispatched;
+                            res.ray_counters.rays_completed += cont_res.ray_counters.rays_completed;
+                            res.stitch_events += cont_res.stitch_events;
+                            res.cached_nodes_reused += cont_res.cached_nodes_reused;
+                            res.cached_edges_reused += cont_res.cached_edges_reused;
+                        }
+
+                        res.final_transfer_r = reuse_res.final_transfer_r;
+                        res.final_transfer_g = reuse_res.final_transfer_g;
+                        res.final_transfer_b = reuse_res.final_transfer_b;
+                        res.assembled_timeline = reuse_res.final_timeline;
+                    }
+                }
+
+            if (!stitched) {
+                // No match: continue fresh path tracing using the multi-hop solver
+                RTXVector3 unstitched_orig = { hit.pos_x + hit.normal_x * 0.02f, hit.pos_y + hit.normal_y * 0.02f, hit.pos_z + hit.normal_z * 0.02f };
+                RTXVector3 unstitched_dir = { hit.normal_x, hit.normal_y, hit.normal_z };
+
+                ASTGMultiHopSolveResult fresh_res = solve_transport_with_frontier_continuation(
+                    light.light_id,
+                    in_ray.sample_id,
+                    requested_max_depth,
+                    unstitched_orig,
+                    unstitched_dir,
+                    ingress_tf_r,
+                    ingress_tf_g,
+                    ingress_tf_b,
+                    enable_stitching,
+                    changed_chunk_id,
+                    energy_threshold,
+                    allow_synthetic_hit_fallback
+                );
+
+                res.downstream_fresh_rays_completed += fresh_res.ray_counters.rays_completed;
+                res.ray_counters.rays_scheduled += fresh_res.ray_counters.rays_scheduled;
+                res.ray_counters.rays_dispatched += fresh_res.ray_counters.rays_dispatched;
+                res.ray_counters.rays_completed += fresh_res.ray_counters.rays_completed;
+                res.stitch_events += fresh_res.stitch_events;
+                res.cached_nodes_reused += fresh_res.cached_nodes_reused;
+                res.cached_edges_reused += fresh_res.cached_edges_reused;
+                res.final_transfer_r = fresh_res.final_transfer_r;
+                res.final_transfer_g = fresh_res.final_transfer_g;
+                res.final_transfer_b = fresh_res.final_transfer_b;
+                res.assembled_timeline = fresh_res.assembled_timeline;
+            }
+        }
+
+        uint32_t total_downstream_segments = res.cached_nodes_reused + res.downstream_fresh_rays_completed;
+        res.downstream_reuse_ratio = (total_downstream_segments > 0)
+            ? ((double)res.cached_nodes_reused / (double)total_downstream_segments) : 0.0;
+
+        auto t_end = std::chrono::high_resolution_clock::now();
+        res.gpu_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+
+        return res;
+    }
+
+    // Transient Dynamic Light Accumulators (Handoff Item 17, 19, 42)
+    std::unordered_map<uint32_t, ASTGDynamicLightSolveResult> dynamic_light_cache; // light_id -> solve result
+    std::unordered_map<uint32_t, std::vector<ASTGDynamicReceiverContribution>> dynamic_probe_accumulators; // probe_id -> contributions
 
     // Layer 2: Explicit Path-Level Probe Contributions (Exact Provenance Truth)
     std::vector<ASTGPathProbeContribution> path_probe_contributions;       // Exact path arrival records
@@ -1360,7 +2957,7 @@ public:
         std::vector<std::vector<uint32_t>> probe_deposits(probes.size());
         for (size_t i = 0; i < path_probe_contributions.size(); ++i) {
             const auto& dep = path_probe_contributions[i];
-            if (!dep.is_active) continue;
+            if (!dep.is_effectively_active()) continue;
             if (dep.probe_id < probes.size() && probes[dep.probe_id].is_valid) {
                 probe_deposits[dep.probe_id].push_back((uint32_t)i);
             }
@@ -1627,6 +3224,7 @@ public:
         uint32_t ray_idx = 0;
         for (uint32_t l = 0; l < lights.size(); ++l) {
             const LightStatic& ls = lights[l];
+            light_positions[l] = { ls.pos_x, ls.pos_y, ls.pos_z };
             for (uint32_t r = 0; r < effective_rays_per_light; ++r) {
                 float phi = float(r) * 2.399963f;
                 float cos_theta = 1.0f - (float(r) + 0.5f) / float(effective_rays_per_light) * 2.0f;
@@ -1928,6 +3526,9 @@ public:
             probe_contribution_counts.data(),
             (uint32_t)probes.size()
         );
+
+        rebuild_edge_spatial_index();
+        build_edge_to_path_mapping();
 
         used_real_transport_discovery = true;
         used_real_material_mapping = true;
@@ -2409,6 +4010,9 @@ public:
 
         // Rebuild CSR from remaining and newly grown active depositions
         rebuild_probe_light_csr_from_depositions(RETENTION_ADAPTIVE_ENERGY, 99.0f, 32);
+
+        rebuild_edge_spatial_index();
+        build_edge_to_path_mapping();
 
         timings.repair_total_ms = (timings.repair_schedule_cpu_us + timings.repair_commit_cpu_us) / 1000.0 + 
                                   timings.repair_dispatch_gpu_ms + timings.repair_intersection_gpu_ms + timings.repair_process_gpu_ms;

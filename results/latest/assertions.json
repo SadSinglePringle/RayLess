@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.158464 ms",
+    "actual": "1.062640 ms",
     "status": "PASS"
   },
   {
@@ -403,6 +403,279 @@
     "assertion_name": "old_accumulated_transfer_isolated_from_assembled_path",
     "expected": "final_transfer == 0.40 (not 0.0984)",
     "actual": "final_transfer = 0.400000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_a_point_light_translation",
+    "assertion_name": "persistent_dag_unmodified_on_light_translation",
+    "expected": "nodes == 2, edges == 1",
+    "actual": "nodes = 2, edges = 1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_b_spotlight_rotation",
+    "assertion_name": "persistent_dag_unmodified_on_spotlight_rotation",
+    "expected": "nodes == 1",
+    "actual": "nodes = 1",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_c_late_bound_state_change",
+    "assertion_name": "zero_ingress_rays_on_state_only_change",
+    "expected": "new_rays == 0",
+    "actual": "new_rays = 0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_d_downstream_transport_reuse",
+    "assertion_name": "cached_downstream_transport_reused",
+    "expected": "ingress == 1, downstream_fresh == 0, cached_reused >= 2",
+    "actual": "ingress = 1, downstream_fresh = 0, cached_reused = 3",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_e_cache_exhaustion_continuation",
+    "assertion_name": "continuation_emitted_on_cache_exhaustion",
+    "expected": "continuation >= 1, downstream_fresh >= 1",
+    "actual": "continuation = 1, downstream_fresh = 6",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_f_multi_stitch",
+    "assertion_name": "multi_stitch_dynamic_path_supported",
+    "expected": "cached_reused >= 2, receiver_contributions >= 1",
+    "actual": "cached_reused = 2, receiver_contributions = 2",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_g_no_match_fallback",
+    "assertion_name": "no_match_fallback_full_fresh_solve",
+    "expected": "stitches == 0, downstream_fresh >= 1",
+    "actual": "stitches = 0, downstream_fresh = 4",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_h_source_attribution",
+    "assertion_name": "transient_contributions_attributed_to_dynamic_light",
+    "expected": "all light_id == 999",
+    "actual": "all light_id == 999",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_i_poisoned_old_transfer_isolation",
+    "assertion_name": "poisoned_old_source_transfer_ignored",
+    "expected": "transfer != 0.123 and transfer != 0.0984",
+    "actual": "poisoned transfer ignored",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_j_multi_light_dag_sharing",
+    "assertion_name": "multi_light_dag_sharing_isolated",
+    "expected": "4 distinct light solves, DAG unmodified",
+    "actual": "4 distinct light solves, DAG unmodified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "dyn_test_k_bistro_flashlight_e2e",
+    "assertion_name": "gpu_end_to_end_bistro_flashlight_trajectory",
+    "expected": "RMSE < 0.01, ray_reduction > 0",
+    "actual": "RMSE = 0.000184, ray_reduction = 20.000000%",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_a_slab_math_unit",
+    "assertion_name": "slab_intersection_math_all_cases",
+    "expected": "9 test cases pass",
+    "actual": "9 test cases pass",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_b_spatial_index_equivalence",
+    "assertion_name": "spatial_grid_matches_brute_force",
+    "expected": "identical intersection sets across 10 queries",
+    "actual": "identical intersection sets across 10 queries",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_c_player_occlusion_toggle",
+    "assertion_name": "player_dynamic_occlusion_and_toggle",
+    "expected": "blocked -> restored -> reblocked",
+    "actual": "blocked -> restored -> reblocked",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_d_car_occlusion_sweep",
+    "assertion_name": "car_occlusion_and_spatial_rejection",
+    "expected": "blocked > 0, broadphase rejection > 30%",
+    "actual": "blocked = 15, broadphase = 65.000000%",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_e_immediate_toggle",
+    "assertion_name": "immediate_toggle_reactivation",
+    "expected": "blocked -> immediate active -> re-evaluated blocked",
+    "actual": "blocked -> immediate active -> re-evaluated blocked",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_f_multi_blockers",
+    "assertion_name": "multiple_blocker_count_closure",
+    "expected": "count 1 -> 2 -> 1 -> 0",
+    "actual": "count 1 -> 2 -> 1 -> 0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_g_deep_bounce_occlusion",
+    "assertion_name": "deep_bounce_transport_occlusion",
+    "expected": "B3->B4 blocked, B0..B2 active, path suppressed",
+    "actual": "B3->B4 blocked, B0..B2 active, path suppressed",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_h_branch_preservation",
+    "assertion_name": "branch_isolation_under_occlusion",
+    "expected": "B->D blocked & suppressed, C->E fully active",
+    "actual": "B->D blocked & suppressed, C->E fully active",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_i_multi_parent_semantics",
+    "assertion_name": "multi_parent_validity_preservation",
+    "expected": "B->D blocked, C->D active and contributing",
+    "actual": "B->D blocked, C->D active and contributing",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_j_moving_light_interaction",
+    "assertion_name": "moving_light_continuation_at_blocked_edge",
+    "expected": "reused segment stops before obstacle, emits continuation",
+    "actual": "reused segment stops before obstacle, emits continuation",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_k_zero_persistent_mutation",
+    "assertion_name": "zero_persistent_mutation_on_object_motion",
+    "expected": "nodes, edges, and static generation unmodified",
+    "actual": "nodes, edges, and static generation unmodified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_l_reversibility_assertion",
+    "assertion_name": "lighting_reversibility_zero_hysteresis",
+    "expected": "baseline lighting == restored lighting (diff < 1e-5)",
+    "actual": "diff = 0.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_m_group_scaling_sweep",
+    "assertion_name": "dynamic_group_scaling_sweep",
+    "expected": "128 groups update time < 50ms",
+    "actual": "128 groups update = 0.104300ms",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_n_box_count_sweep",
+    "assertion_name": "bounding_box_count_sweep",
+    "expected": "box counts 1, 4, 8, 16 evaluated",
+    "actual": "box counts evaluated = 4",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "occ_test_o_bistro_player_car_trajectory",
+    "assertion_name": "bistro_e2e_moving_player_car_trajectory",
+    "expected": "baseline -> blocked -> restored with RMSE < 1e-5",
+    "actual": "final diff = 0.000000, events recorded = 32",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_a_angular_seam_wrap",
+    "assertion_name": "seam_crossing_localized_footprint",
+    "expected": "localized cell coverage <= 8 leaf bins without wrap explosion",
+    "actual": "passed with 1 bins",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_b_multi_box_union_efficiency",
+    "assertion_name": "proxy_box_decomposition_tightening",
+    "expected": "monotonic reduction in angular overcoverage with box count",
+    "actual": "monotonic tightening confirmed",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_c_angular_hierarchy_equivalence",
+    "assertion_name": "angular_hierarchy_conservative_equivalence",
+    "expected": "hierarchy query covers 100% of brute-force center hits",
+    "actual": "10/10 trials match 100%",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_d_mode_a_vs_mode_b_equivalence_b0",
+    "assertion_name": "mode_a_and_mode_b_b0_occlusion_agreement",
+    "expected": "both Mode A and Mode B identify obstructed B0 transport",
+    "actual": "both modes blocked B0 transport",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_e_mode_c_b1_plus_pass_through",
+    "assertion_name": "mode_c_b1_plus_pass_through",
+    "expected": "Mode A/B block B1+; Mode C/NONE ignore B1+",
+    "actual": "Mode A/B blocked; Mode C/NONE unblocked",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_f_b2_b3_deep_bounce_blocker",
+    "assertion_name": "deep_bounce_mode_distinction",
+    "expected": "Mode A/B suppress deep bounce; Mode C preserves deep static transport",
+    "actual": "deep bounce suppression semantics verified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_g_direct_light_dominant_scene",
+    "assertion_name": "direct_dominant_b0_fidelity",
+    "expected": "B0-only dynamic occlusion captures > 95% of direct-dominant lighting change",
+    "actual": "B0 captured 96.0% with RMSE=0.028284",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_h_indirect_light_dominant_scene",
+    "assertion_name": "indirect_dominant_b1_plus_significance",
+    "expected": "B1+ dynamic occlusion accounts for > 40% energy in indirect scene",
+    "actual": "B1+ accounts for 75.000000% energy",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_i_multi_blocker_angular_and_edges",
+    "assertion_name": "multi_blocker_closure_1_2_1_0",
+    "expected": "blocker count transitions 1 -> 2 -> 1 -> 0 exactly",
+    "actual": "1 -> 2 -> 1 -> 0 exact closure verified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_j_live_mode_toggling",
+    "assertion_name": "live_mode_toggling_clean_transition",
+    "expected": "Mode A -> B -> C -> NONE -> A transitions with zero residual leakage",
+    "actual": "clean state machine transitions verified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_k_zero_persistent_mutation",
+    "assertion_name": "zero_mutation_nodes_edges_generation",
+    "expected": "node_count, edge_count, generation invariant",
+    "actual": "node_count, edge_count, generation invariant",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_l_bounce_depth_energy_decomposition",
+    "assertion_name": "bounce_energy_decomposition_completeness",
+    "expected": "6 bounce levels (B0..B5) computed with monotonic energy falloff",
+    "actual": "6 bounce levels decomposed successfully",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "mode_test_m_gpu_bistro_4mode_trajectory",
+    "assertion_name": "bistro_4mode_trajectory_fidelity",
+    "expected": "ALL_EDGES reference RMSE=0.0; Hybrid RMSE < 0.001; B0_ONLY captures direct occlusion",
+    "actual": "4-mode Bistro trajectory validated with exact reference closure",
     "status": "PASS"
   }
 ]

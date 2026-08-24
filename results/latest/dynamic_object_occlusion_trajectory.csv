@@ -1,0 +1,6 @@
+frame,group_id,enabled,candidate_edges,fine_tested_edges,blocked_edges,newly_blocked,newly_unblocked,update_ms
+1,1,1,16,16,0,0,0,0.0021
+2,2,1,8,8,1,0,0,0.0014
+3,3,1,16,16,8,0,0,0.0023
+4,4,1,16,16,5,0,0,0.0020
+5,5,1,8,8,0,0,0,0.0016

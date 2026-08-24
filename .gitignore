@@ -14,3 +14,7 @@ bin/*.pdb
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Benchmark results
+results/.tmp_*
+results/run_*

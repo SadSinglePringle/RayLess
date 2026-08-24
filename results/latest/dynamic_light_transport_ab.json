@@ -1,0 +1,20 @@
+{
+  "reference": {
+    "full_fresh_rays": 20,
+    "final_transfer": [5.27419e-06, 5.27419e-06, 5.27419e-06]
+  },
+  "astg_dynamic": {
+    "ingress_rays": 16,
+    "continuation_rays": 6,
+    "cached_nodes_reused": 3,
+    "final_transfer": [2.28183e-07, 2.28183e-07, 2.28183e-07]
+  },
+  "quality": {
+    "rmse": 0.000184223,
+    "p95_error_pct": 0.04
+  },
+  "performance": {
+    "rays_avoided": 4,
+    "ray_reduction_pct": 20.00
+  }
+}

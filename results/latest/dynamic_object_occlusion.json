@@ -1,0 +1,44 @@
+{
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "summary": {
+    "slab_math_unit_pass": true,
+    "spatial_index_equivalence_pass": true,
+    "player_occlusion_pass": true,
+    "car_occlusion_pass": true,
+    "immediate_toggle_pass": true,
+    "multi_blocker_tracking_pass": true,
+    "deep_bounce_suppression_pass": true,
+    "branch_preservation_pass": true,
+    "multi_parent_semantics_pass": true,
+    "moving_light_continuation_pass": true,
+    "zero_persistent_mutation_pass": true,
+    "zero_hysteresis_reversibility_pass": true,
+    "group_scaling_pass": true,
+    "box_count_sweep_pass": true,
+    "bistro_e2e_pass": true
+  },
+  "player_metrics": {
+    "boxes": 5,
+    "candidate_edges": 1,
+    "intersected_edges": 1,
+    "broadphase_rejection_pct": 0.00
+  },
+  "car_metrics": {
+    "boxes": 4,
+    "candidate_edges": 21,
+    "intersected_edges": 15,
+    "broadphase_rejection_pct": 65.00
+  },
+  "scaling_sweep": [
+    {"groups": 1, "candidate_edges": 4, "update_ms": 0.0010},
+    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0065},
+    {"groups": 32, "candidate_edges": 239, "update_ms": 0.0289},
+    {"groups": 128, "candidate_edges": 812, "update_ms": 0.1043}
+  ],
+  "box_count_sweep": [
+    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0008},
+    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0007},
+    {"boxes": 8, "candidate_edges": 4, "update_ms": 0.0008},
+    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0010}
+  ]
+}

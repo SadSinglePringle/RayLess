@@ -25,6 +25,34 @@ typedef enum ASTGLightClass {
     ASTG_LIGHT_EXCLUDED = 2      // Visual helper / Editor only
 } ASTGLightClass;
 
+// Dynamic Occlusion Transport Edge States (Handoff Item 2)
+typedef enum ASTGTransportEdgeState {
+    ASTG_EDGE_ACTIVE = 0,             // Structurally valid and not dynamically occluded
+    ASTG_EDGE_INVALID_STATIC = 1,     // Geometry changed/destroyed permanently
+    ASTG_EDGE_OCCLUDED_DYNAMIC = 2    // Temporarily occluded by moving object bounding box
+} ASTGTransportEdgeState;
+
+// Dynamic Occlusion Modes (Phase 5 / Handoff Item 1, 7, 10, 11, 12)
+typedef enum ASTGDynamicOcclusionMode {
+    ASTG_OCCLUSION_NONE = 0,                    // Diagnostic baseline (no dynamic occlusion)
+    ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES = 1,   // Mode A: General DAG-edge testing across B0..BN
+    ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS = 2,  // Mode B: Angular B0 footprint + DAG-edge testing for B1+
+    ASTG_OCCLUSION_ANGULAR_B0_ONLY = 3          // Mode C: Angular B0 footprint only, B1+ untouched
+} ASTGDynamicOcclusionMode;
+
+// Angular Cell Dynamic Delta State (Handoff Item 19, 20)
+typedef enum ASTGAngularCellDeltaState {
+    ASTG_ANGULAR_CELL_STILL_COVERED = 0,
+    ASTG_ANGULAR_CELL_NEWLY_COVERED = 1,
+    ASTG_ANGULAR_CELL_NEWLY_UNCOVERED = 2
+} ASTGAngularCellDeltaState;
+
+// Dynamic Occlusion Precision Policy (Handoff Item 27)
+typedef enum ASTGDynamicOcclusionPrecision {
+    ASTG_OCCLUSION_BOUNDS_ONLY = 0,   // Pure bounding-box / slab intersection (zero DXR rays)
+    ASTG_OCCLUSION_BOUNDS_THEN_DXR = 1 // Initial broadphase bounds followed by DXR refinement
+} ASTGDynamicOcclusionPrecision;
+
 // Authoritative Geometry & Primitive Metadata Mapping
 struct ASTGPrimitiveMetadata {
     uint32_t mesh_id;

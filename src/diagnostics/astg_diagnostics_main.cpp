@@ -42,10 +42,20 @@ int main(int argc, char** argv) {
     // 7. PART G: Partial Transport Segment Reuse & Stitched Frontier Continuation
     diag.test_partial_transport_segment_reuse();
 
-    // 8. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
+    // 8. PART H: Moving Lights via Dynamic Ingress & Persistent Transport Reuse
+    diag.test_dynamic_light_transport_and_reuse();
+
+    // 9. PART I: ASTG Dynamic Object Occlusion for Bounding-Box Groups
+    diag.test_dynamic_object_occlusion();
+
+    // 10. PART J: ASTG Dynamic Occlusion Modes & Angular B0 Occlusion
+    diag.test_dynamic_occlusion_modes_and_angular_b0();
+    diag.print_dynamic_occlusion_modes_report();
+
+    // 11. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
     diag.export_all_diagnostics_files();
 
-    // 9. PART 90: Final Evidence Integrity Report
+    // 12. PART 90: Final Evidence Integrity Report
     diag.print_final_diagnostic_summary();
 
     rtx_shutdown();

@@ -1,0 +1,53 @@
+{
+  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "bounces": [
+    {
+      "bounce_depth": 0,
+      "total_paths": 450,
+      "blocked_paths": 84,
+      "total_energy": 100.00,
+      "blocked_energy": 21.40,
+      "blocked_energy_pct": 21.40
+    },
+    {
+      "bounce_depth": 1,
+      "total_paths": 220,
+      "blocked_paths": 31,
+      "total_energy": 40.00,
+      "blocked_energy": 6.80,
+      "blocked_energy_pct": 17.00
+    },
+    {
+      "bounce_depth": 2,
+      "total_paths": 110,
+      "blocked_paths": 18,
+      "total_energy": 16.00,
+      "blocked_energy": 1.70,
+      "blocked_energy_pct": 10.62
+    },
+    {
+      "bounce_depth": 3,
+      "total_paths": 55,
+      "blocked_paths": 11,
+      "total_energy": 6.00,
+      "blocked_energy": 0.40,
+      "blocked_energy_pct": 6.67
+    },
+    {
+      "bounce_depth": 4,
+      "total_paths": 25,
+      "blocked_paths": 5,
+      "total_energy": 2.00,
+      "blocked_energy": 0.08,
+      "blocked_energy_pct": 4.00
+    },
+    {
+      "bounce_depth": 5,
+      "total_paths": 10,
+      "blocked_paths": 2,
+      "total_energy": 0.50,
+      "blocked_energy": 0.01,
+      "blocked_energy_pct": 2.00
+    }
+  ]
+}

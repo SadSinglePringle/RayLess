@@ -1,0 +1,22 @@
+{
+  "transform_change": {
+    "ingress_retrace": true,
+    "topology_rebuild": false,
+    "status": "PASS"
+  },
+  "rgb_change": {
+    "ingress_retrace": false,
+    "topology_rebuild": false,
+    "status": "PASS"
+  },
+  "intensity_change": {
+    "ingress_retrace": false,
+    "topology_rebuild": false,
+    "status": "PASS"
+  },
+  "enabled_change": {
+    "ingress_retrace": false,
+    "topology_rebuild": false,
+    "status": "PASS"
+  }
+}
