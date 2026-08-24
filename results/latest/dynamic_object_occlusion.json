@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_125142_7ae5d42_evidence_hardened",
+  "run_uuid": "run_20260824_132658_2060c8bd7968b9173c5769b871c255ba6e10d7f3_evidence_hardened",
   "summary": {
     "slab_math_unit_pass": true,
     "spatial_index_equivalence_pass": true,
@@ -31,14 +31,14 @@
   },
   "scaling_sweep": [
     {"groups": 1, "candidate_edges": 4, "update_ms": 0.0033},
-    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0270},
-    {"groups": 32, "candidate_edges": 239, "update_ms": 0.1038},
-    {"groups": 128, "candidate_edges": 812, "update_ms": 0.3934}
+    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0269},
+    {"groups": 32, "candidate_edges": 239, "update_ms": 0.1031},
+    {"groups": 128, "candidate_edges": 812, "update_ms": 0.7480}
   ],
   "box_count_sweep": [
-    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0030},
-    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0082},
+    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0038},
+    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0090},
     {"boxes": 8, "candidate_edges": 4, "update_ms": 0.0151},
-    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0279}
+    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0372}
   ]
 }

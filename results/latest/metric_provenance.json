@@ -74,7 +74,7 @@
   {
     "test_uuid": "tier_scaling_32",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.036864,
+    "value": 0.043008,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -155,7 +155,7 @@
   {
     "test_uuid": "tier_scaling_128",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.038912,
+    "value": 0.035840,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -236,7 +236,7 @@
   {
     "test_uuid": "tier_scaling_512",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.037888,
+    "value": 0.035840,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -317,7 +317,7 @@
   {
     "test_uuid": "tier_scaling_1024",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.041984,
+    "value": 0.038912,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -398,7 +398,7 @@
   {
     "test_uuid": "tier_scaling_4096",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.058368,
+    "value": 0.059392,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -479,7 +479,7 @@
   {
     "test_uuid": "tier_scaling_16384",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.221184,
+    "value": 0.275456,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -560,7 +560,7 @@
   {
     "test_uuid": "tier_scaling_64000",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.072704,
+    "value": 0.073728,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -641,7 +641,7 @@
   {
     "test_uuid": "tier_scaling_128000",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.125952,
+    "value": 0.143360,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -695,7 +695,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_intersection_gpu_ms",
-    "value": 0.011264,
+    "value": 0.014336,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_traversal",
     "unit": "ms",
@@ -704,7 +704,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_schedule_cpu_us",
-    "value": 456.000000,
+    "value": 696.000000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "scheduler",
     "unit": "us",
@@ -713,9 +713,18 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_dispatch_gpu_ms",
-    "value": 0.006800,
+    "value": 0.029000,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_dispatch",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_a_measurement_integrity",
+    "metric_name": "repair_process_gpu_ms",
+    "value": 0.005400,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "hit_processing",
     "unit": "ms",
     "is_measured": true
   },
@@ -730,29 +739,20 @@
   },
   {
     "test_uuid": "part_a_measurement_integrity",
-    "metric_name": "repair_process_gpu_ms",
-    "value": 0.006000,
-    "source": "GPU_TIMESTAMP_QUERY",
-    "source_scope": "hit_processing",
-    "unit": "ms",
+    "metric_name": "repair_commit_cpu_us",
+    "value": 1526.000000,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "host_commit",
+    "unit": "us",
     "is_measured": true
   },
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_total_ms",
-    "value": 1.867064,
+    "value": 2.270736,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "end_to_end_repair",
     "unit": "ms",
-    "is_measured": true
-  },
-  {
-    "test_uuid": "part_a_measurement_integrity",
-    "metric_name": "repair_commit_cpu_us",
-    "value": 1387.000000,
-    "source": "CPU_HIGH_RES_TIMER",
-    "source_scope": "host_commit",
-    "unit": "us",
     "is_measured": true
   },
   {
@@ -784,15 +784,6 @@
   },
   {
     "test_uuid": "part_b_pruned_source_stress",
-    "metric_name": "error_1x_pct",
-    "value": 0.041000,
-    "source": "GPU_TIMESTAMP_QUERY",
-    "source_scope": "adversarial_1x",
-    "unit": "%",
-    "is_measured": true
-  },
-  {
-    "test_uuid": "part_b_pruned_source_stress",
     "metric_name": "error_100x_pct",
     "value": 4.125000,
     "source": "GPU_TIMESTAMP_QUERY",
@@ -802,10 +793,10 @@
   },
   {
     "test_uuid": "part_b_pruned_source_stress",
-    "metric_name": "error_10x_pct",
-    "value": 0.412000,
+    "metric_name": "error_1x_pct",
+    "value": 0.041000,
     "source": "GPU_TIMESTAMP_QUERY",
-    "source_scope": "adversarial_10x",
+    "source_scope": "adversarial_1x",
     "unit": "%",
     "is_measured": true
   },
@@ -820,6 +811,15 @@
   },
   {
     "test_uuid": "part_b_pruned_source_stress",
+    "metric_name": "error_10x_pct",
+    "value": 0.412000,
+    "source": "GPU_TIMESTAMP_QUERY",
+    "source_scope": "adversarial_10x",
+    "unit": "%",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_b_pruned_source_stress",
     "metric_name": "true_worst_case_error",
     "value": 41.250000,
     "source": "DERIVED_FORMULA",
@@ -829,19 +829,19 @@
   },
   {
     "test_uuid": "part_cd_large_scale_regeneration_128k",
-    "metric_name": "bounce1_prechange",
-    "value": 3093.000000,
+    "metric_name": "fresh_rebuild_discovery_rays",
+    "value": 8192000.000000,
     "source": "BUFFER_COUNTER",
-    "source_scope": "transport_nodes",
+    "source_scope": "independent_rebuild",
     "unit": "count",
     "is_measured": true
   },
   {
     "test_uuid": "part_cd_large_scale_regeneration_128k",
-    "metric_name": "fresh_rebuild_discovery_rays",
-    "value": 8192000.000000,
+    "metric_name": "bounce1_prechange",
+    "value": 3093.000000,
     "source": "BUFFER_COUNTER",
-    "source_scope": "independent_rebuild",
+    "source_scope": "transport_nodes",
     "unit": "count",
     "is_measured": true
   },
@@ -856,20 +856,20 @@
   },
   {
     "test_uuid": "part_cd_large_scale_regeneration_128k",
-    "metric_name": "fresh_rebuild_nodes",
-    "value": 17512.000000,
-    "source": "BUFFER_COUNTER",
-    "source_scope": "independent_rebuild",
-    "unit": "count",
-    "is_measured": true
-  },
-  {
-    "test_uuid": "part_cd_large_scale_regeneration_128k",
     "metric_name": "p95_error_vs_fresh",
     "value": 0.000000,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "quality",
     "unit": "%",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_cd_large_scale_regeneration_128k",
+    "metric_name": "fresh_rebuild_nodes",
+    "value": 17512.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "independent_rebuild",
+    "unit": "count",
     "is_measured": true
   },
   {
@@ -955,19 +955,19 @@
   },
   {
     "test_uuid": "part_e_bounce1_provenance",
-    "metric_name": "bounce1_nodes",
-    "value": 159.000000,
+    "metric_name": "bounce1_depositions",
+    "value": 22407.000000,
     "source": "BUFFER_COUNTER",
-    "source_scope": "transport",
+    "source_scope": "provenance",
     "unit": "count",
     "is_measured": true
   },
   {
     "test_uuid": "part_e_bounce1_provenance",
-    "metric_name": "bounce1_depositions",
-    "value": 22407.000000,
+    "metric_name": "bounce1_nodes",
+    "value": 159.000000,
     "source": "BUFFER_COUNTER",
-    "source_scope": "provenance",
+    "source_scope": "transport",
     "unit": "count",
     "is_measured": true
   },
@@ -1018,20 +1018,20 @@
   },
   {
     "test_uuid": "part_f3_path_stitching_integration",
-    "metric_name": "stitches_rejected",
-    "value": 0.000000,
-    "source": "BUFFER_COUNTER",
-    "source_scope": "stitching",
-    "unit": "count",
-    "is_measured": true
-  },
-  {
-    "test_uuid": "part_f3_path_stitching_integration",
     "metric_name": "csr_rmse_vs_full_regeneration",
     "value": 0.000000,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "quality",
     "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "part_f3_path_stitching_integration",
+    "metric_name": "stitches_rejected",
+    "value": 0.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "stitching",
+    "unit": "count",
     "is_measured": true
   },
   {
@@ -1045,8 +1045,8 @@
   },
   {
     "test_uuid": "part_f3_path_stitching_integration",
-    "metric_name": "reused_probe_depositions",
-    "value": 1.000000,
+    "metric_name": "repair_rays_unstitched",
+    "value": 17.000000,
     "source": "BUFFER_COUNTER",
     "source_scope": "stitching",
     "unit": "count",
@@ -1054,8 +1054,8 @@
   },
   {
     "test_uuid": "part_f3_path_stitching_integration",
-    "metric_name": "repair_rays_unstitched",
-    "value": 17.000000,
+    "metric_name": "reused_probe_depositions",
+    "value": 1.000000,
     "source": "BUFFER_COUNTER",
     "source_scope": "stitching",
     "unit": "count",

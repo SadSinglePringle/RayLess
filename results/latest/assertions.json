@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.867064 ms",
+    "actual": "2.270736 ms",
     "status": "PASS"
   },
   {
@@ -570,7 +570,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.393400ms",
+    "actual": "128 groups update = 0.748000ms",
     "status": "PASS"
   },
   {
@@ -700,6 +700,13 @@
     "status": "PASS"
   },
   {
+    "test_uuid": "mode_test_q_real_scene_bistro_4mode_transport",
+    "assertion_name": "real_scene_bistro_4mode_transport",
+    "expected": "Discovered ASTG transport graph on Bistro scene processes dynamic occlusion with real probe quality measurements",
+    "actual": "real scene Bistro 4-mode transport validated with measured quality",
+    "status": "PASS"
+  },
+  {
     "test_uuid": "rec_test_a_rigid_car_probes_transform",
     "assertion_name": "rigid_car_surface_probes_transform",
     "expected": "400 car surface probes transform accurately with rigid matrix",
@@ -772,8 +779,8 @@
   {
     "test_uuid": "rec_test_k_probe_density_and_cluster_sweeps",
     "assertion_name": "probe_density_and_cluster_sweeps",
-    "expected": "Density sweep 250..8000 executes sub-millisecond across all configurations with measured errors",
-    "actual": "full parameter sweep validated with real measured quality",
+    "expected": "36-configuration 2D Cartesian sweep executes sub-millisecond across all configurations with canonical measured errors",
+    "actual": "full 36-configuration sweep validated with real measured quality on canonical domain",
     "status": "PASS"
   },
   {
@@ -830,6 +837,48 @@
     "assertion_name": "hysteresis_1000_cycle_leakage",
     "expected": "1,000 trajectory cycles return all blocker counters and receiver caches to exact baseline (0 leaks)",
     "actual": "1,000 cycles completed with zero reference-count or memory leaks",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "assertion_name": "temporal_receiver_quality_tracking",
+    "expected": "60-frame trajectory records measured temporal delta error Et and stability without synthetic constants",
+    "actual": "temporal receiver quality and stability validated",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_u_gpu_refinement_ambiguous_first_hit",
+    "assertion_name": "gpu_refinement_ambiguous_first_hit",
+    "expected": "GPU DXR refinement batches ambiguous cells into single dispatch with exact timing split",
+    "actual": "GPU DXR first-hit refinement validated across batch sweep",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "assertion_name": "gpu_destruction_regeneration_benchmark",
+    "expected": "GPU DXR handles TLAS repair traversal with full timing and counter breakdown",
+    "actual": "GPU regeneration benchmark validated with authentic DXR execution",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "gpu_test_b_moving_light_benchmark",
+    "assertion_name": "gpu_moving_light_benchmark",
+    "expected": "Stationary lights dispatch 0 rays; moving lights trace ingress and stitch downstream transport",
+    "actual": "GPU moving light benchmark validated with authentic DXR execution",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "gpu_test_c_dispatch_batch_size_sweep",
+    "assertion_name": "gpu_dispatch_batch_size_sweep",
+    "expected": "DXR dispatch sweep from 1 to 128k rays measures GPU throughput (Mrays/s) and per-ray latency",
+    "actual": "GPU dispatch batch sweep validated with real hardware execution",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "gpu_test_d_broadphase_crossover_sweep",
+    "assertion_name": "broadphase_crossover_sweep",
+    "expected": "Candidate edge sweep from 32 to 128k evaluates CPU vs GPU broadphase scaling",
+    "actual": "broadphase crossover sweep validated on identical datasets",
     "status": "PASS"
   }
 ]

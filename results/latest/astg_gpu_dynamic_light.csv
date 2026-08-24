@@ -1,0 +1,6 @@
+light_count,light_motion_type,ingress_rays_dispatched,ingress_rays_completed,first_hit_rays,stitches_accepted,continuation_rays,cached_segments_reused,avoided_rays,cpu_schedule_ms,gpu_ingress_trace_ms,gpu_stitch_ms,gpu_continuation_ms,gpu_deposition_ms,gpu_total_ms,end_to_end_ms
+64,STATIONARY_STATE_CHANGE,0,0,0,0,0,64,4096,0.0030,0.0000,0.0000,0.0000,0.0010,0.0010,0.0040
+1,MOVING_TRANSFORM,64,64,64,54,9,256,256,0.0040,0.0061,0.0020,0.0030,0.0020,0.0061,0.1517
+4,MOVING_TRANSFORM,256,256,256,217,38,1024,1024,0.0160,0.0061,0.0080,0.0120,0.0080,0.0061,0.6543
+16,MOVING_TRANSFORM,1024,1024,1024,870,153,4096,4096,0.0640,0.0102,0.0320,0.0480,0.0320,0.0102,0.2057
+64,MOVING_TRANSFORM,4096,4096,4096,3481,614,16384,16384,0.2560,0.0205,0.1280,0.1920,0.1280,0.0205,0.6147
