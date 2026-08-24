@@ -74,7 +74,7 @@
   {
     "test_uuid": "tier_scaling_32",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.036864,
+    "value": 0.050176,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -155,7 +155,7 @@
   {
     "test_uuid": "tier_scaling_128",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.035840,
+    "value": 0.039936,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -317,7 +317,7 @@
   {
     "test_uuid": "tier_scaling_1024",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.035840,
+    "value": 0.039936,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -398,7 +398,7 @@
   {
     "test_uuid": "tier_scaling_4096",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.061440,
+    "value": 0.063488,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -479,7 +479,7 @@
   {
     "test_uuid": "tier_scaling_16384",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.239616,
+    "value": 0.292864,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -560,7 +560,7 @@
   {
     "test_uuid": "tier_scaling_64000",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.080896,
+    "value": 0.077824,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -641,7 +641,7 @@
   {
     "test_uuid": "tier_scaling_128000",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.129024,
+    "value": 0.184320,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -695,7 +695,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_intersection_gpu_ms",
-    "value": 0.014336,
+    "value": 0.015360,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_traversal",
     "unit": "ms",
@@ -704,7 +704,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_schedule_cpu_us",
-    "value": 470.000000,
+    "value": 1105.000000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "scheduler",
     "unit": "us",
@@ -713,7 +713,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_dispatch_gpu_ms",
-    "value": 0.006300,
+    "value": 0.015900,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_dispatch",
     "unit": "ms",
@@ -722,7 +722,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_process_gpu_ms",
-    "value": 0.005600,
+    "value": 0.007600,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "hit_processing",
     "unit": "ms",
@@ -740,7 +740,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_commit_cpu_us",
-    "value": 1019.000000,
+    "value": 1199.000000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "host_commit",
     "unit": "us",
@@ -749,7 +749,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_total_ms",
-    "value": 1.515236,
+    "value": 2.342860,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "end_to_end_repair",
     "unit": "ms",
@@ -1069,5 +1069,725 @@
     "source_scope": "stitching",
     "unit": "count",
     "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "Et_mean_temporal_error",
+    "value": 0.024163,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "59_frame_deltas",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "frame_count",
+    "value": 60.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "trajectory",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "P99_temporal_error",
+    "value": 0.070037,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "59_frame_deltas",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "probe_count",
+    "value": 500.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "trajectory",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "reference_type",
+    "value": 0.000000,
+    "source": "NOT_MEASURED",
+    "source_scope": "",
+    "unit": "",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "RMSE_temporal_error",
+    "value": 0.113732,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "59_frame_deltas",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "max_transient_error",
+    "value": 6.166424,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "59_frame_deltas",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_t_temporal_receiver_quality",
+    "metric_name": "P95_temporal_error",
+    "value": 0.054084,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "59_frame_deltas",
+    "unit": "unitless",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_expected_dispatch_count",
+    "value": 4.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ceil(rays_requested/cap)",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_rays_requested",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_ambiguous_candidates",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_rays_completed",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_largest_dispatch_size",
+    "value": 64.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_dispatch_count",
+    "value": 1563.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_rays_requested",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_largest_dispatch_size",
+    "value": 32768.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_expected_dispatch_count",
+    "value": 1563.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ceil(rays_requested/cap)",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_reference_equivalent",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "unbounded_reference",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_cap_compliant",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_reference_equivalent",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "unbounded_reference",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_64_end_to_end_ms",
+    "value": 1054.580200,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "production_visibility",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_ambiguous_candidates",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_dispatch_count",
+    "value": 391.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_reference_equivalent",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "unbounded_reference",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_expected_dispatch_count",
+    "value": 391.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ceil(rays_requested/cap)",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_largest_dispatch_size",
+    "value": 256.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_cap_compliant",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_reference_equivalent",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "unbounded_reference",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_rays_completed",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_256_end_to_end_ms",
+    "value": 276.349000,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "production_visibility",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_ambiguous_candidates",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_rays_requested",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_dispatch_count",
+    "value": 196.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_expected_dispatch_count",
+    "value": 196.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ceil(rays_requested/cap)",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_rays_completed",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_expected_dispatch_count",
+    "value": 49.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ceil(rays_requested/cap)",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_largest_dispatch_size",
+    "value": 512.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_cap_compliant",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_largest_dispatch_size",
+    "value": 8192.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_rays_completed",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_512_end_to_end_ms",
+    "value": 133.092700,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "production_visibility",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_ambiguous_candidates",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_cap_compliant",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_rays_requested",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_dispatch_count",
+    "value": 49.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_rays_completed",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_largest_dispatch_size",
+    "value": 2048.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_rays_requested",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_end_to_end_ms",
+    "value": 45.259300,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "production_visibility",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_2048_cap_compliant",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_ambiguous_candidates",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_dispatch_count",
+    "value": 13.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_expected_dispatch_count",
+    "value": 13.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "ceil(rays_requested/cap)",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_rays_requested",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_reference_equivalent",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "unbounded_reference",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_rays_completed",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_8192_end_to_end_ms",
+    "value": 27.312900,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "production_visibility",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_ambiguous_candidates",
+    "value": 100000.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_dispatch_count",
+    "value": 4.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_end_to_end_ms",
+    "value": 22.802100,
+    "source": "CPU_HIGH_RES_TIMER",
+    "source_scope": "production_visibility",
+    "unit": "ms",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_cap_compliant",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "production_visibility",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "metric_name": "cap_32768_reference_equivalent",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "unbounded_reference",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_w_spatial_index_collision_and_staleness",
+    "metric_name": "generation_rebuild_checks",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "spatial_grid",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_w_spatial_index_collision_and_staleness",
+    "metric_name": "exact_query_checks",
+    "value": 98.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "spatial_grid",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_w_spatial_index_collision_and_staleness",
+    "metric_name": "randomized_seed",
+    "value": 173478452.000000,
+    "source": "CONFIG_VALUE",
+    "source_scope": "deterministic_test_configuration",
+    "unit": "config",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "rec_test_w_spatial_index_collision_and_staleness",
+    "metric_name": "duplicate_free_rebuild_checks",
+    "value": 3.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "spatial_grid",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "rec_test_w_spatial_index_collision_and_staleness",
+    "metric_name": "mutation_insert_checks",
+    "value": 1.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "spatial_grid",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "rays_completed",
+    "value": 1024.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "GPU_RESULT_BUFFER",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "invalidated_nodes",
+    "value": 256.000000,
+    "source": "CONFIG_VALUE",
+    "source_scope": "FIXED_WORKLOAD_PARAMETER",
+    "unit": "config",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "repair_anchors",
+    "value": 128.000000,
+    "source": "CONFIG_VALUE",
+    "source_scope": "FIXED_WORKLOAD_PARAMETER",
+    "unit": "config",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "invalidated_edges",
+    "value": 512.000000,
+    "source": "CONFIG_VALUE",
+    "source_scope": "FIXED_WORKLOAD_PARAMETER",
+    "unit": "config",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "cached_bounces_reused",
+    "value": 0.000000,
+    "source": "NOT_MEASURED",
+    "source_scope": "",
+    "unit": "",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "ray_hits",
+    "value": 2.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "GPU_RESULT_BUFFER",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "avoided_rays",
+    "value": 0.000000,
+    "source": "NOT_MEASURED",
+    "source_scope": "",
+    "unit": "",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
+    "metric_name": "cpu_submit_ms",
+    "value": 0.000000,
+    "source": "NOT_MEASURED",
+    "source_scope": "",
+    "unit": "",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "gpu_test_b_moving_light_benchmark",
+    "metric_name": "record_count",
+    "value": 5.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "dynamic_light_export",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "gpu_test_b_moving_light_benchmark",
+    "metric_name": "stationary_ingress_rays_dispatched",
+    "value": 0.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "observed_result_buffer",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "gpu_test_b_moving_light_benchmark",
+    "metric_name": "moving_ingress_rays_completed",
+    "value": 64.000000,
+    "source": "BUFFER_COUNTER",
+    "source_scope": "observed_result_buffer",
+    "unit": "count",
+    "is_measured": true
+  },
+  {
+    "test_uuid": "gpu_test_b_moving_light_benchmark",
+    "metric_name": "cached_segments_reused",
+    "value": 0.000000,
+    "source": "NOT_MEASURED",
+    "source_scope": "",
+    "unit": "",
+    "is_measured": false
+  },
+  {
+    "test_uuid": "gpu_test_b_moving_light_benchmark",
+    "metric_name": "avoided_rays",
+    "value": 0.000000,
+    "source": "NOT_MEASURED",
+    "source_scope": "",
+    "unit": "",
+    "is_measured": false
   }
 ]

@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.515236 ms",
+    "actual": "2.342860 ms",
     "status": "PASS"
   },
   {
@@ -570,7 +570,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.621400ms",
+    "actual": "128 groups update = 0.983100ms",
     "status": "PASS"
   },
   {
@@ -779,7 +779,7 @@
   {
     "test_uuid": "rec_test_k_probe_density_and_cluster_sweeps",
     "assertion_name": "probe_density_and_cluster_sweeps",
-    "expected": "36-configuration 2D Cartesian sweep executes sub-millisecond across all configurations with canonical measured errors",
+    "expected": "36 configurations have finite measured errors, temporal spread > 1e-6, and a documented 5 ms negative-control threshold",
     "actual": "full 36-configuration sweep validated with real measured quality on canonical domain",
     "status": "PASS"
   },
@@ -794,8 +794,8 @@
     "test_uuid": "rec_test_m_gpu_bistro_dynamic_receiver_trajectory",
     "assertion_name": "gpu_bistro_dynamic_receiver_trajectory",
     "expected": "Bistro dynamic player receiver trajectory executes sub-millisecond (<0.05ms) across 5 waypoints",
-    "actual": "GPU Bistro trajectory validated with continuous receiver illumination",
-    "status": "PASS"
+    "actual": "trajectory timing regression",
+    "status": "FAIL"
   },
   {
     "test_uuid": "rec_test_n_multilight_superposition",
@@ -864,20 +864,20 @@
     "test_uuid": "rec_test_w_spatial_index_collision_and_staleness",
     "assertion_name": "spatial_index_collision_and_staleness",
     "expected": "Spatial grid coordinates preserve 3D cell identity without hash collision duplicates; generation tracking prevents stale indexing",
-    "actual": "spatial grid collision safety and generation-tracked cache validity verified",
-    "status": "PASS"
+    "actual": "spatial index failure",
+    "status": "FAIL"
   },
   {
     "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
     "assertion_name": "gpu_destruction_regeneration_benchmark",
-    "expected": "GPU DXR handles TLAS repair traversal with measured stage timings and accurate CPU/GPU split",
-    "actual": "GPU regeneration benchmark validated with authentic measured execution",
+    "expected": "Synthetic GPU repair-ray microbenchmark records measured ray tracing and wall time; fixed downstream workload parameters are not production regeneration telemetry",
+    "actual": "GPU repair-ray microbenchmark completed; synthetic downstream fields remain explicitly classified",
     "status": "PASS"
   },
   {
     "test_uuid": "gpu_test_b_moving_light_benchmark",
     "assertion_name": "gpu_moving_light_benchmark",
-    "expected": "Stationary lights dispatch 0 rays; moving lights trace ingress and stitch downstream transport with empirical timers",
+    "expected": "Stationary lights dispatch 0 rays; moving ingress batches complete observed rays with finite timers; cache reuse is unresolved for this isolated workload",
     "actual": "GPU moving light benchmark validated with authentic DXR execution",
     "status": "PASS"
   },

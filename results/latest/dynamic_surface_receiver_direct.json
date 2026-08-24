@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_134958_5ca803c8133b5d071e3665ef724209995cf710c6_evidence_hardened",
+  "run_uuid": "run_20260824_182750_1486430b1666b889e45de866dd10bb615b350dc9_evidence_hardened",
   "direct_receivers": [
     {
       "group_label": "BistroPlayer",
@@ -13,7 +13,7 @@
       "receiver_mappings_created": 0,
       "exact_visibility_rays": 0,
       "direct_energy": 3.69,
-      "runtime_us": 10.70
+      "runtime_us": 19.70
     }
   ]
 }

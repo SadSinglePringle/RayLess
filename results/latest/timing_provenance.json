@@ -1,0 +1,15 @@
+{
+  "cpu_submit_ms": {"source": "NOT_MEASURED", "is_measured": false, "interpretation": "0 means unresolved; queue submission/readback are not independently instrumented"},
+  "gpu_stage_ms": {"source": "GPU_TIMESTAMP_QUERY", "is_measured": true, "interpretation": "stage intervals may overlap; do not sum unless an enclosing interval is exported"},
+  "end_to_end_ms": {"source": "CPU_HIGH_RES_TIMER", "is_measured": true, "interpretation": "enclosing wall-clock interval where available"},
+  "derived_fields": {
+    "astg_cpu_gpu_work_split.json.cpu_and_wait_residual_ms": {"source": "DERIVED_RESIDUAL", "is_measured": false, "formula": "max(0, end_to_end_ms - gpu_total_ms)"},
+    "astg_cpu_gpu_work_split.json.ns_per_ray": {"source": "DERIVED_FORMULA", "is_measured": false, "formula": "gpu_total_ms * 1e6 / batch_size"},
+    "astg_cpu_gpu_work_split.json.mrays_per_sec": {"source": "DERIVED_FORMULA", "is_measured": false, "formula": "batch_size / (gpu_total_ms * 1e-3) / 1e6"},
+    "astg_gpu_dynamic_light.csv.cached_segments_reused": {"source": "NOT_MEASURED", "is_measured": false, "formula": null},
+    "astg_gpu_dynamic_light.csv.avoided_rays": {"source": "NOT_MEASURED", "is_measured": false, "formula": null},
+    "astg_gpu_regeneration.csv.invalidated_nodes": {"source": "CONFIG_VALUE", "is_measured": false, "formula": null},
+    "astg_gpu_regeneration.csv.invalidated_edges": {"source": "CONFIG_VALUE", "is_measured": false, "formula": null},
+    "astg_gpu_regeneration.csv.repair_anchors": {"source": "CONFIG_VALUE", "is_measured": false, "formula": null}
+  }
+}

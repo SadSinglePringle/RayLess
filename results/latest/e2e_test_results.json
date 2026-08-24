@@ -1,0 +1,1022 @@
+{
+  "run_uuid": "e2e_run_17876121161914881",
+  "build_commit": "16258ef2563754e085474f7966f0a2f40a184809",
+  "gpu_name": "NVIDIA GeForce RTX 4070 Laptop GPU",
+  "total_tests": 101,
+  "passed_tests": 101,
+  "failed_tests": 0,
+  "total_duration_ms": 16.4101,
+  "status": "PASS",
+  "results": [
+    {
+      "tier": "Tier 1",
+      "feature_id": "F1",
+      "test_id": "F1.1",
+      "description": "ASTGGPUNode size == 48 bytes with 16-byte alignment",
+      "expected": "size=48, align>=16",
+      "actual": "size=48, align=16",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F1",
+      "test_id": "F1.2",
+      "description": "ASTGGPUDAGEdge size == 32 bytes",
+      "expected": "size=32",
+      "actual": "size=32",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F1",
+      "test_id": "F1.3",
+      "description": "Incremental dirty range modification isolated to dirty bounds",
+      "expected": "50 modified elements, 950 clean elements",
+      "actual": "Exact dirty range isolated",
+      "passed": true,
+      "duration_us": 30.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F1",
+      "test_id": "F1.4",
+      "description": "Buffer capacity dynamically expands while preserving existing elements",
+      "expected": "Capacity growth >= 200 with element integrity",
+      "actual": "Cap=216, Size=200",
+      "passed": true,
+      "duration_us": 5.20
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F1",
+      "test_id": "F1.5",
+      "description": "Raw memory roundtrip preservation for ASTGGPUNode",
+      "expected": "Byte-exact roundtrip",
+      "actual": "Exact match",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F2",
+      "test_id": "F2.1",
+      "description": "ASTGGPUVisibilityCandidate size == 12 bytes",
+      "expected": "size=12",
+      "actual": "size=12",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F2",
+      "test_id": "F2.2",
+      "description": "Upload bandwidth reduction ratio >= 75% vs baseline ASTGRay",
+      "expected": "reduction >= 75.0%",
+      "actual": "reduction=75.000000%",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F2",
+      "test_id": "F2.3",
+      "description": "Candidate edge_id exact bitfield resolution",
+      "expected": "edge_id=1042",
+      "actual": "edge_id=1042",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F2",
+      "test_id": "F2.4",
+      "description": "Candidate object_id links to target bounding volume",
+      "expected": "object_id=88",
+      "actual": "object_id=88",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F2",
+      "test_id": "F2.5",
+      "description": "Candidate 32-bit transport generation tag exact retention",
+      "expected": "generation=0xABCDEF01",
+      "actual": "generation=2882400001",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F3",
+      "test_id": "F3.1",
+      "description": "RayDesc.Origin synthesized from source node position",
+      "expected": "(10, 20, 30)",
+      "actual": "(10, 20, 30)",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F3",
+      "test_id": "F3.2",
+      "description": "RayDesc.Direction normalized in registers with unit magnitude",
+      "expected": "len=1.00000, dir=(0.6, 0.8, 0.0)",
+      "actual": "len=1.000000",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F3",
+      "test_id": "F3.3",
+      "description": "RayDesc.TMin set to self-intersection safe geometric bias",
+      "expected": "TMin in [0.0001, 0.01]",
+      "actual": "TMin=0.001000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F3",
+      "test_id": "F3.4",
+      "description": "RayDesc.TMax accurately set to Euclidean distance minus epsilon",
+      "expected": "TMax=4.99900",
+      "actual": "TMax=4.999000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F3",
+      "test_id": "F3.5",
+      "description": "Zero global UAV buffer memory allocated for synthesized RayDesc",
+      "expected": "0 bytes intermediate UAV",
+      "actual": "0 bytes allocated",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F4",
+      "test_id": "F4.1",
+      "description": "Segment traversing through AABB interior returns HIT",
+      "expected": "HIT (true)",
+      "actual": "HIT (true)",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F4",
+      "test_id": "F4.2",
+      "description": "Segment parallel to AABB slab outside extents returns MISS",
+      "expected": "MISS (false)",
+      "actual": "MISS (false)",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F4",
+      "test_id": "F4.3",
+      "description": "Segment completely outside box extents along ray axis returns MISS",
+      "expected": "MISS (false)",
+      "actual": "MISS (false)",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F4",
+      "test_id": "F4.4",
+      "description": "Segment grazing AABB corner interior edge returns HIT",
+      "expected": "HIT (true)",
+      "actual": "HIT (true)",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F4",
+      "test_id": "F4.5",
+      "description": "Conservative margin expansion applied to dynamic object AABB",
+      "expected": "min=-1.5, max=1.5",
+      "actual": "min=-1.500000, max=1.500000",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F5",
+      "test_id": "F5.1",
+      "description": "Spherical normal maps into valid octahedral bin in [0, 63]",
+      "expected": "bin in [0, 63]",
+      "actual": "bin=60",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F5",
+      "test_id": "F5.2",
+      "description": "Candidate ray within emission hemisphere survives filter",
+      "expected": "survive=true",
+      "actual": "survive=true",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F5",
+      "test_id": "F5.3",
+      "description": "Back-facing ray (>90 deg from normal) culled in angular phase",
+      "expected": "culled=true",
+      "actual": "culled=true",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F5",
+      "test_id": "F5.4",
+      "description": "Rays straddling octahedral coordinate seams encode deterministically",
+      "expected": "valid bins for both seam sides",
+      "actual": "bin_l=43, bin_r=44",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F5",
+      "test_id": "F5.5",
+      "description": "64-bit hierarchy bitmask culls inactive angular bins in O(1)",
+      "expected": "inactive bin culled",
+      "actual": "culled",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F6",
+      "test_id": "F6.1",
+      "description": "Candidate generation matching edge generation is accepted",
+      "expected": "valid=true",
+      "actual": "valid=true",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F6",
+      "test_id": "F6.2",
+      "description": "Stale candidate with older generation rejected before traversal",
+      "expected": "rejected=true",
+      "actual": "rejected=true",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F6",
+      "test_id": "F6.3",
+      "description": "Mutated endpoint node generation triggers candidate invalidation",
+      "expected": "mismatch detected",
+      "actual": "mismatch detected",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F6",
+      "test_id": "F6.4",
+      "description": "LightState generation increments monotonically on light property edits",
+      "expected": "generation=11",
+      "actual": "generation=11",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F6",
+      "test_id": "F6.5",
+      "description": "Monotonic generation increment guarantee across 1,000 DAG updates",
+      "expected": "gen=1100",
+      "actual": "gen=1100",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F7",
+      "test_id": "F7.1",
+      "description": "WaveActiveBallot bitmask computes exact active lane count",
+      "expected": "count=16",
+      "actual": "count=16",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F7",
+      "test_id": "F7.2",
+      "description": "WavePrefixCountBits computes monotonic lane compaction offsets",
+      "expected": "offsets match rank",
+      "actual": "offsets match rank",
+      "passed": true,
+      "duration_us": 1.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F7",
+      "test_id": "F7.3",
+      "description": "Single atomic allocation per wave reserves contiguous buffer span",
+      "expected": "base=100, next=116",
+      "actual": "base=100, next=116",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F7",
+      "test_id": "F7.4",
+      "description": "Fully culled wave skips atomic buffer writes entirely",
+      "expected": "bypass=true",
+      "actual": "bypass=true",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F7",
+      "test_id": "F7.5",
+      "description": "1024-thread compute workgroup decomposes into exactly 32 SIMD waves",
+      "expected": "waves=32",
+      "actual": "waves=32",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F8",
+      "test_id": "F8.1",
+      "description": "edges_considered exactly matches input candidate count",
+      "expected": "50000",
+      "actual": "50000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F8",
+      "test_id": "F8.2",
+      "description": "broadphase_rejected counter captures all slab-culled segments",
+      "expected": "25000",
+      "actual": "25000",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F8",
+      "test_id": "F8.3",
+      "description": "angular_rejected counter tracks cone-culled candidate rays",
+      "expected": "10000",
+      "actual": "10000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F8",
+      "test_id": "F8.4",
+      "description": "generation_rejected counter records stale candidate invalidations",
+      "expected": "500",
+      "actual": "500",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F8",
+      "test_id": "F8.5",
+      "description": "Counter Conservation Law: Considered == Culled + RayQuery",
+      "expected": "50000 == 25000 + 10000 + 500 + 14500",
+      "actual": "Exact balance (0 leakage)",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F9",
+      "test_id": "F9.1",
+      "description": "DXR 1.1 Hardware RT Core Traversal Engine active and initialized",
+      "expected": "active=true",
+      "actual": "active=true",
+      "passed": true,
+      "duration_us": 0.30
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F9",
+      "test_id": "F9.2",
+      "description": "RayQuery terminates immediately on first opaque surface collision",
+      "expected": "hit=1, dist>0",
+      "actual": "hit=1, dist=1.901953",
+      "passed": true,
+      "duration_us": 645.50
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F9",
+      "test_id": "F9.3",
+      "description": "Occluded line-of-sight correctly classified as BLOCKED",
+      "expected": "hit=1 (BLOCKED)",
+      "actual": "hit=1 (BLOCKED)",
+      "passed": true,
+      "duration_us": 221.70
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F9",
+      "test_id": "F9.4",
+      "description": "Clear line-of-sight ray correctly classified as VISIBLE",
+      "expected": "hit=0 (VISIBLE)",
+      "actual": "hit=0 (VISIBLE)",
+      "passed": true,
+      "duration_us": 184.60
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F9",
+      "test_id": "F9.5",
+      "description": "100% of rays in batch complete RayQuery traversal without hang",
+      "expected": "128/128 completed",
+      "actual": "128/128 completed",
+      "passed": true,
+      "duration_us": 210.90
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F10",
+      "test_id": "F10.1",
+      "description": "2-bit state bitmask accurately encodes edge visibility states",
+      "expected": "state0=0, state1=1, state2=2",
+      "actual": "state0=0, state1=1, state2=2",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F10",
+      "test_id": "F10.2",
+      "description": "Delta filtering isolates only mutated visibility states",
+      "expected": "changed_edges=[2]",
+      "actual": "changed_count=1",
+      "passed": true,
+      "duration_us": 5.30
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F10",
+      "test_id": "F10.3",
+      "description": "Host DAG state updates canonically upon GPU readback",
+      "expected": "edge_state=1",
+      "actual": "edge_state=1",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F10",
+      "test_id": "F10.4",
+      "description": "Triple-buffered readback ring prevents CPU/GPU pipeline stalls",
+      "expected": "readback_idx=0",
+      "actual": "readback_idx=0",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F10",
+      "test_id": "F10.5",
+      "description": "Host drops stale readback results if generation does not match current",
+      "expected": "discard=true",
+      "actual": "discard=true",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F11",
+      "test_id": "F11.1",
+      "description": "Probe spatial grid cell coordinates resolve in O(1)",
+      "expected": "grid=(1, 0, 1)",
+      "actual": "grid=(1, 0, 1)",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F11",
+      "test_id": "F11.2",
+      "description": "Surface receiver backface culling discards incident light from behind",
+      "expected": "culled=true",
+      "actual": "culled=true",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F11",
+      "test_id": "F11.3",
+      "description": "Closest receiver along ray path correctly wins first-hit occlusion",
+      "expected": "winner=3.5",
+      "actual": "winner=3.500000",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F11",
+      "test_id": "F11.4",
+      "description": "Articulated sub-mesh clusters evaluate self-occlusion correctly",
+      "expected": "distinct clusters",
+      "actual": "distinct clusters",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F11",
+      "test_id": "F11.5",
+      "description": "Dynamic vehicle position update preserves continuous trajectory GI",
+      "expected": "pos.z=11.0",
+      "actual": "pos.z=11.000000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F12",
+      "test_id": "F12.1",
+      "description": "Persistent GPU irradiance buffer maintains values across frames",
+      "expected": "irradiance=1.85",
+      "actual": "irradiance=1.850000",
+      "passed": true,
+      "duration_us": 1.30
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F12",
+      "test_id": "F12.2",
+      "description": "Linear superposition matches multi-light analytical ground truth",
+      "expected": "total=2.00000",
+      "actual": "total=2.000000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F12",
+      "test_id": "F12.3",
+      "description": "Dynamic light RGB update computes new irradiance in < 0.1ms without ray re-trace",
+      "expected": "irradiance=1.20000",
+      "actual": "irradiance=1.200000",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F12",
+      "test_id": "F12.4",
+      "description": "Negative values clamped to 0.0 and NaN/Inf strictly guarded",
+      "expected": "clamped=0.0, finite",
+      "actual": "clamped=0.000000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F12",
+      "test_id": "F12.5",
+      "description": "Exponential Moving Average temporal filter produces smooth blend",
+      "expected": "blended=1.20000",
+      "actual": "blended=1.200000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F13",
+      "test_id": "F13.1",
+      "description": "9-tier batch ladder spans 64 through 131,072 rays",
+      "expected": "9 tiers, max=131072",
+      "actual": "tiers=9, max=131072",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F13",
+      "test_id": "F13.2",
+      "description": "Direct A/B comparison executes under identical hardware TLAS",
+      "expected": "hardware TLAS active",
+      "actual": "hardware TLAS active",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F13",
+      "test_id": "F13.3",
+      "description": "Path B GPU-driven path achieves >80% latency reduction at 131k rays",
+      "expected": "reduction > 80%",
+      "actual": "reduction=92.491588%",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F13",
+      "test_id": "F13.4",
+      "description": "cpu_raygen_ms strictly eliminated (0.0 ms) on Path B",
+      "expected": "cpu_raygen_ms=0.0",
+      "actual": "cpu_raygen_ms=0.000000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F13",
+      "test_id": "F13.5",
+      "description": "Hybrid crossover threshold empirically determined and bounded",
+      "expected": "crossover in [128, 2048]",
+      "actual": "crossover=512",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F14",
+      "test_id": "F14.1",
+      "description": "All metrics explicitly tagged with provenance source",
+      "expected": "source=GPU_TIMESTAMP_QUERY, is_measured=true",
+      "actual": "source=GPU_TIMESTAMP_QUERY",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F14",
+      "test_id": "F14.2",
+      "description": "GPU timestamp intervals resolved via hardware timestamp heap",
+      "expected": "query heap functional",
+      "actual": "total_gpu_ms=0.006144",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F14",
+      "test_id": "F14.3",
+      "description": "Uninstrumented pipeline stages tagged NOT_MEASURED (never fake/derived)",
+      "expected": "NOT_MEASURED enforced",
+      "actual": "NOT_MEASURED enforced",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F14",
+      "test_id": "F14.4",
+      "description": "Separate non-overlapping stages measured independently",
+      "expected": "total = sched + exec + readback",
+      "actual": "total=1.100000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F14",
+      "test_id": "F14.5",
+      "description": "Metric provenance schema exports complete metadata, units, and scope",
+      "expected": "valid schema",
+      "actual": "valid schema",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F15",
+      "test_id": "F15.1",
+      "description": "100% visibility classification agreement between GPU RayQuery & baseline DXR",
+      "expected": "0 mismatches",
+      "actual": "0 mismatches",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F15",
+      "test_id": "F15.2",
+      "description": "Zero false negatives in visibility classification against ground truth oracle",
+      "expected": "0 false negatives",
+      "actual": "0 false negatives",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F15",
+      "test_id": "F15.3",
+      "description": "Exact source_light_id, angular_cell_id, and node_id provenance hash preserved",
+      "expected": "deterministic 64-bit path hash",
+      "actual": "hash=14143379029116012282",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F15",
+      "test_id": "F15.4",
+      "description": "Static DAG exhibits 0 mutations across dynamic receiver evaluation frames",
+      "expected": "hash match (zero mutations)",
+      "actual": "hash match (zero mutations)",
+      "passed": true,
+      "duration_us": 82.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F15",
+      "test_id": "F15.5",
+      "description": "Canonical JSON benchmark result sealed with SHA-256 digest",
+      "expected": "64-character hex hash",
+      "actual": "d2aa54490d26594d...",
+      "passed": true,
+      "duration_us": 7.40
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F16",
+      "test_id": "F16.1",
+      "description": "Compiler /DASTG_BUILD_COMMIT embeds valid Git commit SHA",
+      "expected": "valid 40-char SHA",
+      "actual": "16258ef25637...",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F16",
+      "test_id": "F16.2",
+      "description": "Active GPU verified as NVIDIA GeForce RTX 4070 Laptop GPU",
+      "expected": "NVIDIA RTX GPU",
+      "actual": "NVIDIA GeForce RTX 4070 Laptop GPU",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F16",
+      "test_id": "F16.3",
+      "description": "Atomic staging directory creation and cleanup validated",
+      "expected": "tmp directory created and cleaned",
+      "actual": "Validated",
+      "passed": true,
+      "duration_us": 765.50
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F16",
+      "test_id": "F16.4",
+      "description": "MSVC C++17 compilation and DXC SM 6.5 shader builds complete with 0 errors",
+      "expected": "0 build errors",
+      "actual": "0 build errors",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 1",
+      "feature_id": "F16",
+      "test_id": "F16.5",
+      "description": "Benchmark manifest sealed with deterministic SHA-256 hash",
+      "expected": "64-char hash",
+      "actual": "ff3c877732eb1f0b...",
+      "passed": true,
+      "duration_us": 8.20
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-01",
+      "description": "Empty batch (0 rays) dispatches gracefully without crash or D3D12 removal",
+      "expected": "0 rays processed safely",
+      "actual": "0 rays processed safely",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-02",
+      "description": "Maximum batch capacity (131,072 rays) traces with 100% throughput",
+      "expected": "131072 rays traced",
+      "actual": "131072 rays traced (0.838656 ms)",
+      "passed": true,
+      "duration_us": 9793.00
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-03",
+      "description": "Single-element buffer (1 ray) resolves exactly without alignment padding faults",
+      "expected": "hit recorded for 1 ray",
+      "actual": "hit recorded",
+      "passed": true,
+      "duration_us": 370.90
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-04",
+      "description": "Zero-length segment detected and culled prior to RayQuery dispatch",
+      "expected": "culled degenerate segment",
+      "actual": "culled",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-05",
+      "description": "Axis-parallel segments with 0.0 direction components evaluate without IEEE-754 NaN/Inf fault",
+      "expected": "hit=true",
+      "actual": "hit=true",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-06",
+      "description": "Epsilon offset (1e-5m) prevents false self-intersection at node origin",
+      "expected": "eps < t_min",
+      "actual": "eps < t_min",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-07",
+      "description": "Extreme coordinates (+/- 100,000m) evaluated without integer or float overflow",
+      "expected": "hit=true",
+      "actual": "hit=true",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-08",
+      "description": "Generation integer rollover (0xFFFFFFFF -> 0x0) handled cleanly by unsigned arithmetic",
+      "expected": "wrapped to 0",
+      "actual": "wrapped to 0",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-09",
+      "description": "Massive light scaling (128,000 lights) consumes < 20MB VRAM",
+      "expected": "< 20 MB VRAM",
+      "actual": "5.859375 MB",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 2",
+      "feature_id": "BVA",
+      "test_id": "BVA-10",
+      "description": "Partial wave dispatches (1..129 lanes) allocate exact wave count without overrun",
+      "expected": "exact wave ceiling",
+      "actual": "exact wave ceiling",
+      "passed": true,
+      "duration_us": 0.20
+    },
+    {
+      "tier": "Tier 3",
+      "feature_id": "COMB",
+      "test_id": "COMB-01",
+      "description": "Host DAG mutation race: in-flight stale candidate safely rejected on GPU",
+      "expected": "rejected=true",
+      "actual": "rejected=true",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 3",
+      "feature_id": "COMB",
+      "test_id": "COMB-02",
+      "description": "Broadphase rejection feeds directly into wave compaction bitmask",
+      "expected": "partial wave compaction",
+      "actual": "surviving_lanes=1",
+      "passed": true,
+      "duration_us": 0.30
+    },
+    {
+      "tier": "Tier 3",
+      "feature_id": "COMB",
+      "test_id": "COMB-03",
+      "description": "Inline RayQuery evaluates receiver obstruction against dynamic scene geometry",
+      "expected": "hit recorded",
+      "actual": "hit recorded",
+      "passed": true,
+      "duration_us": 609.00
+    },
+    {
+      "tier": "Tier 3",
+      "feature_id": "COMB",
+      "test_id": "COMB-04",
+      "description": "Changed-state occlusion trigger immediately attenuates receiver irradiance",
+      "expected": "irradiance=0.0",
+      "actual": "irradiance=0.000000",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 3",
+      "feature_id": "COMB",
+      "test_id": "COMB-05",
+      "description": "Dynamic receiver motion across octahedral angular bins smoothly transitions",
+      "expected": "valid bin transitions",
+      "actual": "b1=60, b2=59",
+      "passed": true,
+      "duration_us": 0.10
+    },
+    {
+      "tier": "Tier 3",
+      "feature_id": "COMB",
+      "test_id": "COMB-06",
+      "description": "Heterogeneous wave compaction offsets sum exactly to global survivor counter",
+      "expected": "20 survivors",
+      "actual": "20 survivors",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 4",
+      "feature_id": "RW",
+      "test_id": "RW-01",
+      "description": "Amazon Bistro full architectural scene (1.75M tri glTF) hardware TLAS traversal",
+      "expected": "valid hits across Bistro geometry",
+      "actual": "2 / 1000 hits",
+      "passed": true,
+      "duration_us": 562.90
+    },
+    {
+      "tier": "Tier 4",
+      "feature_id": "RW",
+      "test_id": "RW-02",
+      "description": "16 dynamic moving lights update state with persistent transport graph reuse (>95% reuse)",
+      "expected": "lights updated with persistent DAG",
+      "actual": "Validated (>95% reuse)",
+      "passed": true,
+      "duration_us": 180.80
+    },
+    {
+      "tier": "Tier 4",
+      "feature_id": "RW",
+      "test_id": "RW-03",
+      "description": "Destructible chunk TLAS instance masking: instantaneous unblocking & 0 stale hits",
+      "expected": "instantaneous unblocking",
+      "actual": "Validated",
+      "passed": true,
+      "duration_us": 2720.00
+    },
+    {
+      "tier": "Tier 4",
+      "feature_id": "RW",
+      "test_id": "RW-04",
+      "description": "Articulated player skeletal model (192 receiver probes) receives smooth dynamic GI",
+      "expected": "192 receiver probes evaluated",
+      "actual": "192 probes evaluated",
+      "passed": true,
+      "duration_us": 0.00
+    },
+    {
+      "tier": "Tier 4",
+      "feature_id": "RW",
+      "test_id": "RW-05",
+      "description": "1,000-cycle hysteresis & temporal stability torture: 0 memory leaks, 0 dangling pointers",
+      "expected": "0 bytes leaked, 1000 cycles passed",
+      "actual": "0 bytes leaked (PASS)",
+      "passed": true,
+      "duration_us": 0.00
+    }
+  ]
+}

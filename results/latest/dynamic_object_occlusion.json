@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_134958_5ca803c8133b5d071e3665ef724209995cf710c6_evidence_hardened",
+  "run_uuid": "run_20260824_182750_1486430b1666b889e45de866dd10bb615b350dc9_evidence_hardened",
   "summary": {
     "slab_math_unit_pass": true,
     "spatial_index_equivalence_pass": true,
@@ -30,15 +30,15 @@
     "broadphase_rejection_pct": 65.00
   },
   "scaling_sweep": [
-    {"groups": 1, "candidate_edges": 4, "update_ms": 0.0044},
-    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0361},
-    {"groups": 32, "candidate_edges": 239, "update_ms": 0.1337},
-    {"groups": 128, "candidate_edges": 812, "update_ms": 0.6214}
+    {"groups": 1, "candidate_edges": 4, "update_ms": 0.0091},
+    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0674},
+    {"groups": 32, "candidate_edges": 239, "update_ms": 0.2629},
+    {"groups": 128, "candidate_edges": 812, "update_ms": 0.9831}
   ],
   "box_count_sweep": [
-    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0042},
-    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0107},
-    {"boxes": 8, "candidate_edges": 4, "update_ms": 0.0192},
-    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0362}
+    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0075},
+    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0209},
+    {"boxes": 8, "candidate_edges": 4, "update_ms": 0.0383},
+    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0727}
   ]
 }
