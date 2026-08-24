@@ -52,7 +52,11 @@ int main(int argc, char** argv) {
     diag.test_dynamic_occlusion_modes_and_angular_b0();
     diag.print_dynamic_occlusion_modes_report();
 
-    // 11. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
+    // 11. PART K: ASTG Dynamic Surface Receiver Probes for Moving Objects (Phase 6)
+    diag.test_dynamic_surface_receivers();
+    diag.print_dynamic_surface_receivers_report();
+
+    // 12. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
     diag.export_all_diagnostics_files();
 
     // 12. PART 90: Final Evidence Integrity Report

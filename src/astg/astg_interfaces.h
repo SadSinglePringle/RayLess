@@ -53,6 +53,12 @@ typedef enum ASTGDynamicOcclusionPrecision {
     ASTG_OCCLUSION_BOUNDS_THEN_DXR = 1 // Initial broadphase bounds followed by DXR refinement
 } ASTGDynamicOcclusionPrecision;
 
+// Dynamic Surface Receiver Clustering Mode (Phase 6 / Handoff Item 6, 33, 34)
+typedef enum ASTGReceiverClusteringMode {
+    ASTG_RECEIVERS_INDEPENDENT = 0, // Fully independent surface receiver probes
+    ASTG_RECEIVERS_CLUSTERED = 1    // Hierarchical receiver clusters with probe interpolation
+} ASTGReceiverClusteringMode;
+
 // Authoritative Geometry & Primitive Metadata Mapping
 struct ASTGPrimitiveMetadata {
     uint32_t mesh_id;

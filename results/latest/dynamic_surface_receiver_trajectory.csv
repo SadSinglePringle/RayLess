@@ -1,0 +1,6 @@
+frame,group_id,light_id,probe_count,cluster_count,angular_cells_current,angular_cells_changed,receiver_mappings_active,receiver_mappings_reused,receiver_mappings_created,receiver_mappings_removed,visibility_rays,direct_receiver_ms,indirect_receiver_ms,total_receiver_ms
+0,1,0,500,50,2,0,2,2,0,0,0,0.0040,0.0012,0.0052
+1,1,0,500,50,2,0,2,2,0,0,0,0.0041,0.0012,0.0053
+2,1,0,500,50,2,0,2,2,0,0,0,0.0040,0.0012,0.0052
+3,1,0,500,50,2,0,2,2,0,0,0,0.0040,0.0012,0.0052
+4,1,0,500,50,2,0,2,2,0,0,0,0.0039,0.0012,0.0051

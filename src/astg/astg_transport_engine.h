@@ -414,6 +414,14 @@ public:
         }
     }
 
+    uint32_t get_cell_id_for_dir(const RTXVector3& dir) const {
+        float u = 0.0f, v = 0.0f;
+        encode_octahedral(dir, u, v);
+        int cx = std::min(7, std::max(0, int(u * 8.0f)));
+        int cy = std::min(7, std::max(0, int(v * 8.0f)));
+        return (uint32_t)(cy * 8 + cx);
+    }
+
     // Projects an AABB from light position into a 64-bit angular cell mask with seam-safe handling
     uint64_t query_box_footprint(
         const RTXVector3& light_pos,
@@ -522,7 +530,186 @@ struct ASTGOccluderBounds {
     std::string label;
 };
 
-// Logical Bounding-Box Group Abstraction (Handoff Item 3, 4, 5, 26, 27)
+// 4x4 Matrix Transformation for Rigid & Skeletal Dynamic Objects (Phase 6 / Handoff Item 5, 36, 72)
+struct RTXMatrix4x4 {
+    float m[4][4];
+
+    static RTXMatrix4x4 identity() {
+        RTXMatrix4x4 r = {};
+        r.m[0][0] = 1.0f; r.m[1][1] = 1.0f; r.m[2][2] = 1.0f; r.m[3][3] = 1.0f;
+        return r;
+    }
+
+    static RTXMatrix4x4 translation(float tx, float ty, float tz) {
+        RTXMatrix4x4 r = identity();
+        r.m[0][3] = tx; r.m[1][3] = ty; r.m[2][3] = tz;
+        return r;
+    }
+
+    static RTXMatrix4x4 rotation_y(float radians) {
+        RTXMatrix4x4 r = identity();
+        float c = std::cos(radians);
+        float s = std::sin(radians);
+        r.m[0][0] = c;  r.m[0][2] = s;
+        r.m[2][0] = -s; r.m[2][2] = c;
+        return r;
+    }
+
+    static RTXMatrix4x4 rotation_z(float radians) {
+        RTXMatrix4x4 r = identity();
+        float c = std::cos(radians);
+        float s = std::sin(radians);
+        r.m[0][0] = c;  r.m[0][1] = -s;
+        r.m[1][0] = s;  r.m[1][1] = c;
+        return r;
+    }
+
+    RTXMatrix4x4 operator*(const RTXMatrix4x4& o) const {
+        RTXMatrix4x4 r = {};
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                for (int k = 0; k < 4; ++k) {
+                    r.m[i][j] += m[i][k] * o.m[k][j];
+                }
+            }
+        }
+        return r;
+    }
+
+    RTXVector3 transform_point(const RTXVector3& p) const {
+        float x = m[0][0] * p.x + m[0][1] * p.y + m[0][2] * p.z + m[0][3];
+        float y = m[1][0] * p.x + m[1][1] * p.y + m[1][2] * p.z + m[1][3];
+        float z = m[2][0] * p.x + m[2][1] * p.y + m[2][2] * p.z + m[2][3];
+        float w = m[3][0] * p.x + m[3][1] * p.y + m[3][2] * p.z + m[3][3];
+        if (std::abs(w) > 1e-6f && std::abs(w - 1.0f) > 1e-5f) {
+            x /= w; y /= w; z /= w;
+        }
+        return { x, y, z };
+    }
+
+    RTXVector3 transform_normal(const RTXVector3& n) const {
+        float x = m[0][0] * n.x + m[0][1] * n.y + m[0][2] * n.z;
+        float y = m[1][0] * n.x + m[1][1] * n.y + m[1][2] * n.z;
+        float z = m[2][0] * n.x + m[2][1] * n.y + m[2][2] * n.z;
+        float len = std::sqrt(x * x + y * y + z * z);
+        if (len > 1e-6f) {
+            x /= len; y /= len; z /= len;
+        }
+        return { x, y, z };
+    }
+};
+
+// Dynamic Surface Receiver Probe (Phase 6 / Handoff Item 4, 5, 16, 17, 36)
+struct ASTGDynamicSurfaceProbe {
+    uint32_t probe_id = 0;
+    uint32_t dynamic_group_id = 0;
+    uint32_t cluster_id = 0;
+    uint32_t bone_id = 0;
+    uint32_t surface_region_id = 0;
+    uint32_t material_id = 0;
+
+    RTXVector3 local_position = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 local_normal = { 0.0f, 1.0f, 0.0f };
+    RTXVector3 world_position = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 world_normal = { 0.0f, 1.0f, 0.0f };
+    float effective_radius = 0.02f;
+
+    RTXVector3 direct_irradiance = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+    float albedo[3] = { 0.8f, 0.8f, 0.8f };
+    bool is_active = true;
+
+    void update_from_bone(const RTXMatrix4x4& bone_matrix) {
+        world_position = bone_matrix.transform_point(local_position);
+        world_normal = bone_matrix.transform_normal(local_normal);
+    }
+
+    void update_rigid(const RTXMatrix4x4& rigid_matrix) {
+        world_position = rigid_matrix.transform_point(local_position);
+        world_normal = rigid_matrix.transform_normal(local_normal);
+    }
+
+    RTXVector3 total_radiance() const {
+        return {
+            (direct_irradiance.x + indirect_irradiance.x) * albedo[0] / 3.14159265f,
+            (direct_irradiance.y + indirect_irradiance.y) * albedo[1] / 3.14159265f,
+            (direct_irradiance.z + indirect_irradiance.z) * albedo[2] / 3.14159265f
+        };
+    }
+};
+
+// Hierarchical Dynamic Receiver Cluster (Phase 6 / Handoff Item 6, 7, 8, 33, 34, 35)
+struct ASTGReceiverCluster {
+    uint32_t cluster_id = 0;
+    uint32_t dynamic_group_id = 0;
+    uint32_t bone_id = 0;
+    uint32_t surface_region_id = 0;
+    std::string label;
+
+    ASTGAABB local_bounds;
+    ASTGAABB world_bounds;
+    RTXVector3 local_centroid = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 world_centroid = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 local_normal = { 0.0f, 1.0f, 0.0f };
+    RTXVector3 world_normal = { 0.0f, 1.0f, 0.0f };
+    float cluster_radius = 0.2f;
+
+    std::vector<uint32_t> member_probe_indices;
+    RTXVector3 direct_irradiance = { 0.0f, 0.0f, 0.0f };
+    RTXVector3 indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+
+    void recompute_local_bounds(const std::vector<ASTGDynamicSurfaceProbe>& probes) {
+        local_bounds = ASTGAABB();
+        if (member_probe_indices.empty()) return;
+
+        RTXVector3 sum_pos = { 0.0f, 0.0f, 0.0f };
+        RTXVector3 sum_norm = { 0.0f, 0.0f, 0.0f };
+        for (uint32_t p_idx : member_probe_indices) {
+            if (p_idx < probes.size()) {
+                const auto& p = probes[p_idx];
+                local_bounds.include_point(p.local_position);
+                sum_pos.x += p.local_position.x; sum_pos.y += p.local_position.y; sum_pos.z += p.local_position.z;
+                sum_norm.x += p.local_normal.x; sum_norm.y += p.local_normal.y; sum_norm.z += p.local_normal.z;
+            }
+        }
+        float count = (float)member_probe_indices.size();
+        local_centroid = { sum_pos.x / count, sum_pos.y / count, sum_pos.z / count };
+        float nlen = std::sqrt(sum_norm.x * sum_norm.x + sum_norm.y * sum_norm.y + sum_norm.z * sum_norm.z);
+        if (nlen > 1e-6f) {
+            local_normal = { sum_norm.x / nlen, sum_norm.y / nlen, sum_norm.z / nlen };
+        } else {
+            local_normal = { 0.0f, 1.0f, 0.0f };
+        }
+        local_bounds.expand(0.02f);
+    }
+
+    void update_transforms(const RTXMatrix4x4& transform, std::vector<ASTGDynamicSurfaceProbe>& probes) {
+        world_centroid = transform.transform_point(local_centroid);
+        world_normal = transform.transform_normal(local_normal);
+        world_bounds = ASTGAABB();
+        for (uint32_t p_idx : member_probe_indices) {
+            if (p_idx < probes.size()) {
+                probes[p_idx].world_position = transform.transform_point(probes[p_idx].local_position);
+                probes[p_idx].world_normal = transform.transform_normal(probes[p_idx].local_normal);
+                world_bounds.include_point(probes[p_idx].world_position);
+            }
+        }
+        world_bounds.expand(0.02f);
+    }
+};
+
+// Dynamic Receiver Association Cache Entry (Phase 6 / Handoff Item 14, 15, 65, 66)
+struct ASTGDynamicReceiverCacheEntry {
+    uint32_t dynamic_group_id = 0;
+    uint32_t cluster_id = 0;
+    uint32_t probe_id = 0;
+    float hit_distance = 0.0f;
+    uint32_t generation = 0;
+    float confidence = 1.0f;
+    RTXVector3 cached_direct_contribution = { 0.0f, 0.0f, 0.0f };
+};
+
+// Logical Bounding-Box Group Abstraction with Dynamic Receiver Probes (Handoff Item 3, 4, 5, 26, 27, 33, 34)
 struct ASTGDynamicOccluderGroup {
     uint32_t group_id = 0;
     std::string label;
@@ -535,11 +722,55 @@ struct ASTGDynamicOccluderGroup {
     ASTGAABB previous_world_union_bounds;
     ASTGDynamicOcclusionPrecision precision = ASTG_OCCLUSION_BOUNDS_ONLY;
 
+    // Dynamic Surface Receiver State (Phase 6)
+    bool enable_surface_receivers = true;
+    ASTGReceiverClusteringMode receiver_clustering_mode = ASTG_RECEIVERS_CLUSTERED;
+    std::vector<ASTGDynamicSurfaceProbe> surface_probes;
+    std::vector<ASTGReceiverCluster> receiver_clusters;
+    std::vector<RTXMatrix4x4> bone_matrices;
+    RTXMatrix4x4 rigid_transform = RTXMatrix4x4::identity();
+    bool is_skeletal = false;
+
     void recompute_union_bounds() {
         world_union_bounds = ASTGAABB();
         for (const auto& b : bounds) {
             world_union_bounds.union_with(b.aabb);
         }
+        for (const auto& c : receiver_clusters) {
+            world_union_bounds.union_with(c.world_bounds);
+        }
+        if (world_union_bounds.min_bounds.x > world_union_bounds.max_bounds.x) {
+            for (const auto& p : surface_probes) {
+                world_union_bounds.include_point(p.world_position);
+            }
+            world_union_bounds.expand(0.05f);
+        }
+    }
+
+    void update_receiver_transforms() {
+        if (is_skeletal && !bone_matrices.empty()) {
+            for (auto& cluster : receiver_clusters) {
+                uint32_t b = std::min(cluster.bone_id, (uint32_t)bone_matrices.size() - 1);
+                cluster.update_transforms(bone_matrices[b], surface_probes);
+            }
+            for (auto& probe : surface_probes) {
+                if (probe.cluster_id == 0 || receiver_clusters.empty()) {
+                    uint32_t b = std::min(probe.bone_id, (uint32_t)bone_matrices.size() - 1);
+                    probe.update_from_bone(bone_matrices[b]);
+                }
+            }
+        } else {
+            for (auto& cluster : receiver_clusters) {
+                cluster.update_transforms(rigid_transform, surface_probes);
+            }
+            for (auto& probe : surface_probes) {
+                if (probe.cluster_id == 0 || receiver_clusters.empty()) {
+                    probe.update_rigid(rigid_transform);
+                }
+            }
+        }
+        recompute_union_bounds();
+        transform_generation++;
     }
 };
 
@@ -578,6 +809,8 @@ struct ASTGDynamicOcclusionMetrics {
     uint32_t newly_blocked_edges = 0;
     uint32_t newly_unblocked_edges = 0;
     uint32_t currently_blocked_edges = 0;
+    uint32_t affected_layer2_paths = 0;
+    uint32_t affected_receivers = 0;
 
     // Angular B0 Metrics (Handoff Item 51, 55, 71)
     uint32_t angular_total_cells = 64;
@@ -591,9 +824,19 @@ struct ASTGDynamicOcclusionMetrics {
     float cell_solid_angle = 0.0f;
     float overcoverage_ratio = 1.0f;
 
-    // Layer-2 & Receiver impact
-    uint32_t affected_layer2_paths = 0;
-    uint32_t affected_receivers = 0;
+    // Dynamic Surface Receiver Metrics (Phase 6 / Handoff Item 58, 59, 75, 76, 77)
+    uint32_t receiver_probes_active = 0;
+    uint32_t receiver_clusters_active = 0;
+    uint32_t receiver_mappings_active = 0;
+    uint32_t receiver_mappings_reused = 0;
+    uint32_t receiver_mappings_created = 0;
+    uint32_t receiver_mappings_removed = 0;
+    float temporal_reuse_ratio = 0.0f; // R_reuse (Handoff Item 76)
+    float work_sharing_ratio = 0.0f;   // R_shared (Handoff Item 75)
+    double direct_receiver_us = 0.0;
+    double indirect_receiver_us = 0.0;
+    double total_receiver_ms = 0.0;
+    uint32_t exact_visibility_rays = 0;
 
     // Timings
     double angular_projection_us = 0.0;
@@ -1166,6 +1409,9 @@ public:
     std::unordered_map<uint64_t, std::vector<uint32_t>> light_cell_to_paths; // (light_id << 32) | cell_id -> Layer-2 Path Contribution IDs
     std::unordered_map<uint64_t, std::vector<uint32_t>> light_cell_to_b0_edges; // (light_id << 32) | cell_id -> B0 DAG Edge IDs
     std::unordered_map<uint32_t, RTXVector3> light_positions; // light_id -> light position
+    std::unordered_map<uint32_t, RTXVector3> light_colors; // light_id -> light color
+    std::unordered_map<uint32_t, float> light_intensities; // light_id -> intensity multiplier
+    std::unordered_map<uint64_t, ASTGDynamicReceiverCacheEntry> dynamic_receiver_cache; // (light_id << 32) | cell_id -> Cache Entry (Phase 6)
     std::vector<ASTGDynamicEdgeTimelineEvent> dynamic_edge_timeline;
     uint32_t dynamic_timeline_frame = 0;
 
@@ -1370,6 +1616,169 @@ public:
                 kv.second = 0;
             }
         }
+
+        // 3. Clear dynamic receiver state for this group (Handoff Item 81)
+        auto it_grp = dynamic_occluder_groups.find(group_id);
+        if (it_grp != dynamic_occluder_groups.end()) {
+            for (auto& p : it_grp->second.surface_probes) {
+                p.direct_irradiance = { 0.0f, 0.0f, 0.0f };
+                p.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+            }
+            for (auto& c : it_grp->second.receiver_clusters) {
+                c.direct_irradiance = { 0.0f, 0.0f, 0.0f };
+                c.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+            }
+        }
+        for (auto it_c = dynamic_receiver_cache.begin(); it_c != dynamic_receiver_cache.end(); ) {
+            if (it_c->second.dynamic_group_id == group_id) {
+                it_c = dynamic_receiver_cache.erase(it_c);
+            } else {
+                ++it_c;
+            }
+        }
+    }
+
+    uint32_t register_dynamic_receiver_probes(
+        uint32_t group_id,
+        const std::vector<ASTGDynamicSurfaceProbe>& probes,
+        const std::vector<ASTGReceiverCluster>& clusters = {},
+        bool is_skeletal = false
+    ) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end()) return 0;
+
+        it->second.surface_probes = probes;
+        it->second.receiver_clusters = clusters;
+        it->second.is_skeletal = is_skeletal;
+
+        if (!clusters.empty()) {
+            for (size_t c = 0; c < it->second.receiver_clusters.size(); ++c) {
+                it->second.receiver_clusters[c].member_probe_indices.clear();
+            }
+            for (size_t p = 0; p < it->second.surface_probes.size(); ++p) {
+                uint32_t cid = it->second.surface_probes[p].cluster_id;
+                if (cid < it->second.receiver_clusters.size()) {
+                    it->second.receiver_clusters[cid].member_probe_indices.push_back((uint32_t)p);
+                }
+            }
+            for (auto& cluster : it->second.receiver_clusters) {
+                cluster.recompute_local_bounds(it->second.surface_probes);
+            }
+        }
+
+        it->second.update_receiver_transforms();
+        if (it->second.astg_occlusion_enabled) {
+            update_dynamic_occlusion(group_id);
+        }
+        return (uint32_t)it->second.surface_probes.size();
+    }
+
+    void update_dynamic_group_rigid_transform(uint32_t group_id, const RTXMatrix4x4& transform) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end()) return;
+
+        it->second.previous_world_union_bounds = it->second.world_union_bounds;
+        it->second.rigid_transform = transform;
+        it->second.is_skeletal = false;
+        it->second.update_receiver_transforms();
+
+        if (it->second.astg_occlusion_enabled) {
+            update_dynamic_occlusion(group_id);
+        }
+    }
+
+    void update_dynamic_group_bone_matrices(uint32_t group_id, const std::vector<RTXMatrix4x4>& bones) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end()) return;
+
+        it->second.previous_world_union_bounds = it->second.world_union_bounds;
+        it->second.bone_matrices = bones;
+        it->second.is_skeletal = true;
+        it->second.update_receiver_transforms();
+
+        if (it->second.astg_occlusion_enabled) {
+            update_dynamic_occlusion(group_id);
+        }
+    }
+
+    void evaluate_dynamic_receiver_indirect(uint32_t group_id) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end() || !it->second.enable_surface_receivers) return;
+
+        auto& group = it->second;
+        for (auto& probe : group.surface_probes) {
+            if (!probe.is_active) continue;
+
+            probe.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+            float total_weight = 0.0f;
+            RTXVector3 accum_indirect = { 0.0f, 0.0f, 0.0f };
+
+            // Query static world surface nodes (e.g. bounce 1+ nodes)
+            for (const auto& node : bounce0_nodes) {
+                if (!node.is_active) continue;
+                float dx = node.position.x - probe.world_position.x;
+                float dy = node.position.y - probe.world_position.y;
+                float dz = node.position.z - probe.world_position.z;
+                float dist_sq = dx * dx + dy * dy + dz * dz;
+                if (dist_sq < 9.0f) { // Within 3m
+                    float dist = std::sqrt(dist_sq) + 1e-4f;
+                    RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
+                    float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
+                    float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
+                    float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
+                    if (geom_factor > 1e-4f) {
+                        float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
+                        accum_indirect.x += node.path_transfer_r * w;
+                        accum_indirect.y += node.path_transfer_g * w;
+                        accum_indirect.z += node.path_transfer_b * w;
+                        total_weight += w;
+                    }
+                }
+            }
+
+            if (total_weight > 1e-5f) {
+                probe.indirect_irradiance.x = accum_indirect.x / total_weight;
+                probe.indirect_irradiance.y = accum_indirect.y / total_weight;
+                probe.indirect_irradiance.z = accum_indirect.z / total_weight;
+            }
+        }
+
+        // Aggregate cluster indirect irradiance
+        for (auto& cluster : group.receiver_clusters) {
+            cluster.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+            if (!cluster.member_probe_indices.empty()) {
+                RTXVector3 c_ind = { 0.0f, 0.0f, 0.0f };
+                for (uint32_t p_idx : cluster.member_probe_indices) {
+                    if (p_idx < group.surface_probes.size()) {
+                        c_ind.x += group.surface_probes[p_idx].indirect_irradiance.x;
+                        c_ind.y += group.surface_probes[p_idx].indirect_irradiance.y;
+                        c_ind.z += group.surface_probes[p_idx].indirect_irradiance.z;
+                    }
+                }
+                float count = (float)cluster.member_probe_indices.size();
+                cluster.indirect_irradiance = { c_ind.x / count, c_ind.y / count, c_ind.z / count };
+            }
+        }
+    }
+
+    uint64_t compute_dynamic_receiver_memory_bytes(uint32_t group_id) const {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it == dynamic_occluder_groups.end()) return 0;
+
+        const auto& group = it->second;
+        uint64_t total_bytes = sizeof(ASTGDynamicOccluderGroup);
+        total_bytes += group.surface_probes.size() * sizeof(ASTGDynamicSurfaceProbe);
+        total_bytes += group.receiver_clusters.size() * sizeof(ASTGReceiverCluster);
+        total_bytes += group.bone_matrices.size() * sizeof(RTXMatrix4x4);
+        total_bytes += group.bounds.size() * sizeof(ASTGOccluderBounds);
+
+        // Receiver Cache contribution for this group
+        for (const auto& kv : dynamic_receiver_cache) {
+            if (kv.second.dynamic_group_id == group_id) {
+                total_bytes += sizeof(uint64_t) + sizeof(ASTGDynamicReceiverCacheEntry);
+            }
+        }
+        return total_bytes;
     }
 
     void unregister_dynamic_occluder_group(uint32_t group_id) {
@@ -1583,6 +1992,130 @@ public:
                     }
                 }
 
+                // Dynamic Surface Receiver Discovery & Accumulation (Phase 6 / Handoff Item 2, 6, 8, 12, 14, 15, 20, 21, 22)
+                if (group.enable_surface_receivers && !group.surface_probes.empty()) {
+                    auto t_rec_start = std::chrono::high_resolution_clock::now();
+                    m.receiver_probes_active = (uint32_t)group.surface_probes.size();
+                    m.receiver_clusters_active = (uint32_t)group.receiver_clusters.size();
+
+                    RTXVector3 light_col = { 1.0f, 1.0f, 1.0f };
+                    float light_int = 10.0f;
+                    auto it_col = light_colors.find(lid);
+                    if (it_col != light_colors.end()) light_col = it_col->second;
+                    auto it_int = light_intensities.find(lid);
+                    if (it_int != light_intensities.end()) light_int = it_int->second;
+
+                    // Reset per-light receiver irradiance before accumulation
+                    for (auto& probe : group.surface_probes) {
+                        probe.direct_irradiance = { 0.0f, 0.0f, 0.0f };
+                    }
+                    for (auto& cluster : group.receiver_clusters) {
+                        cluster.direct_irradiance = { 0.0f, 0.0f, 0.0f };
+                    }
+
+                    for (uint32_t c = 0; c < 64; ++c) {
+                        uint64_t lc_key = ((uint64_t)lid << 32) | c;
+                        if (new_mask & (1ULL << c)) {
+                            // Find first-hit dynamic surface probe along the cell center direction
+                            RTXVector3 dir = angular_hierarchy.cells[c].dir_center;
+                            float best_dist = 1e9f;
+                            int best_probe_idx = -1;
+                            int best_cluster_idx = -1;
+
+                            if (group.receiver_clustering_mode == ASTG_RECEIVERS_CLUSTERED && !group.receiver_clusters.empty()) {
+                                for (size_t cl = 0; cl < group.receiver_clusters.size(); ++cl) {
+                                    const auto& cluster = group.receiver_clusters[cl];
+                                    if (ray_intersects_aabb(light_pos, dir, cluster.world_bounds, 50.0f)) {
+                                        for (uint32_t p_idx : cluster.member_probe_indices) {
+                                            if (p_idx < group.surface_probes.size() && group.surface_probes[p_idx].is_active) {
+                                                const auto& probe = group.surface_probes[p_idx];
+                                                RTXVector3 to_p = { probe.world_position.x - light_pos.x, probe.world_position.y - light_pos.y, probe.world_position.z - light_pos.z };
+                                                float dist = std::sqrt(to_p.x * to_p.x + to_p.y * to_p.y + to_p.z * to_p.z);
+                                                if (dist > 1e-4f) {
+                                                    to_p.x /= dist; to_p.y /= dist; to_p.z /= dist;
+                                                    float dot_dir = to_p.x * dir.x + to_p.y * dir.y + to_p.z * dir.z;
+                                                    if (dot_dir > 0.40f && dist < best_dist) {
+                                                        best_dist = dist;
+                                                        best_probe_idx = (int)p_idx;
+                                                        best_cluster_idx = (int)cl;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                for (size_t p = 0; p < group.surface_probes.size(); ++p) {
+                                    if (!group.surface_probes[p].is_active) continue;
+                                    const auto& probe = group.surface_probes[p];
+                                    RTXVector3 to_p = { probe.world_position.x - light_pos.x, probe.world_position.y - light_pos.y, probe.world_position.z - light_pos.z };
+                                    float dist = std::sqrt(to_p.x * to_p.x + to_p.y * to_p.y + to_p.z * to_p.z);
+                                    if (dist > 1e-4f) {
+                                        to_p.x /= dist; to_p.y /= dist; to_p.z /= dist;
+                                        float dot_dir = to_p.x * dir.x + to_p.y * dir.y + to_p.z * dir.z;
+                                        if (dot_dir > 0.40f && dist < best_dist) {
+                                            best_dist = dist;
+                                            best_probe_idx = (int)p;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (best_probe_idx >= 0) {
+                                // Multi-object depth resolution: if cache already has another object's hit, nearest wins (Handoff Item 21)
+                                auto it_cache = dynamic_receiver_cache.find(lc_key);
+                                bool claim_cell = true;
+                                if (it_cache != dynamic_receiver_cache.end() && it_cache->second.dynamic_group_id != group_id) {
+                                    if (it_cache->second.hit_distance < best_dist) {
+                                        claim_cell = false;
+                                    }
+                                }
+
+                                if (claim_cell) {
+                                    auto& probe = group.surface_probes[best_probe_idx];
+                                    RTXVector3 to_light = { light_pos.x - probe.world_position.x, light_pos.y - probe.world_position.y, light_pos.z - probe.world_position.z };
+                                    float dist = std::sqrt(to_light.x * to_light.x + to_light.y * to_light.y + to_light.z * to_light.z);
+                                    if (dist > 1e-4f) {
+                                        to_light.x /= dist; to_light.y /= dist; to_light.z /= dist;
+                                        float cos_n = std::max(0.0f, probe.world_normal.x * to_light.x + probe.world_normal.y * to_light.y + probe.world_normal.z * to_light.z);
+                                        float falloff = light_int * cos_n / (dist * dist + 0.1f);
+                                        RTXVector3 direct_e = { light_col.x * falloff, light_col.y * falloff, light_col.z * falloff };
+
+                                        probe.direct_irradiance.x += direct_e.x;
+                                        probe.direct_irradiance.y += direct_e.y;
+                                        probe.direct_irradiance.z += direct_e.z;
+
+                                        if (best_cluster_idx >= 0 && best_cluster_idx < (int)group.receiver_clusters.size()) {
+                                            group.receiver_clusters[best_cluster_idx].direct_irradiance.x += direct_e.x;
+                                            group.receiver_clusters[best_cluster_idx].direct_irradiance.y += direct_e.y;
+                                            group.receiver_clusters[best_cluster_idx].direct_irradiance.z += direct_e.z;
+                                        }
+
+                                        if (it_cache != dynamic_receiver_cache.end() && it_cache->second.probe_id == probe.probe_id && it_cache->second.dynamic_group_id == group_id) {
+                                            m.receiver_mappings_reused++;
+                                        } else {
+                                            m.receiver_mappings_created++;
+                                        }
+                                        m.receiver_mappings_active++;
+
+                                        dynamic_receiver_cache[lc_key] = { group_id, (uint32_t)best_cluster_idx, probe.probe_id, best_dist, group.transform_generation, 1.0f, direct_e };
+                                    }
+                                }
+                            }
+                        } else {
+                            // Cell not covered: remove mapping if owned by this group
+                            auto it_cache = dynamic_receiver_cache.find(lc_key);
+                            if (it_cache != dynamic_receiver_cache.end() && it_cache->second.dynamic_group_id == group_id) {
+                                dynamic_receiver_cache.erase(it_cache);
+                                m.receiver_mappings_removed++;
+                            }
+                        }
+                    }
+
+                    auto t_rec_end = std::chrono::high_resolution_clock::now();
+                    m.direct_receiver_us = std::chrono::duration<double, std::micro>(t_rec_end - t_rec_start).count();
+                }
+
                 group_light_angular_masks[gl_key] = new_mask;
             }
 
@@ -1707,8 +2240,9 @@ public:
 
         m.broadphase_rejection_pct = (m.total_dag_edges > 0)
             ? (1.0 - double(m.fine_tested_edges) / double(m.total_dag_edges)) * 100.0 : 0.0;
-        m.fine_rejection_pct = (m.fine_tested_edges > 0)
-            ? (1.0 - double(m.intersected_edges) / double(m.fine_tested_edges)) * 100.0 : 0.0;
+        m.temporal_reuse_ratio = (m.receiver_mappings_active > 0) ? (float)m.receiver_mappings_reused / (float)m.receiver_mappings_active : 1.0f;
+        m.work_sharing_ratio = (m.angular_current_cells > 0) ? 1.0f : 0.0f;
+        m.total_receiver_ms = (m.direct_receiver_us + m.indirect_receiver_us) / 1000.0;
 
         auto t_end = std::chrono::high_resolution_clock::now();
         m.total_update_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();

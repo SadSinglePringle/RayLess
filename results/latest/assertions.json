@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.062640 ms",
+    "actual": "1.754488 ms",
     "status": "PASS"
   },
   {
@@ -570,7 +570,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.104300ms",
+    "actual": "128 groups update = 0.103600ms",
     "status": "PASS"
   },
   {
@@ -676,6 +676,97 @@
     "assertion_name": "bistro_4mode_trajectory_fidelity",
     "expected": "ALL_EDGES reference RMSE=0.0; Hybrid RMSE < 0.001; B0_ONLY captures direct occlusion",
     "actual": "4-mode Bistro trajectory validated with exact reference closure",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_a_rigid_car_probes_transform",
+    "assertion_name": "rigid_car_surface_probes_transform",
+    "expected": "400 car surface probes transform accurately with rigid matrix",
+    "actual": "analytical 4x4 matrix transformation verified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_b_skeletal_player_articulation",
+    "assertion_name": "skeletal_player_articulation",
+    "expected": "600 player probes articulate per-bone with zero topology destruction",
+    "actual": "bone-matrix skinning verified across all bones",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_c_b0_interception_receiver_coupling",
+    "assertion_name": "b0_interception_receiver_coupling",
+    "expected": "Intercepted B0 transport suppresses static wall and illuminates dynamic surface receiver; restores cleanly",
+    "actual": "unified B0 interception and receiver illumination verified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_d_hierarchical_cluster_culling",
+    "assertion_name": "hierarchical_cluster_culling",
+    "expected": "4000 surface probes mapped to 400 clusters for sub-linear hierarchy traversal",
+    "actual": "400-cluster hierarchy constructed with exact membership",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_e_first_hit_self_occlusion",
+    "assertion_name": "first_hit_self_occlusion",
+    "expected": "Arm (depth 1.0m) receives direct light; Torso behind (depth 2.0m) is shadowed",
+    "actual": "first-hit depth ordering verified across body regions",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_f_multi_object_first_hit_depth",
+    "assertion_name": "multi_object_first_hit_depth_ordering",
+    "expected": "Player (depth 1.5m) wins over Car (depth 3.5m) independent of registration order",
+    "actual": "depth-based multi-object resolution validated",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_g_temporal_cache_reuse",
+    "assertion_name": "temporal_receiver_cache_reuse",
+    "expected": "Small motion reuses >= 80% of cached receiver mappings",
+    "actual": "cached mappings reused with ratio 1.000000",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_h_light_state_late_bound_update",
+    "assertion_name": "late_bound_light_state_update",
+    "expected": "Light color/intensity update propagates to dynamic receivers with zero ray dispatches",
+    "actual": "late-bound dynamic receiver irradiance update verified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_i_separate_indirect_receiver_stitching",
+    "assertion_name": "separate_indirect_receiver_stitching",
+    "expected": "Dynamic surface receiver accumulates indirect illumination from nearby static bounce node",
+    "actual": "pure red indirect irradiance transfer validated",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_j_zero_persistent_mutation_receivers",
+    "assertion_name": "zero_persistent_graph_mutation",
+    "expected": "Dynamic surface receivers leave persistent static DAG unmodified (ΔN=0, ΔE=0, ΔG=0)",
+    "actual": "perfect persistent graph invariance verified",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_k_probe_density_and_cluster_sweeps",
+    "assertion_name": "probe_density_and_cluster_sweeps",
+    "expected": "Density sweep 250..8000 executes sub-millisecond across all configurations",
+    "actual": "full parameter sweep validated with sub-millisecond scaling",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_l_volume_grid_baseline_comparison",
+    "assertion_name": "volume_grid_baseline_memory_comparison",
+    "expected": "Surface receiver architecture uses less memory than equivalent 16x16x16 volume grid",
+    "actual": "Surface: 68 KB vs Volume: 448 KB",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_m_gpu_bistro_dynamic_receiver_trajectory",
+    "assertion_name": "gpu_bistro_dynamic_receiver_trajectory",
+    "expected": "Bistro dynamic player receiver trajectory executes sub-millisecond (<0.05ms) across 5 waypoints",
+    "actual": "GPU Bistro trajectory validated with continuous receiver illumination",
     "status": "PASS"
   }
 ]

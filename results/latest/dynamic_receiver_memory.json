@@ -1,0 +1,27 @@
+{
+  "run_uuid": "run_20260824_105711_b6f2817_evidence_hardened",
+  "memory_models": [
+    {
+      "representation": "SURFACE_ATTACHED_RECEIVERS",
+      "fine_surface_samples": 1000,
+      "clusters": 100,
+      "probe_storage_bytes": 48000,
+      "cluster_storage_bytes": 6400,
+      "bone_metadata_bytes": 1024,
+      "cache_metadata_bytes": 2304,
+      "accumulator_bytes": 12000,
+      "total_bytes": 69728
+    },
+    {
+      "representation": "LOW_DENSITY_VOLUME_GRID_BASELINE",
+      "fine_surface_samples": 4096,
+      "clusters": 0,
+      "probe_storage_bytes": 262144,
+      "cluster_storage_bytes": 0,
+      "bone_metadata_bytes": 0,
+      "cache_metadata_bytes": 65536,
+      "accumulator_bytes": 131072,
+      "total_bytes": 458752
+    }
+  ]
+}

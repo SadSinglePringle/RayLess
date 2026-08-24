@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "run_uuid": "run_20260824_105711_b6f2817_evidence_hardened",
   "box_decomposition_experiments": [
     {
       "box_count": 1,
@@ -8,7 +8,7 @@
       "proxy_solid_angle": 0.42720,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.7577,
-      "update_us": 6.00
+      "update_us": 6.40
     },
     {
       "box_count": 4,
@@ -17,7 +17,7 @@
       "proxy_solid_angle": 0.56005,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.1035,
-      "update_us": 14.30
+      "update_us": 15.30
     },
     {
       "box_count": 8,
@@ -26,7 +26,7 @@
       "proxy_solid_angle": 0.52003,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.2654,
-      "update_us": 21.70
+      "update_us": 21.20
     },
     {
       "box_count": 16,
@@ -35,7 +35,7 @@
       "proxy_solid_angle": 0.61396,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 1.9189,
-      "update_us": 36.20
+      "update_us": 137.10
     }
   ]
 }

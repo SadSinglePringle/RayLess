@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_100315_489484f_evidence_hardened",
+  "run_uuid": "run_20260824_105711_b6f2817_evidence_hardened",
   "test_uuid": "part_f1_can_stitch_unit",
   "can_stitch_compatibility": "PASS",
   "matcher_safety": {

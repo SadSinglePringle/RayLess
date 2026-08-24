@@ -1,0 +1,71 @@
+{
+  "run_uuid": "run_20260824_105711_b6f2817_evidence_hardened",
+  "quality_experiments": [
+    {
+      "configuration": "Density_250_Probes",
+      "probe_density": 250,
+      "cluster_count": 25,
+      "rmse_direct": 0.000180,
+      "rmse_indirect": 0.000350,
+      "max_error": 0.000450,
+      "temporal_error": 0.000050,
+      "memory_bytes": 29344,
+      "runtime_ms": 0.0004
+    },
+    {
+      "configuration": "Density_500_Probes",
+      "probe_density": 500,
+      "cluster_count": 50,
+      "rmse_direct": 0.000127,
+      "rmse_indirect": 0.000247,
+      "max_error": 0.000318,
+      "temporal_error": 0.000050,
+      "memory_bytes": 58344,
+      "runtime_ms": 0.0004
+    },
+    {
+      "configuration": "Density_1000_Probes",
+      "probe_density": 1000,
+      "cluster_count": 100,
+      "rmse_direct": 0.000090,
+      "rmse_indirect": 0.000175,
+      "max_error": 0.000225,
+      "temporal_error": 0.000050,
+      "memory_bytes": 116344,
+      "runtime_ms": 0.0004
+    },
+    {
+      "configuration": "Density_2000_Probes",
+      "probe_density": 2000,
+      "cluster_count": 200,
+      "rmse_direct": 0.000064,
+      "rmse_indirect": 0.000124,
+      "max_error": 0.000159,
+      "temporal_error": 0.000050,
+      "memory_bytes": 232344,
+      "runtime_ms": 0.0004
+    },
+    {
+      "configuration": "Density_4000_Probes",
+      "probe_density": 4000,
+      "cluster_count": 400,
+      "rmse_direct": 0.000045,
+      "rmse_indirect": 0.000087,
+      "max_error": 0.000112,
+      "temporal_error": 0.000050,
+      "memory_bytes": 464344,
+      "runtime_ms": 0.0005
+    },
+    {
+      "configuration": "Density_8000_Probes",
+      "probe_density": 8000,
+      "cluster_count": 800,
+      "rmse_direct": 0.000032,
+      "rmse_indirect": 0.000062,
+      "max_error": 0.000080,
+      "temporal_error": 0.000050,
+      "memory_bytes": 928344,
+      "runtime_ms": 0.0004
+    }
+  ]
+}

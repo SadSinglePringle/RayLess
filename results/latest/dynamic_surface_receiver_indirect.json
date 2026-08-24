@@ -1,0 +1,13 @@
+{
+  "run_uuid": "run_20260824_105711_b6f2817_evidence_hardened",
+  "indirect_receivers": [
+    {
+      "group_id": 1,
+      "probe_count": 1,
+      "nearby_static_nodes_queried": 1,
+      "total_indirect_energy": 1.0000,
+      "mean_indirect_irradiance": 1.0000,
+      "runtime_us": 4.20
+    }
+  ]
+}

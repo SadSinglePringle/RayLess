@@ -1,0 +1,19 @@
+{
+  "run_uuid": "run_20260824_105711_b6f2817_evidence_hardened",
+  "direct_receivers": [
+    {
+      "group_label": "BistroPlayer",
+      "group_id": 1,
+      "light_id": 0,
+      "probe_count": 500,
+      "cluster_count": 50,
+      "affected_angular_cells": 2,
+      "receiver_mappings_active": 2,
+      "receiver_mappings_reused": 2,
+      "receiver_mappings_created": 0,
+      "exact_visibility_rays": 0,
+      "direct_energy": 12.00,
+      "runtime_us": 4.00
+    }
+  ]
+}
