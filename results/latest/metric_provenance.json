@@ -155,7 +155,7 @@
   {
     "test_uuid": "tier_scaling_128",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.036864,
+    "value": 0.038912,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -317,7 +317,7 @@
   {
     "test_uuid": "tier_scaling_1024",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.032768,
+    "value": 0.041984,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -398,7 +398,7 @@
   {
     "test_uuid": "tier_scaling_4096",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.056320,
+    "value": 0.058368,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -479,7 +479,7 @@
   {
     "test_uuid": "tier_scaling_16384",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.258048,
+    "value": 0.221184,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -560,7 +560,7 @@
   {
     "test_uuid": "tier_scaling_64000",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.074752,
+    "value": 0.072704,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -641,7 +641,7 @@
   {
     "test_uuid": "tier_scaling_128000",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.142336,
+    "value": 0.125952,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -695,7 +695,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_intersection_gpu_ms",
-    "value": 0.012288,
+    "value": 0.011264,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_traversal",
     "unit": "ms",
@@ -704,7 +704,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_schedule_cpu_us",
-    "value": 614.000000,
+    "value": 456.000000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "scheduler",
     "unit": "us",
@@ -713,7 +713,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_dispatch_gpu_ms",
-    "value": 0.006100,
+    "value": 0.006800,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_dispatch",
     "unit": "ms",
@@ -731,7 +731,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_process_gpu_ms",
-    "value": 0.005100,
+    "value": 0.006000,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "hit_processing",
     "unit": "ms",
@@ -740,7 +740,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_total_ms",
-    "value": 1.754488,
+    "value": 1.867064,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "end_to_end_repair",
     "unit": "ms",
@@ -749,7 +749,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_commit_cpu_us",
-    "value": 1117.000000,
+    "value": 1387.000000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "host_commit",
     "unit": "us",
