@@ -524,15 +524,36 @@ public:
     }
 };
 
-// Spatial Hash Grid for Static Transport Nodes (Phase 6 / Handoff Item 15)
+// Collision-Free 3D Spatial Grid Key for Static Transport Nodes (Phase 6 / Handoff Review)
+struct ASTGSpatialCellCoord {
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t z = 0;
+
+    bool operator==(const ASTGSpatialCellCoord& o) const {
+        return x == o.x && y == o.y && z == o.z;
+    }
+};
+
+struct ASTGSpatialCellHash {
+    size_t operator()(const ASTGSpatialCellCoord& c) const noexcept {
+        uint64_t h = (uint64_t)c.x * 0x9E3779B97F4A7C15ULL ^
+                     (uint64_t)c.y * 0xC2B2AE3D27D4EB4FULL ^
+                     (uint64_t)c.z * 0x165667B19E3779F9ULL;
+        h ^= h >> 30;
+        h *= 0xBF58476D1CE4E5B9ULL;
+        h ^= h >> 27;
+        h *= 0x94D049BB133111EBULL;
+        h ^= h >> 31;
+        return (size_t)h;
+    }
+};
+
+// Spatial Hash Grid for Static Transport Nodes (Phase 6 / Handoff Item 15 & Review Item 6)
 class ASTGStaticNodeSpatialGrid {
 public:
     float cell_size = 2.0f;
-    std::unordered_map<int64_t, std::vector<uint32_t>> grid;
-
-    static int64_t hash_cell(int x, int y, int z) {
-        return ((int64_t)x * 73856093) ^ ((int64_t)y * 19349663) ^ ((int64_t)z * 83492791);
-    }
+    std::unordered_map<ASTGSpatialCellCoord, std::vector<uint32_t>, ASTGSpatialCellHash> grid;
 
     void build(const std::vector<ASTGTransportNode>& nodes) {
         grid.clear();
@@ -541,7 +562,7 @@ public:
             int cx = (int)std::floor(nodes[i].position.x / cell_size);
             int cy = (int)std::floor(nodes[i].position.y / cell_size);
             int cz = (int)std::floor(nodes[i].position.z / cell_size);
-            grid[hash_cell(cx, cy, cz)].push_back((uint32_t)i);
+            grid[{ cx, cy, cz }].push_back((uint32_t)i);
         }
     }
 
@@ -557,7 +578,7 @@ public:
         for (int x = min_x; x <= max_x; ++x) {
             for (int y = min_y; y <= max_y; ++y) {
                 for (int z = min_z; z <= max_z; ++z) {
-                    auto it = grid.find(hash_cell(x, y, z));
+                    auto it = grid.find({ x, y, z });
                     if (it != grid.end()) {
                         for (uint32_t nid : it->second) {
                             out_nodes.push_back(nid);
@@ -565,6 +586,12 @@ public:
                     }
                 }
             }
+        }
+
+        // Deduplicate candidates in case any node was indexed multiple times
+        if (out_nodes.size() > 1) {
+            std::sort(out_nodes.begin(), out_nodes.end());
+            out_nodes.erase(std::unique(out_nodes.begin(), out_nodes.end()), out_nodes.end());
         }
     }
 };
@@ -651,6 +678,13 @@ struct RTXMatrix4x4 {
         if (std::abs(w) > 1e-6f && std::abs(w - 1.0f) > 1e-5f) {
             x /= w; y /= w; z /= w;
         }
+        return { x, y, z };
+    }
+
+    RTXVector3 transform_direction(const RTXVector3& d) const {
+        float x = m[0][0] * d.x + m[0][1] * d.y + m[0][2] * d.z;
+        float y = m[1][0] * d.x + m[1][1] * d.y + m[1][2] * d.z;
+        float z = m[2][0] * d.x + m[2][1] * d.y + m[2][2] * d.z;
         return { x, y, z };
     }
 
@@ -1546,10 +1580,13 @@ public:
     }
 
     ASTGStaticNodeSpatialGrid static_node_spatial_grid;
+    uint64_t transport_generation = 1;
+    uint64_t spatial_index_generation = 0;
 
     void rebuild_static_node_spatial_index(float cell_size = 2.0f) {
         static_node_spatial_grid.cell_size = cell_size;
         static_node_spatial_grid.build(bounce0_nodes);
+        spatial_index_generation = transport_generation;
     }
 
     void build_edge_to_path_mapping() {
@@ -1890,21 +1927,43 @@ public:
         }
     }
 
-    void evaluate_dynamic_receiver_indirect(uint32_t group_id, bool enable_gpu_visibility_refinement = false) {
+    struct IndirectVisibilityCandidate {
+        uint32_t probe_index;
+        uint32_t node_index;
+        float weight;
+        float dist;
+    };
+
+    void evaluate_dynamic_receiver_indirect(
+        uint32_t group_id,
+        bool enable_gpu_visibility_refinement = false,
+        uint32_t max_batch_size = 8192
+    ) {
         auto it = dynamic_occluder_groups.find(group_id);
         if (it == dynamic_occluder_groups.end() || !it->second.enable_surface_receivers) return;
 
         auto& group = it->second;
         if (group.surface_probes.empty()) return;
 
-        if (static_node_spatial_grid.grid.empty() && !bounce0_nodes.empty()) {
+        if (spatial_index_generation != transport_generation || (static_node_spatial_grid.grid.empty() && !bounce0_nodes.empty())) {
             rebuild_static_node_spatial_index();
         }
 
-        // 1. Cluster-level accelerated query when clusters are present (Handoff Item 15)
+        // Initialize probe indirect accumulators
+        for (auto& probe : group.surface_probes) {
+            probe.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+        }
+
+        std::vector<float> probe_total_weight(group.surface_probes.size(), 0.0f);
+        std::vector<RTXVector3> probe_accum_indirect(group.surface_probes.size(), { 0.0f, 0.0f, 0.0f });
+
+        std::vector<IndirectVisibilityCandidate> visibility_candidates;
+        std::vector<ASTGRay> batched_rays;
+        std::vector<ASTGRayHit> batched_hits;
+
+        // 1. Gather Phase: Search spatial index & perform cheap geometric rejection (Review Item 5)
         if (!group.receiver_clusters.empty()) {
-            for (auto& cluster : group.receiver_clusters) {
-                cluster.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+            for (const auto& cluster : group.receiver_clusters) {
                 std::vector<uint32_t> candidate_nodes;
                 if (!static_node_spatial_grid.grid.empty()) {
                     static_node_spatial_grid.query_sphere(cluster.world_centroid, cluster.cluster_radius + 3.0f, candidate_nodes);
@@ -1915,11 +1974,7 @@ public:
 
                 for (uint32_t p_idx : cluster.member_probe_indices) {
                     if (p_idx >= group.surface_probes.size() || !group.surface_probes[p_idx].is_active) continue;
-                    auto& probe = group.surface_probes[p_idx];
-                    probe.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
-
-                    float total_weight = 0.0f;
-                    RTXVector3 accum_indirect = { 0.0f, 0.0f, 0.0f };
+                    const auto& probe = group.surface_probes[p_idx];
 
                     for (uint32_t nid : candidate_nodes) {
                         if (nid >= bounce0_nodes.size() || !bounce0_nodes[nid].is_active) continue;
@@ -1936,61 +1991,43 @@ public:
                             float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
 
                             if (cos_probe > 0.05f && cos_node > 0.05f) {
-                                bool visible = true;
-                                if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
-                                    ASTGRay vis_ray;
-                                    vis_ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
-                                    vis_ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
-                                    vis_ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
-                                    vis_ray.dir_x = to_node.x; vis_ray.dir_y = to_node.y; vis_ray.dir_z = to_node.z;
-                                    vis_ray.t_min = 0.001f; vis_ray.t_max = dist - 0.02f;
-                                    ASTGRayHit vis_hit;
-                                    rtx_trace_rays_batch(&vis_ray, &vis_hit, 1);
-                                    if (vis_hit.hit != 0 && vis_hit.distance < dist - 0.02f) {
-                                        visible = false;
-                                    }
-                                }
+                                float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
+                                if (geom_factor > 1e-4f) {
+                                    float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
+                                    if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
+                                        IndirectVisibilityCandidate cand;
+                                        cand.probe_index = p_idx;
+                                        cand.node_index = nid;
+                                        cand.weight = w;
+                                        cand.dist = dist;
+                                        visibility_candidates.push_back(cand);
 
-                                if (visible) {
-                                    float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
-                                    if (geom_factor > 1e-4f) {
-                                        float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
-                                        accum_indirect.x += node.path_transfer_r * w;
-                                        accum_indirect.y += node.path_transfer_g * w;
-                                        accum_indirect.z += node.path_transfer_b * w;
-                                        total_weight += w;
+                                        ASTGRay ray;
+                                        ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
+                                        ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
+                                        ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
+                                        ray.dir_x = to_node.x; ray.dir_y = to_node.y; ray.dir_z = to_node.z;
+                                        ray.t_min = 0.001f; ray.t_max = dist - 0.02f;
+                                        ray.source_light_id = 0; ray.transport_node_id = nid; ray.angular_cell_id = 0; ray.flags = 0;
+                                        batched_rays.push_back(ray);
+                                    } else {
+                                        probe_accum_indirect[p_idx].x += node.path_transfer_r * w;
+                                        probe_accum_indirect[p_idx].y += node.path_transfer_g * w;
+                                        probe_accum_indirect[p_idx].z += node.path_transfer_b * w;
+                                        probe_total_weight[p_idx] += w;
                                     }
                                 }
                             }
                         }
                     }
-
-                    if (total_weight > 1e-5f) {
-                        probe.indirect_irradiance.x = accum_indirect.x / total_weight;
-                        probe.indirect_irradiance.y = accum_indirect.y / total_weight;
-                        probe.indirect_irradiance.z = accum_indirect.z / total_weight;
-                    }
-                }
-
-                // Aggregate cluster indirect irradiance
-                if (!cluster.member_probe_indices.empty()) {
-                    RTXVector3 c_ind = { 0.0f, 0.0f, 0.0f };
-                    for (uint32_t p_idx : cluster.member_probe_indices) {
-                        if (p_idx < group.surface_probes.size()) {
-                            c_ind.x += group.surface_probes[p_idx].indirect_irradiance.x;
-                            c_ind.y += group.surface_probes[p_idx].indirect_irradiance.y;
-                            c_ind.z += group.surface_probes[p_idx].indirect_irradiance.z;
-                        }
-                    }
-                    float count = (float)cluster.member_probe_indices.size();
-                    cluster.indirect_irradiance = { c_ind.x / count, c_ind.y / count, c_ind.z / count };
                 }
             }
         } else {
-            // 2. Unclustered probe query
-            for (auto& probe : group.surface_probes) {
-                if (!probe.is_active) continue;
-                probe.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+            // Unclustered probe query
+            for (size_t p_idx = 0; p_idx < group.surface_probes.size(); ++p_idx) {
+                if (!group.surface_probes[p_idx].is_active) continue;
+                const auto& probe = group.surface_probes[p_idx];
+
                 std::vector<uint32_t> candidate_nodes;
                 if (!static_node_spatial_grid.grid.empty()) {
                     static_node_spatial_grid.query_sphere(probe.world_position, 3.0f, candidate_nodes);
@@ -1998,9 +2035,6 @@ public:
                     candidate_nodes.resize(bounce0_nodes.size());
                     for (size_t n = 0; n < bounce0_nodes.size(); ++n) candidate_nodes[n] = (uint32_t)n;
                 }
-
-                float total_weight = 0.0f;
-                RTXVector3 accum_indirect = { 0.0f, 0.0f, 0.0f };
 
                 for (uint32_t nid : candidate_nodes) {
                     if (nid >= bounce0_nodes.size() || !bounce0_nodes[nid].is_active) continue;
@@ -2017,40 +2051,87 @@ public:
                         float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
 
                         if (cos_probe > 0.05f && cos_node > 0.05f) {
-                            bool visible = true;
-                            if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
-                                ASTGRay vis_ray;
-                                vis_ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
-                                vis_ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
-                                vis_ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
-                                vis_ray.dir_x = to_node.x; vis_ray.dir_y = to_node.y; vis_ray.dir_z = to_node.z;
-                                vis_ray.t_min = 0.001f; vis_ray.t_max = dist - 0.02f;
-                                ASTGRayHit vis_hit;
-                                rtx_trace_rays_batch(&vis_ray, &vis_hit, 1);
-                                if (vis_hit.hit != 0 && vis_hit.distance < dist - 0.02f) {
-                                    visible = false;
-                                }
-                            }
+                            float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
+                            if (geom_factor > 1e-4f) {
+                                float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
+                                if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
+                                    IndirectVisibilityCandidate cand;
+                                    cand.probe_index = (uint32_t)p_idx;
+                                    cand.node_index = nid;
+                                    cand.weight = w;
+                                    cand.dist = dist;
+                                    visibility_candidates.push_back(cand);
 
-                            if (visible) {
-                                float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
-                                if (geom_factor > 1e-4f) {
-                                    float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
-                                    accum_indirect.x += node.path_transfer_r * w;
-                                    accum_indirect.y += node.path_transfer_g * w;
-                                    accum_indirect.z += node.path_transfer_b * w;
-                                    total_weight += w;
+                                    ASTGRay ray;
+                                    ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
+                                    ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
+                                    ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
+                                    ray.dir_x = to_node.x; ray.dir_y = to_node.y; ray.dir_z = to_node.z;
+                                    ray.t_min = 0.001f; ray.t_max = dist - 0.02f;
+                                    ray.source_light_id = 0; ray.transport_node_id = nid; ray.angular_cell_id = 0; ray.flags = 0;
+                                    batched_rays.push_back(ray);
+                                } else {
+                                    probe_accum_indirect[p_idx].x += node.path_transfer_r * w;
+                                    probe_accum_indirect[p_idx].y += node.path_transfer_g * w;
+                                    probe_accum_indirect[p_idx].z += node.path_transfer_b * w;
+                                    probe_total_weight[p_idx] += w;
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
 
-                if (total_weight > 1e-5f) {
-                    probe.indirect_irradiance.x = accum_indirect.x / total_weight;
-                    probe.indirect_irradiance.y = accum_indirect.y / total_weight;
-                    probe.indirect_irradiance.z = accum_indirect.z / total_weight;
+        // 2. Dispatch Phase: Trace batched visibility rays in chunks up to max_batch_size
+        if (!batched_rays.empty()) {
+            batched_hits.resize(batched_rays.size());
+            size_t total_rays = batched_rays.size();
+            size_t chunk_size = (max_batch_size > 0) ? max_batch_size : 8192;
+
+            for (size_t offset = 0; offset < total_rays; offset += chunk_size) {
+                size_t count = std::min(chunk_size, total_rays - offset);
+                rtx_trace_rays_batch(&batched_rays[offset], &batched_hits[offset], (int32_t)count);
+            }
+
+            // 3. Consume Phase: Filter unoccluded candidates and accumulate irradiance
+            for (size_t i = 0; i < total_rays; ++i) {
+                const auto& cand = visibility_candidates[i];
+                const auto& hit = batched_hits[i];
+                if (hit.hit == 0 || hit.distance >= cand.dist - 0.02f) {
+                    const auto& node = bounce0_nodes[cand.node_index];
+                    uint32_t p_idx = cand.probe_index;
+                    float w = cand.weight;
+                    probe_accum_indirect[p_idx].x += node.path_transfer_r * w;
+                    probe_accum_indirect[p_idx].y += node.path_transfer_g * w;
+                    probe_accum_indirect[p_idx].z += node.path_transfer_b * w;
+                    probe_total_weight[p_idx] += w;
                 }
+            }
+        }
+
+        // 4. Finalize Probe & Cluster Irradiance
+        for (size_t p_idx = 0; p_idx < group.surface_probes.size(); ++p_idx) {
+            if (probe_total_weight[p_idx] > 1e-5f) {
+                group.surface_probes[p_idx].indirect_irradiance.x = probe_accum_indirect[p_idx].x / probe_total_weight[p_idx];
+                group.surface_probes[p_idx].indirect_irradiance.y = probe_accum_indirect[p_idx].y / probe_total_weight[p_idx];
+                group.surface_probes[p_idx].indirect_irradiance.z = probe_accum_indirect[p_idx].z / probe_total_weight[p_idx];
+            }
+        }
+
+        for (auto& cluster : group.receiver_clusters) {
+            cluster.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+            if (!cluster.member_probe_indices.empty()) {
+                RTXVector3 c_ind = { 0.0f, 0.0f, 0.0f };
+                for (uint32_t p_idx : cluster.member_probe_indices) {
+                    if (p_idx < group.surface_probes.size()) {
+                        c_ind.x += group.surface_probes[p_idx].indirect_irradiance.x;
+                        c_ind.y += group.surface_probes[p_idx].indirect_irradiance.y;
+                        c_ind.z += group.surface_probes[p_idx].indirect_irradiance.z;
+                    }
+                }
+                float count = (float)cluster.member_probe_indices.size();
+                cluster.indirect_irradiance = { c_ind.x / count, c_ind.y / count, c_ind.z / count };
             }
         }
     }
