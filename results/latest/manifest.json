@@ -1,11 +1,11 @@
 {
   "schema_version": "2.1.0",
-  "run_uuid": "run_20260824_132658_2060c8bd7968b9173c5769b871c255ba6e10d7f3_evidence_hardened",
-  "session_timestamp": "20260824_132658",
-  "source_commit_sha": "2060c8bd7968b9173c5769b871c255ba6e10d7f3",
-  "build_commit_sha": "2060c8bd7968b9173c5769b871c255ba6e10d7f3",
+  "run_uuid": "run_20260824_134958_5ca803c8133b5d071e3665ef724209995cf710c6_evidence_hardened",
+  "session_timestamp": "20260824_134958",
+  "source_commit_sha": "5ca803c8133b5d071e3665ef724209995cf710c6",
+  "build_commit_sha": "5ca803c8133b5d071e3665ef724209995cf710c6",
   "results_commit_note": "results_commit != benchmarked_source_commit (results committed in post-pass)",
-  "binary_sha256": "a431bfa8060e29e0a3480cadb960b12ea572c4e50e40a2c694fda26689c6bbbb",
+  "binary_sha256": "cc3f6dba1967716922e64ec4e2e1be23b88e026dae1805363cb12a835bd7dbc4",
   "scene_gltf_sha256": "296023fa7214b5e086cef2103586afc982f77118ad0bd7d1f12c5b655ea95377",
   "scene_bin_sha256": "d534ee933ab931284488f64bf410a0036bfe8541f156433b8b19ed56bc05701f",
   "geometry_vertex_sha256": "13f6994494b9acc6e9935cd6d91315bda3ccc50e7a6e6c0eb897baa2a9f55e09",
@@ -14,7 +14,7 @@
     "api": "Direct3D 12.1 / DXR 1.1",
     "hardware_rt_cores": true
   },
-  "sealed_test_results_count": 95,
+  "sealed_test_results_count": 97,
   "known_limitations": [
     "Unbounded late-bound source intensity spikes (>10x) not guaranteed under sparse static pruning without dynamic promotion.",
     "Continuous moving geometry requires skinning AS rebuild.",

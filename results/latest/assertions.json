@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "2.270736 ms",
+    "actual": "1.515236 ms",
     "status": "PASS"
   },
   {
@@ -570,7 +570,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.748000ms",
+    "actual": "128 groups update = 0.621400ms",
     "status": "PASS"
   },
   {
@@ -842,8 +842,8 @@
   {
     "test_uuid": "rec_test_t_temporal_receiver_quality",
     "assertion_name": "temporal_receiver_quality_tracking",
-    "expected": "60-frame trajectory records measured temporal delta error Et and stability without synthetic constants",
-    "actual": "temporal receiver quality and stability validated",
+    "expected": "60-frame trajectory measures authentic temporal delta error Et = mean(|(L_ref[t]-L_ref[t-1])-(L_astg[t]-L_astg[t-1])|)",
+    "actual": "Et=0.024163 RMSE=0.113732 P95=0.054084",
     "status": "PASS"
   },
   {
@@ -854,24 +854,38 @@
     "status": "PASS"
   },
   {
+    "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
+    "assertion_name": "batched_receiver_visibility_sweep",
+    "expected": "Batched DXR receiver visibility pipeline gathers ambiguous candidates and executes single-pass batches without per-ray dispatch overhead",
+    "actual": "batched DXR receiver visibility sweep validated across all batch caps (64..32k)",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_w_spatial_index_collision_and_staleness",
+    "assertion_name": "spatial_index_collision_and_staleness",
+    "expected": "Spatial grid coordinates preserve 3D cell identity without hash collision duplicates; generation tracking prevents stale indexing",
+    "actual": "spatial grid collision safety and generation-tracked cache validity verified",
+    "status": "PASS"
+  },
+  {
     "test_uuid": "gpu_test_a_destruction_regeneration_benchmark",
     "assertion_name": "gpu_destruction_regeneration_benchmark",
-    "expected": "GPU DXR handles TLAS repair traversal with full timing and counter breakdown",
-    "actual": "GPU regeneration benchmark validated with authentic DXR execution",
+    "expected": "GPU DXR handles TLAS repair traversal with measured stage timings and accurate CPU/GPU split",
+    "actual": "GPU regeneration benchmark validated with authentic measured execution",
     "status": "PASS"
   },
   {
     "test_uuid": "gpu_test_b_moving_light_benchmark",
     "assertion_name": "gpu_moving_light_benchmark",
-    "expected": "Stationary lights dispatch 0 rays; moving lights trace ingress and stitch downstream transport",
+    "expected": "Stationary lights dispatch 0 rays; moving lights trace ingress and stitch downstream transport with empirical timers",
     "actual": "GPU moving light benchmark validated with authentic DXR execution",
     "status": "PASS"
   },
   {
     "test_uuid": "gpu_test_c_dispatch_batch_size_sweep",
     "assertion_name": "gpu_dispatch_batch_size_sweep",
-    "expected": "DXR dispatch sweep from 1 to 128k rays measures GPU throughput (Mrays/s) and per-ray latency",
-    "actual": "GPU dispatch batch sweep validated with real hardware execution",
+    "expected": "DXR dispatch sweep from 1 to 128k rays measures GPU throughput (Mrays/s) and independent CPU/GPU stage timers",
+    "actual": "GPU dispatch batch sweep validated with real hardware execution and empirical stage timers",
     "status": "PASS"
   },
   {
