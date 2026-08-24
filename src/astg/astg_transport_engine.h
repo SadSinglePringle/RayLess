@@ -524,6 +524,51 @@ public:
     }
 };
 
+// Spatial Hash Grid for Static Transport Nodes (Phase 6 / Handoff Item 15)
+class ASTGStaticNodeSpatialGrid {
+public:
+    float cell_size = 2.0f;
+    std::unordered_map<int64_t, std::vector<uint32_t>> grid;
+
+    static int64_t hash_cell(int x, int y, int z) {
+        return ((int64_t)x * 73856093) ^ ((int64_t)y * 19349663) ^ ((int64_t)z * 83492791);
+    }
+
+    void build(const std::vector<ASTGTransportNode>& nodes) {
+        grid.clear();
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            if (!nodes[i].is_active) continue;
+            int cx = (int)std::floor(nodes[i].position.x / cell_size);
+            int cy = (int)std::floor(nodes[i].position.y / cell_size);
+            int cz = (int)std::floor(nodes[i].position.z / cell_size);
+            grid[hash_cell(cx, cy, cz)].push_back((uint32_t)i);
+        }
+    }
+
+    void query_sphere(const RTXVector3& center, float radius, std::vector<uint32_t>& out_nodes) const {
+        out_nodes.clear();
+        int min_x = (int)std::floor((center.x - radius) / cell_size);
+        int max_x = (int)std::floor((center.x + radius) / cell_size);
+        int min_y = (int)std::floor((center.y - radius) / cell_size);
+        int max_y = (int)std::floor((center.y + radius) / cell_size);
+        int min_z = (int)std::floor((center.z - radius) / cell_size);
+        int max_z = (int)std::floor((center.z + radius) / cell_size);
+
+        for (int x = min_x; x <= max_x; ++x) {
+            for (int y = min_y; y <= max_y; ++y) {
+                for (int z = min_z; z <= max_z; ++z) {
+                    auto it = grid.find(hash_cell(x, y, z));
+                    if (it != grid.end()) {
+                        for (uint32_t nid : it->second) {
+                            out_nodes.push_back(nid);
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
+
 // Dedicated ASTG Occlusion Proxy Box (Handoff Item 4, 5, 6 / Hardened)
 struct ASTGOccluderBounds {
     ASTGAABB local_bounds;
@@ -1500,6 +1545,13 @@ public:
         }
     }
 
+    ASTGStaticNodeSpatialGrid static_node_spatial_grid;
+
+    void rebuild_static_node_spatial_index(float cell_size = 2.0f) {
+        static_node_spatial_grid.cell_size = cell_size;
+        static_node_spatial_grid.build(bounce0_nodes);
+    }
+
     void build_edge_to_path_mapping() {
         edge_to_path_contributions.clear();
         light_cell_to_paths.clear();
@@ -1838,64 +1890,167 @@ public:
         }
     }
 
-    void evaluate_dynamic_receiver_indirect(uint32_t group_id) {
+    void evaluate_dynamic_receiver_indirect(uint32_t group_id, bool enable_gpu_visibility_refinement = false) {
         auto it = dynamic_occluder_groups.find(group_id);
         if (it == dynamic_occluder_groups.end() || !it->second.enable_surface_receivers) return;
 
         auto& group = it->second;
-        for (auto& probe : group.surface_probes) {
-            if (!probe.is_active) continue;
+        if (group.surface_probes.empty()) return;
 
-            probe.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
-            float total_weight = 0.0f;
-            RTXVector3 accum_indirect = { 0.0f, 0.0f, 0.0f };
+        if (static_node_spatial_grid.grid.empty() && !bounce0_nodes.empty()) {
+            rebuild_static_node_spatial_index();
+        }
 
-            // Query static world surface nodes (e.g. bounce 1+ nodes)
-            for (const auto& node : bounce0_nodes) {
-                if (!node.is_active) continue;
-                float dx = node.position.x - probe.world_position.x;
-                float dy = node.position.y - probe.world_position.y;
-                float dz = node.position.z - probe.world_position.z;
-                float dist_sq = dx * dx + dy * dy + dz * dz;
-                if (dist_sq < 9.0f) { // Within 3m
-                    float dist = std::sqrt(dist_sq) + 1e-4f;
-                    RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
-                    float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
-                    float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
-                    if (cos_probe > 0.05f && cos_node > 0.05f) {
-                        float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
-                        if (geom_factor > 1e-4f) {
-                            float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
-                            accum_indirect.x += node.path_transfer_r * w;
-                            accum_indirect.y += node.path_transfer_g * w;
-                            accum_indirect.z += node.path_transfer_b * w;
-                            total_weight += w;
+        // 1. Cluster-level accelerated query when clusters are present (Handoff Item 15)
+        if (!group.receiver_clusters.empty()) {
+            for (auto& cluster : group.receiver_clusters) {
+                cluster.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+                std::vector<uint32_t> candidate_nodes;
+                if (!static_node_spatial_grid.grid.empty()) {
+                    static_node_spatial_grid.query_sphere(cluster.world_centroid, cluster.cluster_radius + 3.0f, candidate_nodes);
+                } else {
+                    candidate_nodes.resize(bounce0_nodes.size());
+                    for (size_t n = 0; n < bounce0_nodes.size(); ++n) candidate_nodes[n] = (uint32_t)n;
+                }
+
+                for (uint32_t p_idx : cluster.member_probe_indices) {
+                    if (p_idx >= group.surface_probes.size() || !group.surface_probes[p_idx].is_active) continue;
+                    auto& probe = group.surface_probes[p_idx];
+                    probe.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+
+                    float total_weight = 0.0f;
+                    RTXVector3 accum_indirect = { 0.0f, 0.0f, 0.0f };
+
+                    for (uint32_t nid : candidate_nodes) {
+                        if (nid >= bounce0_nodes.size() || !bounce0_nodes[nid].is_active) continue;
+                        const auto& node = bounce0_nodes[nid];
+
+                        float dx = node.position.x - probe.world_position.x;
+                        float dy = node.position.y - probe.world_position.y;
+                        float dz = node.position.z - probe.world_position.z;
+                        float dist_sq = dx * dx + dy * dy + dz * dz;
+                        if (dist_sq < 9.0f) { // Within 3m
+                            float dist = std::sqrt(dist_sq) + 1e-4f;
+                            RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
+                            float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
+                            float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
+
+                            if (cos_probe > 0.05f && cos_node > 0.05f) {
+                                bool visible = true;
+                                if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
+                                    ASTGRay vis_ray;
+                                    vis_ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
+                                    vis_ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
+                                    vis_ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
+                                    vis_ray.dir_x = to_node.x; vis_ray.dir_y = to_node.y; vis_ray.dir_z = to_node.z;
+                                    vis_ray.t_min = 0.001f; vis_ray.t_max = dist - 0.02f;
+                                    ASTGRayHit vis_hit;
+                                    rtx_trace_rays_batch(&vis_ray, &vis_hit, 1);
+                                    if (vis_hit.hit != 0 && vis_hit.distance < dist - 0.02f) {
+                                        visible = false;
+                                    }
+                                }
+
+                                if (visible) {
+                                    float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
+                                    if (geom_factor > 1e-4f) {
+                                        float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
+                                        accum_indirect.x += node.path_transfer_r * w;
+                                        accum_indirect.y += node.path_transfer_g * w;
+                                        accum_indirect.z += node.path_transfer_b * w;
+                                        total_weight += w;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (total_weight > 1e-5f) {
+                        probe.indirect_irradiance.x = accum_indirect.x / total_weight;
+                        probe.indirect_irradiance.y = accum_indirect.y / total_weight;
+                        probe.indirect_irradiance.z = accum_indirect.z / total_weight;
+                    }
+                }
+
+                // Aggregate cluster indirect irradiance
+                if (!cluster.member_probe_indices.empty()) {
+                    RTXVector3 c_ind = { 0.0f, 0.0f, 0.0f };
+                    for (uint32_t p_idx : cluster.member_probe_indices) {
+                        if (p_idx < group.surface_probes.size()) {
+                            c_ind.x += group.surface_probes[p_idx].indirect_irradiance.x;
+                            c_ind.y += group.surface_probes[p_idx].indirect_irradiance.y;
+                            c_ind.z += group.surface_probes[p_idx].indirect_irradiance.z;
+                        }
+                    }
+                    float count = (float)cluster.member_probe_indices.size();
+                    cluster.indirect_irradiance = { c_ind.x / count, c_ind.y / count, c_ind.z / count };
+                }
+            }
+        } else {
+            // 2. Unclustered probe query
+            for (auto& probe : group.surface_probes) {
+                if (!probe.is_active) continue;
+                probe.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
+                std::vector<uint32_t> candidate_nodes;
+                if (!static_node_spatial_grid.grid.empty()) {
+                    static_node_spatial_grid.query_sphere(probe.world_position, 3.0f, candidate_nodes);
+                } else {
+                    candidate_nodes.resize(bounce0_nodes.size());
+                    for (size_t n = 0; n < bounce0_nodes.size(); ++n) candidate_nodes[n] = (uint32_t)n;
+                }
+
+                float total_weight = 0.0f;
+                RTXVector3 accum_indirect = { 0.0f, 0.0f, 0.0f };
+
+                for (uint32_t nid : candidate_nodes) {
+                    if (nid >= bounce0_nodes.size() || !bounce0_nodes[nid].is_active) continue;
+                    const auto& node = bounce0_nodes[nid];
+
+                    float dx = node.position.x - probe.world_position.x;
+                    float dy = node.position.y - probe.world_position.y;
+                    float dz = node.position.z - probe.world_position.z;
+                    float dist_sq = dx * dx + dy * dy + dz * dz;
+                    if (dist_sq < 9.0f) {
+                        float dist = std::sqrt(dist_sq) + 1e-4f;
+                        RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
+                        float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
+                        float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
+
+                        if (cos_probe > 0.05f && cos_node > 0.05f) {
+                            bool visible = true;
+                            if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
+                                ASTGRay vis_ray;
+                                vis_ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
+                                vis_ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
+                                vis_ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
+                                vis_ray.dir_x = to_node.x; vis_ray.dir_y = to_node.y; vis_ray.dir_z = to_node.z;
+                                vis_ray.t_min = 0.001f; vis_ray.t_max = dist - 0.02f;
+                                ASTGRayHit vis_hit;
+                                rtx_trace_rays_batch(&vis_ray, &vis_hit, 1);
+                                if (vis_hit.hit != 0 && vis_hit.distance < dist - 0.02f) {
+                                    visible = false;
+                                }
+                            }
+
+                            if (visible) {
+                                float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
+                                if (geom_factor > 1e-4f) {
+                                    float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
+                                    accum_indirect.x += node.path_transfer_r * w;
+                                    accum_indirect.y += node.path_transfer_g * w;
+                                    accum_indirect.z += node.path_transfer_b * w;
+                                    total_weight += w;
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            if (total_weight > 1e-5f) {
-                probe.indirect_irradiance.x = accum_indirect.x / total_weight;
-                probe.indirect_irradiance.y = accum_indirect.y / total_weight;
-                probe.indirect_irradiance.z = accum_indirect.z / total_weight;
-            }
-        }
-
-        // Aggregate cluster indirect irradiance
-        for (auto& cluster : group.receiver_clusters) {
-            cluster.indirect_irradiance = { 0.0f, 0.0f, 0.0f };
-            if (!cluster.member_probe_indices.empty()) {
-                RTXVector3 c_ind = { 0.0f, 0.0f, 0.0f };
-                for (uint32_t p_idx : cluster.member_probe_indices) {
-                    if (p_idx < group.surface_probes.size()) {
-                        c_ind.x += group.surface_probes[p_idx].indirect_irradiance.x;
-                        c_ind.y += group.surface_probes[p_idx].indirect_irradiance.y;
-                        c_ind.z += group.surface_probes[p_idx].indirect_irradiance.z;
-                    }
+                if (total_weight > 1e-5f) {
+                    probe.indirect_irradiance.x = accum_indirect.x / total_weight;
+                    probe.indirect_irradiance.y = accum_indirect.y / total_weight;
+                    probe.indirect_irradiance.z = accum_indirect.z / total_weight;
                 }
-                float count = (float)cluster.member_probe_indices.size();
-                cluster.indirect_irradiance = { c_ind.x / count, c_ind.y / count, c_ind.z / count };
             }
         }
     }

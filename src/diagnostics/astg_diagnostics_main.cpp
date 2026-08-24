@@ -56,7 +56,10 @@ int main(int argc, char** argv) {
     diag.test_dynamic_surface_receivers();
     diag.print_dynamic_surface_receivers_report();
 
-    // 12. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
+    // 12. PART L: ASTG GPU-First Transport Execution & Split Accounting
+    diag.test_gpu_first_transport_benchmarks();
+
+    // 13. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation
     diag.export_all_diagnostics_files();
 
     // 12. PART 90: Final Evidence Integrity Report

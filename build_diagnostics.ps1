@@ -9,7 +9,7 @@ if (-not (Test-Path "bin")) {
     New-Item -ItemType Directory -Path "bin" | Out-Null
 }
 
-$GIT_COMMIT = (git rev-parse --short HEAD).Trim()
+$GIT_COMMIT = (git rev-parse HEAD).Trim()
 if (-not $GIT_COMMIT) {
     $GIT_COMMIT = "unknown_commit"
 }
