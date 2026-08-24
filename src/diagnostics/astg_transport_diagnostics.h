@@ -7751,9 +7751,27 @@ public:
                         if (d_diff > max_err) max_err = d_diff;
                     }
 
-                    std::sort(abs_errors.begin(), abs_errors.end());
-                    float p95_err = abs_errors[int(16000 * 0.95)];
-                    float p99_err = abs_errors[int(16000 * 0.99)];
+                    // Compute error distribution over lit/active samples to prevent zero-dilution (Review Item 9)
+                    std::vector<float> lit_abs_errors;
+                    for (uint32_t j = 0; j < 16000; ++j) {
+                        uint32_t nearest_p = (j * density) / 16000;
+                        if (nearest_p >= density) nearest_p = density - 1;
+                        if (ref_direct_e[j] > 0.001f || probes[nearest_p].direct_irradiance.x > 0.001f) {
+                            lit_abs_errors.push_back(abs_errors[j]);
+                        }
+                    }
+
+                    float p95_err = 0.0f;
+                    float p99_err = 0.0f;
+                    if (!lit_abs_errors.empty()) {
+                        std::sort(lit_abs_errors.begin(), lit_abs_errors.end());
+                        p95_err = lit_abs_errors[int(lit_abs_errors.size() * 0.95)];
+                        p99_err = lit_abs_errors[int(lit_abs_errors.size() * 0.99)];
+                    } else {
+                        std::sort(abs_errors.begin(), abs_errors.end());
+                        p95_err = abs_errors[int(16000 * 0.95)];
+                        p99_err = abs_errors[int(16000 * 0.99)];
+                    }
 
                     // Measure real temporal delta error for this configuration under frame motion:
                     // Step 1: Move group slightly (0.1m translation)
