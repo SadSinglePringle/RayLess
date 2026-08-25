@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_182750_1486430b1666b889e45de866dd10bb615b350dc9_evidence_hardened",
+  "run_uuid": "run_20260824_204843_277f889aa5bbd52e4ef68a5652f371cb17c9374f_evidence_hardened",
   "quality_experiments": [
     {
       "configuration": "Density_250_Clusters_64",
@@ -9,11 +9,14 @@
       "mae_direct": 0.008835,
       "p95_direct": 1.098889,
       "p99_direct": 1.098889,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.004858,
       "memory_bytes": 42288,
-      "runtime_ms": 0.0471
+      "runtime_ms": 0.0145
     },
     {
       "configuration": "Density_250_Clusters_128",
@@ -23,11 +26,14 @@
       "mae_direct": 0.008344,
       "p95_direct": 1.098889,
       "p99_direct": 1.098889,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.004366,
       "memory_bytes": 55088,
-      "runtime_ms": 0.0210
+      "runtime_ms": 0.0157
     },
     {
       "configuration": "Density_250_Clusters_256",
@@ -37,11 +43,14 @@
       "mae_direct": 0.008082,
       "p95_direct": 1.033845,
       "p99_direct": 1.033845,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593406,
       "temporal_error": 0.012357,
       "memory_bytes": 80688,
-      "runtime_ms": 0.0300
+      "runtime_ms": 0.0181
     },
     {
       "configuration": "Density_250_Clusters_512",
@@ -51,11 +60,14 @@
       "mae_direct": 0.008082,
       "p95_direct": 1.033845,
       "p99_direct": 1.033845,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593406,
       "temporal_error": 0.012357,
       "memory_bytes": 131888,
-      "runtime_ms": 0.0422
+      "runtime_ms": 0.0285
     },
     {
       "configuration": "Density_250_Clusters_1024",
@@ -65,11 +77,14 @@
       "mae_direct": 0.008082,
       "p95_direct": 1.033845,
       "p99_direct": 1.033845,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593406,
       "temporal_error": 0.012357,
       "memory_bytes": 234288,
-      "runtime_ms": 0.1662
+      "runtime_ms": 0.0498
     },
     {
       "configuration": "Density_250_Clusters_Independent",
@@ -79,11 +94,14 @@
       "mae_direct": 0.025961,
       "p95_direct": 6.593336,
       "p99_direct": 6.593336,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593336,
       "temporal_error": 0.009227,
       "memory_bytes": 29576,
-      "runtime_ms": 0.0470
+      "runtime_ms": 0.0324
     },
     {
       "configuration": "Density_500_Clusters_64",
@@ -93,11 +111,14 @@
       "mae_direct": 0.004648,
       "p95_direct": 1.098889,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.002865,
       "memory_bytes": 71288,
-      "runtime_ms": 0.0382
+      "runtime_ms": 0.0281
     },
     {
       "configuration": "Density_500_Clusters_128",
@@ -107,11 +128,14 @@
       "mae_direct": 0.004555,
       "p95_direct": 1.098889,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.002772,
       "memory_bytes": 84088,
-      "runtime_ms": 0.0322
+      "runtime_ms": 0.0234
     },
     {
       "configuration": "Density_500_Clusters_256",
@@ -121,11 +145,14 @@
       "mae_direct": 0.004536,
       "p95_direct": 1.098889,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.002753,
       "memory_bytes": 109688,
-      "runtime_ms": 0.0432
+      "runtime_ms": 0.0245
     },
     {
       "configuration": "Density_500_Clusters_512",
@@ -135,11 +162,14 @@
       "mae_direct": 0.004468,
       "p95_direct": 1.033845,
       "p99_direct": 6.593406,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593406,
       "temporal_error": 0.006742,
       "memory_bytes": 160888,
-      "runtime_ms": 0.0480
+      "runtime_ms": 0.1436
     },
     {
       "configuration": "Density_500_Clusters_1024",
@@ -149,11 +179,14 @@
       "mae_direct": 0.004468,
       "p95_direct": 1.033845,
       "p99_direct": 6.593406,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593406,
       "temporal_error": 0.006742,
       "memory_bytes": 263288,
-      "runtime_ms": 0.0730
+      "runtime_ms": 0.0512
     },
     {
       "configuration": "Density_500_Clusters_Independent",
@@ -163,11 +196,14 @@
       "mae_direct": 0.012775,
       "p95_direct": 6.593336,
       "p99_direct": 6.593336,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593336,
       "temporal_error": 0.004819,
       "memory_bytes": 58576,
-      "runtime_ms": 0.1658
+      "runtime_ms": 0.0595
     },
     {
       "configuration": "Density_1000_Clusters_64",
@@ -177,11 +213,14 @@
       "mae_direct": 0.002470,
       "p95_direct": 1.098889,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 129288,
-      "runtime_ms": 0.0758
+      "runtime_ms": 0.0541
     },
     {
       "configuration": "Density_1000_Clusters_128",
@@ -191,11 +230,14 @@
       "mae_direct": 0.002470,
       "p95_direct": 1.098889,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 142088,
-      "runtime_ms": 0.0629
+      "runtime_ms": 0.0458
     },
     {
       "configuration": "Density_1000_Clusters_256",
@@ -205,11 +247,14 @@
       "mae_direct": 0.002470,
       "p95_direct": 1.098889,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 167688,
-      "runtime_ms": 0.0527
+      "runtime_ms": 0.0382
     },
     {
       "configuration": "Density_1000_Clusters_512",
@@ -219,11 +264,14 @@
       "mae_direct": 0.002470,
       "p95_direct": 1.098889,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 218888,
-      "runtime_ms": 0.0555
+      "runtime_ms": 0.0399
     },
     {
       "configuration": "Density_1000_Clusters_1024",
@@ -233,11 +281,14 @@
       "mae_direct": 0.002503,
       "p95_direct": 1.056998,
       "p99_direct": 6.593406,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593406,
       "temporal_error": 0.003823,
       "memory_bytes": 321288,
-      "runtime_ms": 0.0911
+      "runtime_ms": 0.0554
     },
     {
       "configuration": "Density_1000_Clusters_Independent",
@@ -247,11 +298,14 @@
       "mae_direct": 0.006181,
       "p95_direct": 6.593336,
       "p99_direct": 6.593336,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593336,
       "temporal_error": 0.010301,
       "memory_bytes": 116576,
-      "runtime_ms": 0.1518
+      "runtime_ms": 0.1104
     },
     {
       "configuration": "Density_2000_Clusters_64",
@@ -261,11 +315,14 @@
       "mae_direct": 0.001236,
       "p95_direct": 4.395627,
       "p99_direct": 4.395627,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 4.395627,
       "temporal_error": 0.002060,
       "memory_bytes": 245288,
-      "runtime_ms": 0.1497
+      "runtime_ms": 0.1052
     },
     {
       "configuration": "Density_2000_Clusters_128",
@@ -275,11 +332,14 @@
       "mae_direct": 0.001373,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 258088,
-      "runtime_ms": 0.1405
+      "runtime_ms": 0.0988
     },
     {
       "configuration": "Density_2000_Clusters_256",
@@ -289,11 +349,14 @@
       "mae_direct": 0.001373,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 283688,
-      "runtime_ms": 0.1257
+      "runtime_ms": 0.0837
     },
     {
       "configuration": "Density_2000_Clusters_512",
@@ -303,11 +366,14 @@
       "mae_direct": 0.001373,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 334888,
-      "runtime_ms": 0.0994
+      "runtime_ms": 0.0684
     },
     {
       "configuration": "Density_2000_Clusters_1024",
@@ -317,11 +383,14 @@
       "mae_direct": 0.001373,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 437288,
-      "runtime_ms": 0.1142
+      "runtime_ms": 0.0807
     },
     {
       "configuration": "Density_2000_Clusters_Independent",
@@ -331,11 +400,14 @@
       "mae_direct": 0.002885,
       "p95_direct": 6.593336,
       "p99_direct": 6.593336,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593336,
       "temporal_error": 0.005357,
       "memory_bytes": 232576,
-      "runtime_ms": 0.2866
+      "runtime_ms": 0.2116
     },
     {
       "configuration": "Density_4000_Clusters_64",
@@ -345,11 +417,14 @@
       "mae_direct": 0.000687,
       "p95_direct": 4.395627,
       "p99_direct": 4.395627,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 4.395627,
       "temporal_error": 0.001099,
       "memory_bytes": 477288,
-      "runtime_ms": 0.3522
+      "runtime_ms": 0.1834
     },
     {
       "configuration": "Density_4000_Clusters_128",
@@ -359,11 +434,14 @@
       "mae_direct": 0.000687,
       "p95_direct": 4.395627,
       "p99_direct": 4.395627,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 4.395627,
       "temporal_error": 0.001099,
       "memory_bytes": 490088,
-      "runtime_ms": 0.2816
+      "runtime_ms": 0.1984
     },
     {
       "configuration": "Density_4000_Clusters_256",
@@ -373,11 +451,14 @@
       "mae_direct": 0.000824,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.001236,
       "memory_bytes": 515688,
-      "runtime_ms": 0.2628
+      "runtime_ms": 0.1958
     },
     {
       "configuration": "Density_4000_Clusters_512",
@@ -387,11 +468,14 @@
       "mae_direct": 0.000824,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.001236,
       "memory_bytes": 566888,
-      "runtime_ms": 0.2222
+      "runtime_ms": 0.1580
     },
     {
       "configuration": "Density_4000_Clusters_1024",
@@ -401,11 +485,14 @@
       "mae_direct": 0.000824,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.001236,
       "memory_bytes": 669288,
-      "runtime_ms": 0.1797
+      "runtime_ms": 0.1416
     },
     {
       "configuration": "Density_4000_Clusters_Independent",
@@ -415,11 +502,14 @@
       "mae_direct": 0.001236,
       "p95_direct": 6.593336,
       "p99_direct": 6.593336,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593336,
       "temporal_error": 0.002060,
       "memory_bytes": 464576,
-      "runtime_ms": 0.5793
+      "runtime_ms": 0.4219
     },
     {
       "configuration": "Density_8000_Clusters_64",
@@ -429,11 +519,14 @@
       "mae_direct": 0.000412,
       "p95_direct": 4.395627,
       "p99_direct": 4.395627,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 4.395627,
       "temporal_error": 0.000687,
       "memory_bytes": 941288,
-      "runtime_ms": 0.5233
+      "runtime_ms": 0.4005
     },
     {
       "configuration": "Density_8000_Clusters_128",
@@ -443,11 +536,14 @@
       "mae_direct": 0.000412,
       "p95_direct": 4.395627,
       "p99_direct": 4.395627,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 4.395627,
       "temporal_error": 0.000687,
       "memory_bytes": 954088,
-      "runtime_ms": 0.5193
+      "runtime_ms": 0.4480
     },
     {
       "configuration": "Density_8000_Clusters_256",
@@ -457,11 +553,14 @@
       "mae_direct": 0.000412,
       "p95_direct": 4.395627,
       "p99_direct": 4.395627,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 4.395627,
       "temporal_error": 0.000687,
       "memory_bytes": 979688,
-      "runtime_ms": 0.5616
+      "runtime_ms": 0.4071
     },
     {
       "configuration": "Density_8000_Clusters_512",
@@ -471,11 +570,14 @@
       "mae_direct": 0.000549,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.000824,
       "memory_bytes": 1030888,
-      "runtime_ms": 0.5336
+      "runtime_ms": 0.3711
     },
     {
       "configuration": "Density_8000_Clusters_1024",
@@ -485,11 +587,14 @@
       "mae_direct": 0.000549,
       "p95_direct": 5.494516,
       "p99_direct": 5.494516,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 5.494516,
       "temporal_error": 0.000824,
       "memory_bytes": 1133288,
-      "runtime_ms": 0.4409
+      "runtime_ms": 0.3178
     },
     {
       "configuration": "Density_8000_Clusters_Independent",
@@ -499,11 +604,14 @@
       "mae_direct": 0.000412,
       "p95_direct": 6.593336,
       "p99_direct": 6.593336,
-      "rmse_indirect": 0.000000,
+      "rmse_indirect": -1.000000,
+      "indirect_reference_l1": 0.000000,
+      "indirect_reconstruction_l1": 0.000000,
+      "indirect_validation_state": "NOT_EXERCISED_ZERO_ENERGY",
       "max_error": 6.593336,
       "temporal_error": 0.000687,
       "memory_bytes": 928576,
-      "runtime_ms": 1.1397
+      "runtime_ms": 0.8335
     }
   ]
 }
