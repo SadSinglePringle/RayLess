@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_210316_e8212709d29b1635ed104630b1714b69ce8ee522_evidence_hardened",
+  "run_uuid": "run_20260824_211054_08614e5c4d39c5816a0e01eb061e838518ad64ba_evidence_hardened",
   "summary": {
     "slab_math_unit_pass": true,
     "spatial_index_equivalence_pass": true,
@@ -31,18 +31,18 @@
     "broadphase_rejection_pct": 65.00
   },
   "scaling_sweep": [
-    {"groups": 1, "candidate_edges": 4, "update_ms": 0.0040},
-    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0290},
-    {"groups": 32, "candidate_edges": 239, "update_ms": 0.1129},
-    {"groups": 128, "candidate_edges": 812, "update_ms": 0.4175}
+    {"groups": 1, "candidate_edges": 4, "update_ms": 0.0035},
+    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0270},
+    {"groups": 32, "candidate_edges": 239, "update_ms": 0.1040},
+    {"groups": 128, "candidate_edges": 812, "update_ms": 0.3954}
   ],
   "box_count_sweep": [
-    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0035},
-    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0083},
-    {"boxes": 8, "candidate_edges": 4, "update_ms": 0.0154},
-    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0281}
+    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0032},
+    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0078},
+    {"boxes": 8, "candidate_edges": 4, "update_ms": 0.0141},
+    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0258}
   ],
   "gpu_discovery_ab": [
-    {"edge_count": 1024, "cpu_update_ms": 0.3892, "gpu_update_ms": 13.5468, "cpu_candidates": 1024, "gpu_edge_references": 2738, "gpu_rayquery_required": 1024, "gpu_changed_readback_bytes": 12288, "cpu_blocked_edges": 1024, "gpu_blocked_edges": 1024, "equivalent": true}
+    {"edge_count": 1024, "cpu_update_ms": 0.2535, "gpu_update_ms": 2.0123, "cpu_candidates": 1024, "gpu_edge_references": 2738, "gpu_rayquery_required": 1024, "gpu_changed_readback_bytes": 12288, "cpu_blocked_edges": 1024, "gpu_blocked_edges": 1024, "equivalent": true}
   ]
 }
