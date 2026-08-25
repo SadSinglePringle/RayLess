@@ -8429,14 +8429,56 @@ public:
             auto ind_probe = eng_sep.dynamic_occluder_groups[gid].surface_probes[0];
             bool no_bleed = (ind_probe.indirect_irradiance.x == 0.0f && ind_probe.indirect_irradiance.y == 0.0f && ind_probe.indirect_irradiance.z == 0.0f);
 
-            rec_test_q_indirect_separator_occlusion_pass = no_bleed;
+            // Independent positive-energy reference: two visible diffuse
+            // bounce nodes facing a receiver.  This value is calculated here
+            // from the documented geometric weights, not by reusing the
+            // receiver gather/accumulation implementation under test.
+            ASTGTransportEngine eng_ref;
+            ASTGTransportNode near_node; near_node.node_id = 0; near_node.position = { 1.0f, 0.0f, 0.0f };
+            near_node.geometric_normal = { -1.0f, 0.0f, 0.0f }; near_node.geometric_factor = 1.0f;
+            near_node.path_transfer_r = 0.8f; near_node.path_transfer_g = 0.2f; near_node.path_transfer_b = 0.1f;
+            ASTGTransportNode far_node = near_node; far_node.node_id = 1; far_node.position = { 2.0f, 0.0f, 0.0f };
+            far_node.path_transfer_r = 0.1f; far_node.path_transfer_g = 0.3f; far_node.path_transfer_b = 0.9f;
+            eng_ref.bounce0_nodes = { near_node, far_node };
+            uint32_t ref_gid = eng_ref.register_dynamic_occluder_group({ ASTGAABB({ -0.1f, -0.1f, -0.1f }, { 0.1f, 0.1f, 0.1f }) }, "IndependentIndirectReference");
+            ASTGDynamicSurfaceProbe ref_probe; ref_probe.probe_id = 0; ref_probe.dynamic_group_id = ref_gid;
+            ref_probe.local_position = { 0.0f, 0.0f, 0.0f }; ref_probe.local_normal = { 1.0f, 0.0f, 0.0f };
+            eng_ref.register_dynamic_receiver_probes(ref_gid, { ref_probe });
+            eng_ref.evaluate_dynamic_receiver_indirect(ref_gid);
+            const auto& actual_indirect = eng_ref.dynamic_occluder_groups[ref_gid].surface_probes[0].indirect_irradiance;
+            const float near_w = 1.0f / 1.05f;
+            const float far_w = 1.0f / 4.05f;
+            const float inv_w = 1.0f / (near_w + far_w);
+            const RTXVector3 independent_ref = {
+                (near_node.path_transfer_r * near_w + far_node.path_transfer_r * far_w) * inv_w,
+                (near_node.path_transfer_g * near_w + far_node.path_transfer_g * far_w) * inv_w,
+                (near_node.path_transfer_b * near_w + far_node.path_transfer_b * far_w) * inv_w
+            };
+            const float indirect_rmse = std::sqrt((
+                (actual_indirect.x - independent_ref.x) * (actual_indirect.x - independent_ref.x) +
+                (actual_indirect.y - independent_ref.y) * (actual_indirect.y - independent_ref.y) +
+                (actual_indirect.z - independent_ref.z) * (actual_indirect.z - independent_ref.z)) / 3.0f);
+            const float indirect_reference_l1 = std::abs(independent_ref.x) + std::abs(independent_ref.y) + std::abs(independent_ref.z);
+            const bool independent_indirect_pass = indirect_reference_l1 > 1e-5f && indirect_rmse < 1e-5f;
+
+            rec_test_q_indirect_separator_occlusion_pass = no_bleed && independent_indirect_pass;
 
             AssertionRecord a_sep;
             a_sep.assertion_name = "indirect_separator_occlusion";
             a_sep.expected = "Dynamic receiver behind occluding separator / incompatible normal receives 0.0 indirect bleed";
-            a_sep.actual = rec_test_q_indirect_separator_occlusion_pass ? "zero indirect light leakage verified through separator" : "indirect light bleeding detected";
+            a_sep.actual = rec_test_q_indirect_separator_occlusion_pass ? "zero indirect light leakage verified through separator" :
+                "separator_zero=" + std::to_string(no_bleed ? 1 : 0) + ", analytic_zero=" + std::to_string(independent_indirect_pass ? 1 : 0);
             a_sep.status = rec_test_q_indirect_separator_occlusion_pass ? STATUS_PASS : STATUS_FAIL;
             b_q.add_assertion(a_sep);
+
+            AssertionRecord a_indirect_ref;
+            a_indirect_ref.assertion_name = "independent_nonzero_indirect_reference";
+            a_indirect_ref.expected = "analytic two-node Lambertian reference has nonzero energy and RMSE < 1e-5";
+            a_indirect_ref.actual = "reference=(" + std::to_string(independent_ref.x) + "," + std::to_string(independent_ref.y) + "," + std::to_string(independent_ref.z) + ") actual=(" + std::to_string(actual_indirect.x) + "," + std::to_string(actual_indirect.y) + "," + std::to_string(actual_indirect.z) + ") RMSE=" + std::to_string(indirect_rmse);
+            a_indirect_ref.status = independent_indirect_pass ? STATUS_PASS : STATUS_FAIL;
+            b_q.add_assertion(a_indirect_ref);
+            b_q.add_metric(MetricEvidence::measured_counter("indirect_reference_l1", indirect_reference_l1, "independent_analytic_two_node_scene"));
+            b_q.add_metric(MetricEvidence::measured_counter("indirect_reference_rmse", indirect_rmse, "independent_analytic_two_node_scene"));
 
             wl.gpu_work_sentinel = 1;
             b_q.set_identity(id); b_q.set_workload(wl);
