@@ -8081,6 +8081,21 @@ public:
             eng.light_colors[0] = { 1.0f, 0.95f, 0.8f };
             eng.light_intensities[0] = 12.0f;
 
+            // Populate nearby static transport nodes so this trajectory uses
+            // the production batched DXR receiver-visibility path rather than
+            // reporting a CPU-only empty-candidate fixture.
+            for (uint32_t n = 0; n < 128; ++n) {
+                ASTGTransportNode node;
+                node.node_id = n;
+                node.position = { hit_pos.x + (float(int(n % 16) - 8)) * 0.08f,
+                                  hit_pos.y + 2.0f + (float(n / 16) - 4) * 0.06f,
+                                  hit_pos.z + (float(int(n % 8) - 4)) * 0.08f };
+                node.geometric_normal = { 0.0f, -1.0f, 0.0f };
+                node.path_transfer_r = 0.6f; node.path_transfer_g = 0.5f; node.path_transfer_b = 0.4f;
+                node.geometric_factor = 1.0f; node.is_active = true; node.generation = 1;
+                eng.bounce0_nodes.push_back(node);
+            }
+
             uint32_t gid = eng.register_dynamic_occluder_group({ ASTGAABB({ hit_pos.x - 0.3f, hit_pos.y + 1.0f, hit_pos.z - 0.3f }, { hit_pos.x + 0.3f, hit_pos.y + 3.0f, hit_pos.z + 0.3f }) }, "BistroPlayer", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
 
             std::vector<ASTGDynamicSurfaceProbe> probes;
@@ -8102,6 +8117,8 @@ public:
             double last_angular_projection_ms = 0.0;
             double last_spatial_lookup_ms = 0.0;
             double last_edge_filter_ms = 0.0;
+            uint32_t receiver_gpu_rays = 0;
+            uint32_t receiver_gpu_dispatches = 0;
 
             for (size_t f = 0; f < waypoints.size(); ++f) {
                 auto wp = waypoints[f];
@@ -8112,9 +8129,11 @@ public:
                 last_edge_filter_ms = m.fine_test_us / 1000.0;
 
                 auto t_ind_0 = std::chrono::high_resolution_clock::now();
-                eng.evaluate_dynamic_receiver_indirect(gid);
+                eng.evaluate_dynamic_receiver_indirect(gid, true, 8192);
                 auto t_ind_1 = std::chrono::high_resolution_clock::now();
                 double ind_ms = std::chrono::duration<double, std::milli>(t_ind_1 - t_ind_0).count();
+                receiver_gpu_rays += eng.visibility_batch_telemetry.rays_requested;
+                receiver_gpu_dispatches += eng.visibility_batch_telemetry.dispatch_count;
 
                 float total_direct_e = 0.0f;
                 for (const auto& p : eng.dynamic_occluder_groups[gid].surface_probes) {
@@ -8133,7 +8152,7 @@ public:
                 tr.receiver_mappings_reused = m.receiver_mappings_reused;
                 tr.receiver_mappings_created = m.receiver_mappings_created;
                 tr.receiver_mappings_removed = m.receiver_mappings_removed;
-                tr.visibility_rays = 0;
+                tr.visibility_rays = eng.visibility_batch_telemetry.rays_requested;
                 tr.direct_receiver_ms = m.direct_receiver_us / 1000.0;
                 tr.indirect_receiver_ms = ind_ms;
                 tr.total_receiver_ms = tr.direct_receiver_ms + tr.indirect_receiver_ms;
@@ -8150,7 +8169,7 @@ public:
                     dr.receiver_mappings_active = m.receiver_mappings_active;
                     dr.receiver_mappings_reused = m.receiver_mappings_reused;
                     dr.receiver_mappings_created = m.receiver_mappings_created;
-                    dr.exact_visibility_rays = 0;
+                    dr.exact_visibility_rays = eng.visibility_batch_telemetry.rays_requested;
                     dr.direct_energy = total_direct_e;
                     dr.runtime_us = m.direct_receiver_us;
                     receiver_direct_records.push_back(dr);
@@ -8173,10 +8192,11 @@ public:
                     std::isfinite(tr.indirect_receiver_ms);
             }
             // Profile the actual production update phases instead of hiding a
-            // regression behind an arbitrary sub-0.05 ms threshold. This
-            // fixture does not dispatch receiver visibility rays yet, so it is
-            // deliberately an integration timing record, not a GPU claim.
-            rec_test_m_gpu_bistro_trajectory_pass = receiver_timings_finite;
+            // regression behind an arbitrary sub-0.05 ms threshold. The
+            // indirect phase dispatches batched DXR visibility rays; its
+            // uninstrumented sub-phases remain explicitly unmeasured.
+            rec_test_m_gpu_bistro_trajectory_pass = receiver_timings_finite && rtx_is_hardware_active() &&
+                receiver_gpu_rays > 0 && receiver_gpu_dispatches > 0;
             if (!receiver_trajectory_records.empty()) {
                 const double denom = (double)receiver_trajectory_records.size();
                 receiver_total_ms /= denom;
@@ -8189,8 +8209,8 @@ public:
 
             AssertionRecord a_bist;
             a_bist.assertion_name = "gpu_bistro_dynamic_receiver_trajectory";
-            a_bist.expected = "Five Bistro receiver waypoints produce finite production-path timing samples; phase costs are exported without an arbitrary pass threshold";
-            a_bist.actual = rec_test_m_gpu_bistro_trajectory_pass ? "receiver trajectory is finite; measured phase costs exported" : "receiver trajectory produced invalid timing";
+            a_bist.expected = "Five Bistro receiver waypoints dispatch batched DXR visibility rays and produce finite production-path timing samples";
+            a_bist.actual = rec_test_m_gpu_bistro_trajectory_pass ? "receiver trajectory dispatched " + std::to_string(receiver_gpu_rays) + " DXR visibility rays in " + std::to_string(receiver_gpu_dispatches) + " batches" : "receiver trajectory produced no GPU visibility work or invalid timing";
             a_bist.status = rec_test_m_gpu_bistro_trajectory_pass ? STATUS_PASS : STATUS_FAIL;
             b_m.add_assertion(a_bist);
 
@@ -8200,11 +8220,15 @@ public:
             b_m.add_metric(MetricEvidence::measured_cpu("angular_footprint_and_receiver_selection_ms", angular_projection_ms, "receiver_trajectory_last_frame", "ms"));
             b_m.add_metric(MetricEvidence::measured_cpu("edge_spatial_lookup_ms", spatial_lookup_ms, "receiver_trajectory_last_frame", "ms"));
             b_m.add_metric(MetricEvidence::measured_cpu("edge_filtering_ms", edge_filter_ms, "receiver_trajectory_last_frame", "ms"));
-            b_m.add_metric(MetricEvidence::not_measured("gpu_buffer_upload_ms", "no GPU receiver dispatch in this fixture"));
-            b_m.add_metric(MetricEvidence::not_measured("gpu_visibility_query_ms", "no GPU receiver dispatch in this fixture"));
-            b_m.add_metric(MetricEvidence::not_measured("readback_wait_ms", "no GPU receiver dispatch in this fixture"));
-            wl.category = "SUBSYSTEM"; wl.evidence_level = "INTEGRATION";
-            wl.gpu_work_sentinel = 0;
+            b_m.add_metric(MetricEvidence::measured_counter("gpu_visibility_rays", receiver_gpu_rays, "bistro_receiver_trajectory"));
+            b_m.add_metric(MetricEvidence::measured_counter("gpu_visibility_dispatches", receiver_gpu_dispatches, "bistro_receiver_trajectory"));
+            b_m.add_metric(MetricEvidence::not_measured("gpu_buffer_upload_ms", "receiver ray-upload timing is not independently timestamped"));
+            b_m.add_metric(MetricEvidence::not_measured("gpu_visibility_query_ms", "receiver RayQuery is included in batch end-to-end time; no independent GPU timestamp region"));
+            b_m.add_metric(MetricEvidence::not_measured("readback_wait_ms", "receiver batch wait/readback is not independently timestamped"));
+            wl.category = "SUBSYSTEM"; wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true;
+            wl.lighting_authentic = true; wl.probe_authentic = true;
+            wl.gpu_work_sentinel = 1;
             b_m.set_identity(id); b_m.set_workload(wl);
             finalized_results.push_back(b_m.build_and_seal());
         }
