@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260824_204843_277f889aa5bbd52e4ef68a5652f371cb17c9374f_evidence_hardened",
+  "run_uuid": "run_20260824_210316_e8212709d29b1635ed104630b1714b69ce8ee522_evidence_hardened",
   "quality_experiments": [
     {
       "configuration": "Density_250_Clusters_64",
@@ -16,7 +16,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.004858,
       "memory_bytes": 42288,
-      "runtime_ms": 0.0145
+      "runtime_ms": 0.0162
     },
     {
       "configuration": "Density_250_Clusters_128",
@@ -33,7 +33,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.004366,
       "memory_bytes": 55088,
-      "runtime_ms": 0.0157
+      "runtime_ms": 0.0156
     },
     {
       "configuration": "Density_250_Clusters_256",
@@ -50,7 +50,7 @@
       "max_error": 6.593406,
       "temporal_error": 0.012357,
       "memory_bytes": 80688,
-      "runtime_ms": 0.0181
+      "runtime_ms": 0.0185
     },
     {
       "configuration": "Density_250_Clusters_512",
@@ -67,7 +67,7 @@
       "max_error": 6.593406,
       "temporal_error": 0.012357,
       "memory_bytes": 131888,
-      "runtime_ms": 0.0285
+      "runtime_ms": 0.0327
     },
     {
       "configuration": "Density_250_Clusters_1024",
@@ -84,7 +84,7 @@
       "max_error": 6.593406,
       "temporal_error": 0.012357,
       "memory_bytes": 234288,
-      "runtime_ms": 0.0498
+      "runtime_ms": 0.0510
     },
     {
       "configuration": "Density_250_Clusters_Independent",
@@ -101,7 +101,7 @@
       "max_error": 6.593336,
       "temporal_error": 0.009227,
       "memory_bytes": 29576,
-      "runtime_ms": 0.0324
+      "runtime_ms": 0.1194
     },
     {
       "configuration": "Density_500_Clusters_64",
@@ -118,7 +118,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.002865,
       "memory_bytes": 71288,
-      "runtime_ms": 0.0281
+      "runtime_ms": 0.0269
     },
     {
       "configuration": "Density_500_Clusters_128",
@@ -135,7 +135,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.002772,
       "memory_bytes": 84088,
-      "runtime_ms": 0.0234
+      "runtime_ms": 0.0235
     },
     {
       "configuration": "Density_500_Clusters_256",
@@ -152,7 +152,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.002753,
       "memory_bytes": 109688,
-      "runtime_ms": 0.0245
+      "runtime_ms": 0.0247
     },
     {
       "configuration": "Density_500_Clusters_512",
@@ -169,7 +169,7 @@
       "max_error": 6.593406,
       "temporal_error": 0.006742,
       "memory_bytes": 160888,
-      "runtime_ms": 0.1436
+      "runtime_ms": 0.0317
     },
     {
       "configuration": "Density_500_Clusters_1024",
@@ -186,7 +186,7 @@
       "max_error": 6.593406,
       "temporal_error": 0.006742,
       "memory_bytes": 263288,
-      "runtime_ms": 0.0512
+      "runtime_ms": 0.0518
     },
     {
       "configuration": "Density_500_Clusters_Independent",
@@ -203,7 +203,7 @@
       "max_error": 6.593336,
       "temporal_error": 0.004819,
       "memory_bytes": 58576,
-      "runtime_ms": 0.0595
+      "runtime_ms": 0.1070
     },
     {
       "configuration": "Density_1000_Clusters_64",
@@ -220,7 +220,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 129288,
-      "runtime_ms": 0.0541
+      "runtime_ms": 0.0571
     },
     {
       "configuration": "Density_1000_Clusters_128",
@@ -237,7 +237,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 142088,
-      "runtime_ms": 0.0458
+      "runtime_ms": 0.0457
     },
     {
       "configuration": "Density_1000_Clusters_256",
@@ -254,7 +254,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 167688,
-      "runtime_ms": 0.0382
+      "runtime_ms": 0.0392
     },
     {
       "configuration": "Density_1000_Clusters_512",
@@ -271,7 +271,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.003706,
       "memory_bytes": 218888,
-      "runtime_ms": 0.0399
+      "runtime_ms": 0.0421
     },
     {
       "configuration": "Density_1000_Clusters_1024",
@@ -288,7 +288,7 @@
       "max_error": 6.593406,
       "temporal_error": 0.003823,
       "memory_bytes": 321288,
-      "runtime_ms": 0.0554
+      "runtime_ms": 0.0531
     },
     {
       "configuration": "Density_1000_Clusters_Independent",
@@ -305,7 +305,7 @@
       "max_error": 6.593336,
       "temporal_error": 0.010301,
       "memory_bytes": 116576,
-      "runtime_ms": 0.1104
+      "runtime_ms": 0.1094
     },
     {
       "configuration": "Density_2000_Clusters_64",
@@ -322,7 +322,7 @@
       "max_error": 4.395627,
       "temporal_error": 0.002060,
       "memory_bytes": 245288,
-      "runtime_ms": 0.1052
+      "runtime_ms": 0.1060
     },
     {
       "configuration": "Density_2000_Clusters_128",
@@ -339,7 +339,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 258088,
-      "runtime_ms": 0.0988
+      "runtime_ms": 0.0978
     },
     {
       "configuration": "Density_2000_Clusters_256",
@@ -356,7 +356,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 283688,
-      "runtime_ms": 0.0837
+      "runtime_ms": 0.1324
     },
     {
       "configuration": "Density_2000_Clusters_512",
@@ -373,7 +373,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 334888,
-      "runtime_ms": 0.0684
+      "runtime_ms": 0.0691
     },
     {
       "configuration": "Density_2000_Clusters_1024",
@@ -390,7 +390,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.002197,
       "memory_bytes": 437288,
-      "runtime_ms": 0.0807
+      "runtime_ms": 0.0747
     },
     {
       "configuration": "Density_2000_Clusters_Independent",
@@ -407,7 +407,7 @@
       "max_error": 6.593336,
       "temporal_error": 0.005357,
       "memory_bytes": 232576,
-      "runtime_ms": 0.2116
+      "runtime_ms": 0.2094
     },
     {
       "configuration": "Density_4000_Clusters_64",
@@ -424,7 +424,7 @@
       "max_error": 4.395627,
       "temporal_error": 0.001099,
       "memory_bytes": 477288,
-      "runtime_ms": 0.1834
+      "runtime_ms": 0.2945
     },
     {
       "configuration": "Density_4000_Clusters_128",
@@ -441,7 +441,7 @@
       "max_error": 4.395627,
       "temporal_error": 0.001099,
       "memory_bytes": 490088,
-      "runtime_ms": 0.1984
+      "runtime_ms": 0.2391
     },
     {
       "configuration": "Density_4000_Clusters_256",
@@ -458,7 +458,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.001236,
       "memory_bytes": 515688,
-      "runtime_ms": 0.1958
+      "runtime_ms": 0.1865
     },
     {
       "configuration": "Density_4000_Clusters_512",
@@ -475,7 +475,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.001236,
       "memory_bytes": 566888,
-      "runtime_ms": 0.1580
+      "runtime_ms": 0.1588
     },
     {
       "configuration": "Density_4000_Clusters_1024",
@@ -492,7 +492,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.001236,
       "memory_bytes": 669288,
-      "runtime_ms": 0.1416
+      "runtime_ms": 0.1288
     },
     {
       "configuration": "Density_4000_Clusters_Independent",
@@ -509,7 +509,7 @@
       "max_error": 6.593336,
       "temporal_error": 0.002060,
       "memory_bytes": 464576,
-      "runtime_ms": 0.4219
+      "runtime_ms": 0.4147
     },
     {
       "configuration": "Density_8000_Clusters_64",
@@ -526,7 +526,7 @@
       "max_error": 4.395627,
       "temporal_error": 0.000687,
       "memory_bytes": 941288,
-      "runtime_ms": 0.4005
+      "runtime_ms": 0.3898
     },
     {
       "configuration": "Density_8000_Clusters_128",
@@ -543,7 +543,7 @@
       "max_error": 4.395627,
       "temporal_error": 0.000687,
       "memory_bytes": 954088,
-      "runtime_ms": 0.4480
+      "runtime_ms": 0.4574
     },
     {
       "configuration": "Density_8000_Clusters_256",
@@ -560,7 +560,7 @@
       "max_error": 4.395627,
       "temporal_error": 0.000687,
       "memory_bytes": 979688,
-      "runtime_ms": 0.4071
+      "runtime_ms": 0.4031
     },
     {
       "configuration": "Density_8000_Clusters_512",
@@ -577,7 +577,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.000824,
       "memory_bytes": 1030888,
-      "runtime_ms": 0.3711
+      "runtime_ms": 0.4039
     },
     {
       "configuration": "Density_8000_Clusters_1024",
@@ -594,7 +594,7 @@
       "max_error": 5.494516,
       "temporal_error": 0.000824,
       "memory_bytes": 1133288,
-      "runtime_ms": 0.3178
+      "runtime_ms": 0.3158
     },
     {
       "configuration": "Density_8000_Clusters_Independent",
@@ -611,7 +611,7 @@
       "max_error": 6.593336,
       "temporal_error": 0.000687,
       "memory_bytes": 928576,
-      "runtime_ms": 0.8335
+      "runtime_ms": 1.0215
     }
   ]
 }
