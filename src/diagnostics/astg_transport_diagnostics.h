@@ -2882,6 +2882,7 @@ public:
     bool occ_test_m_group_scaling_pass = false;
     bool occ_test_n_box_sweep_pass = false;
     bool occ_test_o_bistro_e2e_pass = false;
+    bool occ_test_p_gpu_discovery_ab_pass = false;
 
     ASTGDynamicOcclusionMetrics occ_player_metrics;
     ASTGDynamicOcclusionMetrics occ_car_metrics;
@@ -2891,6 +2892,20 @@ public:
     std::vector<ASTGDynamicEdgeTimelineEvent> occ_edge_timeline_events;
     float occ_e2e_reversibility_rmse = 0.0f;
     float occ_e2e_max_diff = 0.0f;
+
+    struct ASTGGPUDiscoveryABRecord {
+        uint32_t edge_count = 0;
+        double cpu_update_ms = 0.0;
+        double gpu_update_ms = 0.0;
+        uint32_t cpu_candidates = 0;
+        uint32_t gpu_edge_references = 0;
+        uint32_t gpu_rayquery_required = 0;
+        uint32_t gpu_changed_readback_bytes = 0;
+        uint32_t cpu_blocked_edges = 0;
+        uint32_t gpu_blocked_edges = 0;
+        bool equivalent = false;
+    };
+    std::vector<ASTGGPUDiscoveryABRecord> occ_gpu_discovery_ab_records;
 
     // Part J: ASTG Dynamic Occlusion Modes & Angular B0 Occlusion State (Phase 5)
     bool mode_test_a_seam_wrap_pass = false;
@@ -3342,6 +3357,91 @@ public:
             b_b.set_identity(id);
             b_b.set_workload(wl);
             finalized_results.push_back(b_b.build_and_seal());
+        }
+
+        // ---------------------------------------------------------------------
+        // TEST B2: Production CPU fallback vs GPU spatial discovery (Handoff 15)
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_ab(run_uuid, "occ_test_p_gpu_spatial_discovery_ab", "GPU_SPATIAL_DISCOVERY_AB", 1);
+            TestIdentity id = runtime_test_identity("occ_test_p_gpu_spatial_discovery_ab", "GPU_SPATIAL_DISCOVERY_AB", 1, 2048);
+            WorkloadDescriptor wl;
+            wl.category = "DYNAMIC_OCCLUSION";
+            wl.evidence_level = "GPU_END_TO_END";
+            wl.geometry_authentic = true; wl.transport_authentic = true;
+            wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            // Both paths consume the same already-indexed graph and blocker.
+            // The CPU path deliberately retains the production fallback's
+            // vector construction; the GPU path must discover every edge and
+            // return an equivalent canonical blocked-edge set.
+            const uint32_t edge_count = 1024;
+            auto build_case = [&](ASTGTransportEngine& engine, bool gpu_discovery) {
+                engine.geometry_generation = 1;
+                engine.enable_gpu_spatial_discovery = gpu_discovery;
+                engine.bounce0_nodes.reserve(edge_count * 2);
+                engine.dag_edges.reserve(edge_count);
+                for (uint32_t e = 0; e < edge_count; ++e) {
+                    const float lane = (float(int(e % 32) - 16)) * 0.02f;
+                    const float tier = (float(int(e / 32) - 16)) * 0.02f;
+                    ASTGTransportNode a; a.node_id = e * 2; a.position = { -8.0f, lane, tier };
+                    a.geometric_normal = { 1.0f, 0.0f, 0.0f }; a.generation = 1; a.is_active = true;
+                    ASTGTransportNode b; b.node_id = e * 2 + 1; b.position = { 8.0f, lane, tier };
+                    b.geometric_normal = { 1.0f, 0.0f, 0.0f }; b.generation = 1; b.is_active = true;
+                    ASTGDAGEdge edge; edge.edge_id = e; edge.parent_node_id = a.node_id; edge.child_node_id = b.node_id;
+                    edge.source_light_id = 0; edge.source_bounce_depth = 1; edge.target_bounce_depth = 2;
+                    edge.repair_generation = 1; edge.is_active = true;
+                    engine.bounce0_nodes.push_back(a); engine.bounce0_nodes.push_back(b);
+                    engine.dag_edges.push_back(edge);
+                }
+                engine.rebuild_edge_spatial_index(2.0f, 0.05f);
+                // Register disabled so the timed update below is the first
+                // visibility evaluation for both paths, not a warm repeat.
+                return engine.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }) },
+                    gpu_discovery ? "GPUDiscoveryAB" : "CPUDiscoveryAB", false, ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES);
+            };
+
+            ASTGTransportEngine cpu_engine;
+            const uint32_t cpu_group = build_case(cpu_engine, false);
+            cpu_engine.dynamic_occluder_groups[cpu_group].astg_occlusion_enabled = true;
+            const ASTGDynamicOcclusionMetrics cpu_metrics = cpu_engine.update_dynamic_occlusion(cpu_group);
+
+            ASTGTransportEngine gpu_engine;
+            const uint32_t gpu_group = build_case(gpu_engine, true);
+            gpu_engine.dynamic_occluder_groups[gpu_group].astg_occlusion_enabled = true;
+            const ASTGDynamicOcclusionMetrics gpu_metrics = gpu_engine.update_dynamic_occlusion(gpu_group);
+
+            ASTGGPUDiscoveryABRecord record;
+            record.edge_count = edge_count;
+            record.cpu_update_ms = cpu_metrics.total_update_ms;
+            record.gpu_update_ms = gpu_metrics.total_update_ms;
+            record.cpu_candidates = cpu_metrics.candidate_edges;
+            record.gpu_edge_references = gpu_metrics.spatial_edge_references;
+            record.gpu_rayquery_required = gpu_metrics.gpu_rayquery_required;
+            record.gpu_changed_readback_bytes = gpu_metrics.gpu_changed_result_readback_bytes;
+            record.cpu_blocked_edges = (uint32_t)cpu_engine.dynamic_group_to_edges[cpu_group].size();
+            record.gpu_blocked_edges = (uint32_t)gpu_engine.dynamic_group_to_edges[gpu_group].size();
+            record.equivalent = rtx_is_hardware_active() &&
+                record.cpu_blocked_edges == edge_count && record.gpu_blocked_edges == edge_count &&
+                cpu_engine.dynamic_group_to_edges[cpu_group] == gpu_engine.dynamic_group_to_edges[gpu_group] &&
+                record.cpu_candidates == edge_count && record.gpu_edge_references >= edge_count &&
+                record.gpu_changed_readback_bytes == edge_count * sizeof(ASTGEdgeVisibilityResult);
+            occ_gpu_discovery_ab_records = { record };
+            occ_test_p_gpu_discovery_ab_pass = record.equivalent;
+
+            AssertionRecord a_ab;
+            a_ab.assertion_name = "cpu_fallback_and_gpu_spatial_discovery_equivalence";
+            a_ab.expected = "1,024 identical candidate edges; GPU discovers and returns the same blocked set with changed-only readback";
+            a_ab.actual = record.equivalent ? "equivalent blocked sets; GPU references=" + std::to_string(record.gpu_edge_references) +
+                ", changed readback=" + std::to_string(record.gpu_changed_readback_bytes) + " bytes" : "CPU/GPU discovery mismatch or GPU path inactive";
+            a_ab.status = record.equivalent ? STATUS_PASS : STATUS_FAIL;
+            b_ab.add_assertion(a_ab);
+            b_ab.add_metric(MetricEvidence::measured_cpu("cpu_fallback_update_ms", record.cpu_update_ms, "production_cpu_fallback_1024_edges", "ms"));
+            b_ab.add_metric(MetricEvidence::measured_cpu("gpu_discovery_end_to_end_ms", record.gpu_update_ms, "production_gpu_discovery_1024_edges", "ms"));
+            b_ab.add_metric(MetricEvidence::measured_gpu("gpu_changed_readback_bytes", record.gpu_changed_readback_bytes, "changed_visibility_results_only", "bytes"));
+            wl.gpu_work_sentinel = rtx_is_hardware_active() ? 1 : 0;
+            b_ab.set_identity(id); b_ab.set_workload(wl);
+            finalized_results.push_back(b_ab.build_and_seal());
         }
 
         // ---------------------------------------------------------------------
@@ -9967,7 +10067,8 @@ public:
             f << "    \"zero_hysteresis_reversibility_pass\": " << (occ_test_l_reversibility_pass ? "true" : "false") << ",\n";
             f << "    \"group_scaling_pass\": " << (occ_test_m_group_scaling_pass ? "true" : "false") << ",\n";
             f << "    \"box_count_sweep_pass\": " << (occ_test_n_box_sweep_pass ? "true" : "false") << ",\n";
-            f << "    \"bistro_e2e_pass\": " << (occ_test_o_bistro_e2e_pass ? "true" : "false") << "\n";
+            f << "    \"bistro_e2e_pass\": " << (occ_test_o_bistro_e2e_pass ? "true" : "false") << ",\n";
+            f << "    \"gpu_discovery_ab_pass\": " << (occ_test_p_gpu_discovery_ab_pass ? "true" : "false") << "\n";
             f << "  },\n";
             f << "  \"player_metrics\": {\n";
             f << "    \"boxes\": " << occ_player_metrics.box_count << ",\n";
@@ -9991,6 +10092,22 @@ public:
             for (size_t b = 0; b < occ_box_sweep_metrics.size(); ++b) {
                 const auto& bm = occ_box_sweep_metrics[b];
                 f << "    {\"boxes\": " << bm.box_count << ", \"candidate_edges\": " << bm.candidate_edges << ", \"update_ms\": " << std::fixed << std::setprecision(4) << bm.total_update_ms << "}" << (b + 1 < occ_box_sweep_metrics.size() ? "," : "") << "\n";
+            }
+            f << "  ],\n";
+            f << "  \"gpu_discovery_ab\": [\n";
+            for (size_t i = 0; i < occ_gpu_discovery_ab_records.size(); ++i) {
+                const auto& r = occ_gpu_discovery_ab_records[i];
+                f << "    {\"edge_count\": " << r.edge_count
+                  << ", \"cpu_update_ms\": " << std::fixed << std::setprecision(4) << r.cpu_update_ms
+                  << ", \"gpu_update_ms\": " << r.gpu_update_ms
+                  << ", \"cpu_candidates\": " << r.cpu_candidates
+                  << ", \"gpu_edge_references\": " << r.gpu_edge_references
+                  << ", \"gpu_rayquery_required\": " << r.gpu_rayquery_required
+                  << ", \"gpu_changed_readback_bytes\": " << r.gpu_changed_readback_bytes
+                  << ", \"cpu_blocked_edges\": " << r.cpu_blocked_edges
+                  << ", \"gpu_blocked_edges\": " << r.gpu_blocked_edges
+                  << ", \"equivalent\": " << (r.equivalent ? "true" : "false") << "}"
+                  << (i + 1 < occ_gpu_discovery_ab_records.size() ? "," : "") << "\n";
             }
             f << "  ]\n";
             f << "}\n";

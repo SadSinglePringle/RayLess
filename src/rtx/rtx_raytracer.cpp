@@ -1989,6 +1989,23 @@ RTX_API int32_t rtx_trace_candidates_batch(
     uint32_t num_groups = (count + 63) / 64;
     g_rtx.command_list->Dispatch(num_groups, 1, 1);
 
+    // The discovery path appends transition records with UAV writes and then
+    // copies that stream in a later command list.  A state transition alone
+    // does not establish UAV ordering, so make every result/counter/state
+    // write visible before the counter readback and compact result copy.
+    D3D12_RESOURCE_BARRIER visibility_uav_barriers[4] = {};
+    ID3D12Resource* visibility_uav_resources[] = {
+        g_rtx.visibility_results_buffer.Get(),
+        g_rtx.visibility_counters_buffer.Get(),
+        g_rtx.edge_discovery_stamps_buffer.Get(),
+        g_rtx.persistent_visibility_state_buffer.Get()
+    };
+    for (UINT i = 0; i < _countof(visibility_uav_barriers); ++i) {
+        visibility_uav_barriers[i].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        visibility_uav_barriers[i].UAV.pResource = visibility_uav_resources[i];
+    }
+    g_rtx.command_list->ResourceBarrier(_countof(visibility_uav_barriers), visibility_uav_barriers);
+
     // Timestamp 7: End Candidate Traversal
     g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 7);
 

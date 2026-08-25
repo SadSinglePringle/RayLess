@@ -1590,6 +1590,9 @@ public:
     uint32_t gpu_discovery_stamp = 1;
     std::unordered_map<uint32_t, uint32_t> gpu_visibility_state_slots;
     uint32_t next_gpu_visibility_state_slot = 0;
+    // Diagnostic and rollout gate: retain the production CPU fallback so the
+    // same scene can be compared against GPU discovery without changing data.
+    bool enable_gpu_spatial_discovery = true;
 
     struct DirtyInterval {
         uint32_t dirty_min = UINT32_MAX;
@@ -2669,7 +2672,7 @@ public:
             uint32_t gpu_visibility_state_slot = UINT32_MAX;
             auto t_sp_start = std::chrono::high_resolution_clock::now();
             query_gpu_edge_spatial_ranges(swept_bounds, gpu_spatial_ranges, gpu_edge_references);
-            const bool use_gpu_spatial_discovery = rtx_is_hardware_active() &&
+            const bool use_gpu_spatial_discovery = enable_gpu_spatial_discovery && rtx_is_hardware_active() &&
                 gpu_edge_references >= 256 &&
                 gpu_edge_references <= 131072 &&
                 !gpu_spatial_ranges.empty() && sync_gpu_edge_spatial_index();
