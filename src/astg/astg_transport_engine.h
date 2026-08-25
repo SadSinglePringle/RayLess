@@ -554,10 +554,16 @@ class ASTGStaticNodeSpatialGrid {
 public:
     float cell_size = 2.0f;
     std::unordered_map<ASTGSpatialCellCoord, std::vector<uint32_t>, ASTGSpatialCellHash> grid;
+    // The cell map is a broadphase. Keep the indexed positions so query_sphere
+    // can honour its public exact-sphere contract instead of returning every
+    // node in overlapping cubic cells.
+    std::vector<RTXVector3> indexed_positions;
 
     void build(const std::vector<ASTGTransportNode>& nodes) {
         grid.clear();
+        indexed_positions.resize(nodes.size());
         for (size_t i = 0; i < nodes.size(); ++i) {
+            indexed_positions[i] = nodes[i].position;
             if (!nodes[i].is_active) continue;
             int cx = (int)std::floor(nodes[i].position.x / cell_size);
             int cy = (int)std::floor(nodes[i].position.y / cell_size);
@@ -568,6 +574,8 @@ public:
 
     void query_sphere(const RTXVector3& center, float radius, std::vector<uint32_t>& out_nodes) const {
         out_nodes.clear();
+        if (radius < 0.0f || cell_size <= 0.0f) return;
+        const float radius_sq = radius * radius;
         int min_x = (int)std::floor((center.x - radius) / cell_size);
         int max_x = (int)std::floor((center.x + radius) / cell_size);
         int min_y = (int)std::floor((center.y - radius) / cell_size);
@@ -581,7 +589,14 @@ public:
                     auto it = grid.find({ x, y, z });
                     if (it != grid.end()) {
                         for (uint32_t nid : it->second) {
-                            out_nodes.push_back(nid);
+                            if (nid >= indexed_positions.size()) continue;
+                            const RTXVector3& p = indexed_positions[nid];
+                            const float dx = p.x - center.x;
+                            const float dy = p.y - center.y;
+                            const float dz = p.z - center.z;
+                            if (dx * dx + dy * dy + dz * dz <= radius_sq) {
+                                out_nodes.push_back(nid);
+                            }
                         }
                     }
                 }
@@ -934,6 +949,15 @@ struct ASTGDynamicOcclusionMetrics {
     uint32_t box_count = 0;
     uint32_t total_dag_edges = 0;
     uint32_t candidate_edges = 0;
+    uint32_t spatial_cells_touched = 0;
+    uint32_t spatial_edge_references = 0;
+    uint32_t spatial_duplicate_edges_removed = 0;
+    uint32_t gpu_generation_rejected = 0;
+    uint32_t gpu_angular_rejected = 0;
+    uint32_t gpu_aabb_rejected = 0;
+    uint32_t gpu_rayquery_required = 0;
+    uint32_t gpu_visibility_state_transitions = 0;
+    uint32_t gpu_changed_result_readback_bytes = 0;
     uint32_t fine_tested_edges = 0;
     uint32_t intersected_edges = 0;
     uint32_t newly_blocked_edges = 0;
@@ -991,15 +1015,10 @@ struct ASTGDynamicEdgeTimelineEvent {
 class ASTGEdgeSpatialGrid {
 public:
     float cell_size = 2.0f;
-    std::unordered_map<uint64_t, std::vector<uint32_t>> grid;
-
-    static inline uint64_t hash_cell(int cx, int cy, int cz) {
-        uint64_t h = 14695981039346656037ULL;
-        h = fnv1a_64_hash_bytes(&cx, sizeof(cx), h);
-        h = fnv1a_64_hash_bytes(&cy, sizeof(cy), h);
-        h = fnv1a_64_hash_bytes(&cz, sizeof(cz), h);
-        return h;
-    }
+    // Keep the full coordinate in the map key. A hash is only a bucket
+    // selector; treating a 64-bit hash as the identity can silently merge
+    // unrelated cells and make edges disappear from discovery.
+    std::unordered_map<ASTGSpatialCellCoord, std::vector<uint32_t>, ASTGSpatialCellHash> grid;
 
     void clear() {
         grid.clear();
@@ -1017,8 +1036,7 @@ public:
         for (int x = min_x; x <= max_x; ++x) {
             for (int y = min_y; y <= max_y; ++y) {
                 for (int z = min_z; z <= max_z; ++z) {
-                    uint64_t cell_key = hash_cell(x, y, z);
-                    grid[cell_key].push_back(edge_id);
+                    grid[{ x, y, z }].push_back(edge_id);
                 }
             }
         }
@@ -1039,8 +1057,7 @@ public:
         for (int x = min_x; x <= max_x; ++x) {
             for (int y = min_y; y <= max_y; ++y) {
                 for (int z = min_z; z <= max_z; ++z) {
-                    uint64_t cell_key = hash_cell(x, y, z);
-                    auto it = grid.find(cell_key);
+                    auto it = grid.find({ x, y, z });
                     if (it != grid.end()) {
                         for (uint32_t eid : it->second) {
                             unique_candidates.insert(eid);
@@ -1563,6 +1580,16 @@ public:
     // ==============================================================================
     std::vector<ASTGGPUNode> gpu_nodes_shadow;
     std::vector<ASTGGPUDAGEdge> gpu_edges_shadow;
+    std::unordered_map<uint32_t, uint32_t> gpu_occluder_dense_indices;
+    // GPU spatial discovery representation. The exact coordinate map is used
+    // only to convert a changed AABB into a small list of resident ranges;
+    // the GPU owns the edge-ID fetch and later deduplication.
+    std::vector<uint32_t> gpu_edge_spatial_indices;
+    std::unordered_map<ASTGSpatialCellCoord, ASTGGPUCellRange, ASTGSpatialCellHash> gpu_edge_spatial_cell_ranges;
+    bool gpu_edge_spatial_index_uploaded = false;
+    uint32_t gpu_discovery_stamp = 1;
+    std::unordered_map<uint32_t, uint32_t> gpu_visibility_state_slots;
+    uint32_t next_gpu_visibility_state_slot = 0;
 
     struct DirtyInterval {
         uint32_t dirty_min = UINT32_MAX;
@@ -1623,6 +1650,75 @@ public:
             compute_edge_spatial_bounds(edge, corridor_radius);
             if (edge.is_active) {
                 edge_spatial_grid.insert_edge((uint32_t)i, edge.spatial_bounds);
+            }
+        }
+        rebuild_gpu_edge_spatial_index();
+    }
+
+    void rebuild_gpu_edge_spatial_index() {
+        gpu_edge_spatial_indices.clear();
+        gpu_edge_spatial_cell_ranges.clear();
+        for (const auto& entry : edge_spatial_grid.grid) {
+            const std::vector<uint32_t>& edge_ids = entry.second;
+            ASTGGPUCellRange range = {};
+            range.edge_index_offset = (uint32_t)gpu_edge_spatial_indices.size();
+            range.edge_index_count = (uint32_t)edge_ids.size();
+            gpu_edge_spatial_indices.insert(gpu_edge_spatial_indices.end(), edge_ids.begin(), edge_ids.end());
+            gpu_edge_spatial_cell_ranges.emplace(entry.first, range);
+        }
+        gpu_edge_spatial_index_uploaded = false;
+    }
+
+    bool sync_gpu_edge_spatial_index() {
+        if (gpu_edge_spatial_index_uploaded) return true;
+        if (gpu_edge_spatial_indices.empty() || !rtx_is_hardware_active()) return false;
+        gpu_edge_spatial_index_uploaded = rtx_upload_astg_spatial_edge_indices(
+            gpu_edge_spatial_indices.data(), (uint32_t)gpu_edge_spatial_indices.size());
+        return gpu_edge_spatial_index_uploaded;
+    }
+
+    bool ensure_gpu_visibility_state_slot(uint32_t group_id, uint32_t& out_slot) {
+        auto found = gpu_visibility_state_slots.find(group_id);
+        if (found != gpu_visibility_state_slots.end()) {
+            out_slot = found->second;
+            return true;
+        }
+        if (!rtx_is_hardware_active() || next_gpu_visibility_state_slot >= 64) return false;
+        const uint32_t slot = next_gpu_visibility_state_slot++;
+        if (!rtx_reset_astg_visibility_state_slot(slot)) return false;
+        gpu_visibility_state_slots[group_id] = slot;
+        out_slot = slot;
+        return true;
+    }
+
+    // This performs O(touched cells) CPU work, not O(candidate edges). It
+    // intentionally leaves range expansion and duplicate edge removal to the
+    // GPU discovery dispatch.
+    void query_gpu_edge_spatial_ranges(
+        const ASTGAABB& query_box,
+        std::vector<ASTGGPUCellRange>& out_ranges,
+        uint32_t& out_edge_references
+    ) const {
+        out_ranges.clear();
+        out_edge_references = 0;
+        if (!query_box.is_valid() || edge_spatial_grid.cell_size <= 0.0f) return;
+        const float cell_size = edge_spatial_grid.cell_size;
+        const int min_x = (int)std::floor(query_box.min_bounds.x / cell_size);
+        const int max_x = (int)std::floor(query_box.max_bounds.x / cell_size);
+        const int min_y = (int)std::floor(query_box.min_bounds.y / cell_size);
+        const int max_y = (int)std::floor(query_box.max_bounds.y / cell_size);
+        const int min_z = (int)std::floor(query_box.min_bounds.z / cell_size);
+        const int max_z = (int)std::floor(query_box.max_bounds.z / cell_size);
+        for (int x = min_x; x <= max_x; ++x) {
+            for (int y = min_y; y <= max_y; ++y) {
+                for (int z = min_z; z <= max_z; ++z) {
+                    auto it = gpu_edge_spatial_cell_ranges.find({ x, y, z });
+                    if (it == gpu_edge_spatial_cell_ranges.end()) continue;
+                    ASTGGPUCellRange range = it->second;
+                    range.dispatch_offset = out_edge_references;
+                    out_ranges.push_back(range);
+                    out_edge_references += range.edge_index_count;
+                }
             }
         }
     }
@@ -2568,61 +2664,92 @@ public:
         if (mode == ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES || mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS) {
             ASTGAABB swept_bounds = ASTGAABB::union_of(group.previous_world_union_bounds, group.world_union_bounds);
             std::vector<uint32_t> candidate_edges;
+            std::vector<ASTGGPUCellRange> gpu_spatial_ranges;
+            uint32_t gpu_edge_references = 0;
+            uint32_t gpu_visibility_state_slot = UINT32_MAX;
             auto t_sp_start = std::chrono::high_resolution_clock::now();
-            edge_spatial_grid.query_edges_in_aabb(swept_bounds, candidate_edges);
+            query_gpu_edge_spatial_ranges(swept_bounds, gpu_spatial_ranges, gpu_edge_references);
+            const bool use_gpu_spatial_discovery = rtx_is_hardware_active() &&
+                gpu_edge_references >= 256 &&
+                gpu_edge_references <= 131072 &&
+                !gpu_spatial_ranges.empty() && sync_gpu_edge_spatial_index();
+            const bool use_gpu_persistent_visibility = use_gpu_spatial_discovery &&
+                ensure_gpu_visibility_state_slot(group_id, gpu_visibility_state_slot);
+            if (!use_gpu_persistent_visibility) {
+                edge_spatial_grid.query_edges_in_aabb(swept_bounds, candidate_edges);
+            }
             auto t_sp_end = std::chrono::high_resolution_clock::now();
             m.spatial_query_us = std::chrono::duration<double, std::micro>(t_sp_end - t_sp_start).count();
-            m.candidate_edges = (uint32_t)candidate_edges.size();
+            m.candidate_edges = use_gpu_persistent_visibility ? gpu_edge_references : (uint32_t)candidate_edges.size();
+            m.spatial_cells_touched = (uint32_t)gpu_spatial_ranges.size();
+            m.spatial_edge_references = gpu_edge_references;
 
             std::unordered_set<uint32_t> new_blocked_edge_set;
             auto t_fine_start = std::chrono::high_resolution_clock::now();
             std::vector<uint32_t> gpu_candidate_edges;
-            gpu_candidate_edges.reserve(candidate_edges.size());
-            for (uint32_t edge_idx : candidate_edges) {
-                if (edge_idx >= dag_edges.size()) continue;
-                const auto& edge = dag_edges[edge_idx];
-                if (!edge.is_active && edge.state == ASTG_EDGE_INVALID_STATIC) continue;
-                // In Mode B, B0 edges are handled by angular projection.
-                if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS && edge.source_bounce_depth == 0) continue;
-                if (!get_node_by_id(edge.parent_node_id) || !get_node_by_id(edge.child_node_id)) continue;
-                gpu_candidate_edges.push_back(edge_idx);
+            if (!use_gpu_persistent_visibility) {
+                gpu_candidate_edges.reserve(candidate_edges.size());
+                for (uint32_t edge_idx : candidate_edges) {
+                    if (edge_idx >= dag_edges.size()) continue;
+                    const auto& edge = dag_edges[edge_idx];
+                    if (!edge.is_active && edge.state == ASTG_EDGE_INVALID_STATIC) continue;
+                    // In Mode B, B0 edges are handled by angular projection.
+                    if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS && edge.source_bounce_depth == 0) continue;
+                    if (!get_node_by_id(edge.parent_node_id) || !get_node_by_id(edge.child_node_id)) continue;
+                    gpu_candidate_edges.push_back(edge_idx);
+                }
             }
 
             // GPU construction/traversal is used for representative workloads;
             // tiny updates retain the low-latency CPU fast path. GPU results are
             // only used to form the candidate blocked set; canonical DAG
             // mutation below remains CPU-owned.
-            const bool use_gpu_visibility = rtx_is_hardware_active() && gpu_candidate_edges.size() >= 256;
+            const bool use_gpu_visibility = use_gpu_persistent_visibility;
             if (use_gpu_visibility) {
+                // Persistent GPU output is a transition stream. Start from
+                // the previous canonical blocked set and apply only changes.
+                new_blocked_edge_set = dynamic_group_to_edges[group_id];
                 std::vector<ASTGEdgeVisibilityResult> gpu_results;
                 ASTGVisibilityCounters gpu_counters = {};
                 RTGPUTimings gpu_timings = {};
-                trace_candidates_gpu(gpu_candidate_edges, group_id, gpu_results, gpu_counters, &gpu_timings);
-                for (size_t i = 0; i < gpu_candidate_edges.size() && i < gpu_results.size(); ++i) {
+                incremental_sync_gpu_astg();
+                sync_gpu_dynamic_occluders();
+                gpu_results.resize(gpu_edge_references);
+                ++gpu_discovery_stamp;
+                if (gpu_discovery_stamp == 0) {
+                    // Stamp wrap is an ABA boundary: clear GPU stamps by
+                    // re-uploading the persistent spatial table before reuse.
+                    gpu_discovery_stamp = 1;
+                    gpu_edge_spatial_index_uploaded = false;
+                    sync_gpu_edge_spatial_index();
+                }
+                rtx_trace_spatial_edge_ranges(gpu_spatial_ranges.data(), (uint32_t)gpu_spatial_ranges.size(),
+                    gpu_edge_references, group_id,
+                    gpu_occluder_dense_indices.count(group_id) ? gpu_occluder_dense_indices[group_id] : UINT32_MAX,
+                    gpu_discovery_stamp, gpu_visibility_state_slot, gpu_results.data(), &gpu_counters, &gpu_timings);
+                m.gpu_generation_rejected = gpu_counters.generation_rejected;
+                m.gpu_angular_rejected = gpu_counters.angular_rejected;
+                m.gpu_aabb_rejected = gpu_counters.broadphase_rejected;
+                m.gpu_rayquery_required = gpu_counters.rayquery_candidates;
+                m.gpu_visibility_state_transitions = gpu_counters.changed_state_count;
+                m.gpu_changed_result_readback_bytes = gpu_counters.changed_state_count * (uint32_t)sizeof(ASTGEdgeVisibilityResult);
+                m.spatial_duplicate_edges_removed = gpu_edge_references > gpu_counters.edges_considered
+                    ? gpu_edge_references - gpu_counters.edges_considered : 0;
+                const uint32_t changed_count = std::min(gpu_counters.changed_state_count, gpu_edge_references);
+                for (uint32_t result_index = 0; result_index < changed_count; ++result_index) {
+                    const auto& result = gpu_results[result_index];
+                    const uint32_t edge_idx = result.edge_id;
+                    if (edge_idx >= dag_edges.size() ||
+                        result.generation != dag_edges[edge_idx].repair_generation) continue;
                     m.fine_tested_edges++;
-                    // The current GPU TLAS contains scene geometry while the
-                    // dynamic group is represented by uploaded bounds. A
-                    // slab miss is therefore a definitive cheap rejection;
-                    // surviving candidates retain the CPU-owned canonical
-                    // AABB classification until dynamic geometry is attached
-                    // to the TLAS. This preserves exact ASTG semantics while
-                    // eliminating host ray construction for rejected work.
-                    if (gpu_results[i].visibility_state != 3) {
-                        const auto& edge = dag_edges[gpu_candidate_edges[i]];
-                        const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
-                        const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
-                        bool edge_hit = false;
-                        if (parent_n && child_n) {
-                            for (const auto& ob : group.bounds) {
-                                if (segment_intersects_aabb(parent_n->position, child_n->position, ob.aabb)) {
-                                    edge_hit = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!edge_hit) continue;
-                        new_blocked_edge_set.insert(gpu_candidate_edges[i]);
+                    // Bounds-backed groups have exact GPU slab semantics;
+                    // consume only state transitions, with no CPU segment
+                    // retest or per-candidate mutation work.
+                    if (result.visibility_state == 1) {
+                        new_blocked_edge_set.insert(edge_idx);
                         m.intersected_edges++;
+                    } else {
+                        new_blocked_edge_set.erase(edge_idx);
                     }
                 }
             } else {
@@ -2875,6 +3002,9 @@ public:
         node_dirty_interval.reset();
         edge_dirty_interval.reset();
         is_gpu_astg_synced = true;
+        // Structural rebuilds also refresh the persistent GPU cell -> edge
+        // table and clear its dedup stamps.
+        sync_gpu_edge_spatial_index();
     }
 
     // Incremental synchronization: uploads only modified dirty intervals
@@ -2902,6 +3032,7 @@ public:
     // Synchronizes active dynamic occluder group bounding boxes to the GPU occluder buffer (Milestone 2 - R3)
     void sync_gpu_dynamic_occluders() {
         std::vector<ASTGGPUOccluderAABB> gpu_occluders;
+        gpu_occluder_dense_indices.clear();
         for (const auto& pair : dynamic_occluder_groups) {
             const auto& group = pair.second;
             if (!group.astg_occlusion_enabled || !group.world_union_bounds.is_valid()) continue;
@@ -2920,6 +3051,7 @@ public:
             if (group.is_skeletal) {
                 occ.flags |= 4;
             }
+            gpu_occluder_dense_indices[group.group_id] = (uint32_t)gpu_occluders.size();
             gpu_occluders.push_back(occ);
         }
         if (!gpu_occluders.empty()) {
@@ -2950,6 +3082,8 @@ public:
             candidates[i].edge_id = eid;
             candidates[i].object_id = object_id;
             candidates[i].transport_generation = (eid < dag_edges.size()) ? dag_edges[eid].repair_generation : 0;
+            auto occ_it = gpu_occluder_dense_indices.find(object_id);
+            candidates[i].occluder_index = (occ_it != gpu_occluder_dense_indices.end()) ? occ_it->second : UINT32_MAX;
         }
 
         out_results.resize(candidates.size());

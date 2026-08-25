@@ -203,12 +203,14 @@ typedef struct ASTGGPUDAGEdge {
 } ASTGGPUDAGEdge;
 #endif
 
-// 12-byte Compact Visibility Candidate Record (R2)
-// Submitted per-frame from host CPU in dynamic upload buffers
+// 16-byte Compact Visibility Candidate Record (R2)
+// `occluder_index` is a dense GPU-buffer index. `object_id` remains the
+// stable ASTG group identity and is validated by the shader before use.
 struct ASTGGPUVisibilityCandidate {
     uint32_t edge_id;               // Offset 0: Index into g_edges
     uint32_t object_id;             // Offset 4: Dynamic occluder group ID (or 0xFFFFFFFF if static/general)
     uint32_t transport_generation;  // Offset 8: Host DAG transport generation at query time
+    uint32_t occluder_index;        // Offset 12: Dense index into g_occluders (or 0xFFFFFFFF)
 };
 typedef struct ASTGGPUVisibilityCandidate ASTGGPUVisibilityCandidate;
 
@@ -232,6 +234,15 @@ struct ASTGVisibilityCounters {
     uint32_t changed_state_count;   // Edges with mutated visibility state
 };
 typedef struct ASTGVisibilityCounters ASTGVisibilityCounters;
+
+// Persistent visibility state is scoped to a stable dynamic-object slot and
+// edge ID. Generation is stored separately so edge-ID reuse cannot inherit an
+// old object's visibility decision.
+struct ASTGPersistentVisibilityState {
+    uint32_t edge_generation;
+    uint32_t visibility_state; // 0 = visible, 1 = blocked; zero generation = invalid
+};
+typedef struct ASTGPersistentVisibilityState ASTGPersistentVisibilityState;
 
 // 32-byte GPU ASTG Dynamic Occluder AABB (16-byte aligned)
 // Matches HLSL StructuredBuffer<ASTGGPUOccluderAABB> layout (Milestone 2 - R3)
@@ -257,6 +268,16 @@ typedef struct ASTGGPUOccluderAABB {
 } ASTGGPUOccluderAABB;
 #endif
 
+// A contiguous range of edge IDs belonging to one exact spatial cell. The
+// CPU uploads only ranges overlapping a changed object's swept AABB; edge IDs
+// remain resident on the GPU and are discovered there.
+struct ASTGGPUCellRange {
+    uint32_t edge_index_offset;
+    uint32_t edge_index_count;
+    uint32_t dispatch_offset; // Prefix offset in this dispatch's edge-reference stream
+};
+typedef struct ASTGGPUCellRange ASTGGPUCellRange;
+
 // 32-byte Constant Buffer for GPU Transport Traversal
 struct TransportConstants {
     uint32_t candidate_count;           // Offset 0: Total candidate queries in batch
@@ -266,7 +287,12 @@ struct TransportConstants {
     uint32_t dynamic_occlusion_mode;    // Offset 16: 0=NONE, 1=DAG_ALL_BOUNCES, 2=ANGULAR_B0_DAG_B1
     uint32_t occluder_count;            // Offset 20: Number of active dynamic occluders in g_occluders
     uint32_t destroyed_chunk_mask;      // Offset 24: Bitmask of destroyed chunks
-    uint32_t flags;                     // Offset 28: Pipeline control flags
+    uint32_t flags;                     // Offset 28: Pipeline control flags (bit 0 = GPU spatial discovery)
+    uint32_t discovery_range_count;     // Offset 32
+    uint32_t discovery_object_id;       // Offset 36: stable group ID
+    uint32_t discovery_occluder_index;  // Offset 40: dense GPU occluder index
+    uint32_t discovery_stamp;           // Offset 44: dedup stamp for this object update
+    uint32_t visibility_state_slot;     // Offset 48: stable dynamic-object state slice
 };
 typedef struct TransportConstants TransportConstants;
 
@@ -274,12 +300,14 @@ typedef struct TransportConstants TransportConstants;
 }
 
 #include <cstddef>
-// Static Assertions for ASTGGPUVisibilityCandidate (12 bytes)
-static_assert(sizeof(ASTGGPUVisibilityCandidate) == 12, "ASTGGPUVisibilityCandidate size must be exactly 12 bytes");
+// Static Assertions for ASTGGPUVisibilityCandidate (16 bytes)
+static_assert(sizeof(ASTGGPUVisibilityCandidate) == 16, "ASTGGPUVisibilityCandidate size must be exactly 16 bytes");
 static_assert(alignof(ASTGGPUVisibilityCandidate) == 4, "ASTGGPUVisibilityCandidate alignment must be 4 bytes");
 static_assert(offsetof(ASTGGPUVisibilityCandidate, edge_id) == 0, "ASTGGPUVisibilityCandidate::edge_id offset != 0");
 static_assert(offsetof(ASTGGPUVisibilityCandidate, object_id) == 4, "ASTGGPUVisibilityCandidate::object_id offset != 4");
+static_assert(offsetof(ASTGGPUVisibilityCandidate, occluder_index) == 12, "ASTGGPUVisibilityCandidate::occluder_index offset != 12");
 static_assert(offsetof(ASTGGPUVisibilityCandidate, transport_generation) == 8, "ASTGGPUVisibilityCandidate::transport_generation offset != 8");
+static_assert(sizeof(ASTGGPUCellRange) == 12, "ASTGGPUCellRange size must be exactly 12 bytes");
 
 // Static Assertions for ASTGGPUNode (48 bytes, 16-byte aligned)
 static_assert(sizeof(ASTGGPUNode) == 48, "ASTGGPUNode size must be exactly 48 bytes");
@@ -328,7 +356,8 @@ static_assert(offsetof(ASTGGPUOccluderAABB, max_y) == 20, "ASTGGPUOccluderAABB::
 static_assert(offsetof(ASTGGPUOccluderAABB, max_z) == 24, "ASTGGPUOccluderAABB::max_z offset != 24");
 static_assert(offsetof(ASTGGPUOccluderAABB, flags) == 28, "ASTGGPUOccluderAABB::flags offset != 28");
 
-// Static Assertions for ASTGVisibilityCounters & TransportConstants (32 bytes)
+// Static Assertions for ASTGVisibilityCounters (32 bytes) and the extended
+// spatial-discovery TransportConstants block (48 bytes).
 static_assert(sizeof(ASTGVisibilityCounters) == 32, "ASTGVisibilityCounters size must be exactly 32 bytes");
 static_assert(offsetof(ASTGVisibilityCounters, edges_considered) == 0, "ASTGVisibilityCounters::edges_considered offset != 0");
 static_assert(offsetof(ASTGVisibilityCounters, generation_rejected) == 4, "ASTGVisibilityCounters::generation_rejected offset != 4");
@@ -339,7 +368,7 @@ static_assert(offsetof(ASTGVisibilityCounters, rayquery_blocked) == 20, "ASTGVis
 static_assert(offsetof(ASTGVisibilityCounters, rayquery_visible) == 24, "ASTGVisibilityCounters::rayquery_visible offset != 24");
 static_assert(offsetof(ASTGVisibilityCounters, changed_state_count) == 28, "ASTGVisibilityCounters::changed_state_count offset != 28");
 
-static_assert(sizeof(TransportConstants) == 32, "TransportConstants size must be exactly 32 bytes");
+static_assert(sizeof(TransportConstants) == 52, "TransportConstants size must be exactly 52 bytes");
 static_assert(offsetof(TransportConstants, candidate_count) == 0, "TransportConstants::candidate_count offset != 0");
 static_assert(offsetof(TransportConstants, total_nodes) == 4, "TransportConstants::total_nodes offset != 4");
 static_assert(offsetof(TransportConstants, total_edges) == 8, "TransportConstants::total_edges offset != 8");
@@ -348,4 +377,10 @@ static_assert(offsetof(TransportConstants, dynamic_occlusion_mode) == 16, "Trans
 static_assert(offsetof(TransportConstants, occluder_count) == 20, "TransportConstants::occluder_count offset != 20");
 static_assert(offsetof(TransportConstants, destroyed_chunk_mask) == 24, "TransportConstants::destroyed_chunk_mask offset != 24");
 static_assert(offsetof(TransportConstants, flags) == 28, "TransportConstants::flags offset != 28");
+static_assert(offsetof(TransportConstants, discovery_range_count) == 32, "TransportConstants::discovery_range_count offset != 32");
+static_assert(offsetof(TransportConstants, discovery_object_id) == 36, "TransportConstants::discovery_object_id offset != 36");
+static_assert(offsetof(TransportConstants, discovery_occluder_index) == 40, "TransportConstants::discovery_occluder_index offset != 40");
+static_assert(offsetof(TransportConstants, discovery_stamp) == 44, "TransportConstants::discovery_stamp offset != 44");
+static_assert(offsetof(TransportConstants, visibility_state_slot) == 48, "TransportConstants::visibility_state_slot offset != 48");
+static_assert(sizeof(ASTGPersistentVisibilityState) == 8, "ASTGPersistentVisibilityState size must be exactly 8 bytes");
 #endif

@@ -146,6 +146,26 @@ RTX_API bool rtx_readback_astg_edges(ASTGGPUDAGEdge* out_edges, uint32_t offset,
 // Uploads dynamic occluder AABBs to persistent GPU buffer (Milestone 2 - R3)
 RTX_API bool rtx_set_dynamic_occluders_gpu(const ASTGGPUOccluderAABB* occluders, uint32_t count);
 
+// Uploads the persistent flattened cell -> edge-ID table used by GPU-side
+// dynamic-object candidate discovery. This is rebuilt only with the DAG grid.
+RTX_API bool rtx_upload_astg_spatial_edge_indices(const uint32_t* edge_indices, uint32_t count);
+RTX_API bool rtx_reset_astg_visibility_state_slot(uint32_t slot);
+
+// The CPU submits only ranges for cells touched by one moved object. The GPU
+// expands, deduplicates, validates, and traces the referenced edge IDs.
+RTX_API int32_t rtx_trace_spatial_edge_ranges(
+    const ASTGGPUCellRange* ranges,
+    uint32_t range_count,
+    uint32_t edge_reference_count,
+    uint32_t object_id,
+    uint32_t occluder_index,
+    uint32_t discovery_stamp,
+    uint32_t visibility_state_slot,
+    ASTGEdgeVisibilityResult* out_results,
+    ASTGVisibilityCounters* out_counters,
+    RTGPUTimings* out_timings
+);
+
 // Dispatches a batch of compact ASTGGPUVisibilityCandidates to the GPU transport pipeline
 RTX_API int32_t rtx_trace_candidates_batch(
     const ASTGGPUVisibilityCandidate* candidates,

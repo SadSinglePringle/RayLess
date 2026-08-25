@@ -139,6 +139,20 @@ struct RTXContext {
     ComPtr<ID3D12Resource> candidate_upload_buffer;   // UPLOAD heap
     void* mapped_candidates_upload = nullptr;
 
+    // Persistent edge-cell lists plus per-dispatch cell ranges. These allow
+    // the GPU to discover affected edges without a CPU candidate vector.
+    ComPtr<ID3D12Resource> spatial_edge_indices_buffer;
+    ComPtr<ID3D12Resource> spatial_edge_indices_upload_buffer;
+    void* mapped_spatial_edge_indices_upload = nullptr;
+    ComPtr<ID3D12Resource> discovery_ranges_upload_buffer;
+    void* mapped_discovery_ranges_upload = nullptr;
+    ComPtr<ID3D12Resource> edge_discovery_stamps_buffer;
+    ComPtr<ID3D12Resource> edge_discovery_stamps_upload_buffer;
+    void* mapped_edge_discovery_stamps_upload = nullptr;
+    ComPtr<ID3D12Resource> persistent_visibility_state_buffer;
+    ComPtr<ID3D12Resource> persistent_visibility_state_upload_buffer;
+    void* mapped_persistent_visibility_state_upload = nullptr;
+
     ComPtr<ID3D12Resource> occluder_buffer;          // DEFAULT heap (VRAM)
     ComPtr<ID3D12Resource> occluder_upload_buffer;   // UPLOAD heap (Staging)
     void* mapped_occluder_upload = nullptr;
@@ -159,11 +173,21 @@ struct RTXContext {
 
     uint32_t max_astg_nodes_capacity = 262144; // 256K nodes (12 MB)
     uint32_t max_astg_edges_capacity = 524288; // 512K edges (16 MB)
-    uint32_t max_candidates_capacity = 131072; // 128K candidates (1.5 MB)
+    uint32_t max_candidates_capacity = 131072; // 128K result/readback records
+    uint32_t max_spatial_edge_references_capacity = 4194304; // 4M cell references
+    uint32_t max_discovery_ranges_capacity = 4096;
+    uint32_t max_visibility_state_slots = 64;
     uint32_t max_occluders_capacity = 65536;   // 64K occluders (2 MB)
     uint32_t total_nodes_registered = 0;
     uint32_t total_edges_registered = 0;
     uint32_t total_occluders_registered = 0;
+    uint32_t total_spatial_edge_references_registered = 0;
+    bool discovery_active = false;
+    uint32_t discovery_range_count = 0;
+    uint32_t discovery_object_id = UINT32_MAX;
+    uint32_t discovery_occluder_index = UINT32_MAX;
+    uint32_t discovery_stamp = 0;
+    uint32_t visibility_state_slot = UINT32_MAX;
 
     struct BufferCopySpan {
         uint32_t dst_offset;
@@ -367,8 +391,8 @@ static bool CreatePipelineAndRootSignatures() {
     hr = g_rtx.device->CreateComputePipelineState(&anim_pso_desc, IID_PPV_ARGS(&g_rtx.animator_pso));
     if (FAILED(hr)) return false;
 
-    // 4. Milestone 2: Transport Root Signature & PSO (8 Parameters)
-    D3D12_ROOT_PARAMETER transport_params[8] = {};
+    // Transport Root Signature: legacy candidates plus GPU spatial discovery.
+    D3D12_ROOT_PARAMETER transport_params[12] = {};
     // 0: CBV (b0)
     transport_params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     transport_params[0].Descriptor.ShaderRegister = 0;
@@ -409,8 +433,28 @@ static bool CreatePipelineAndRootSignatures() {
     transport_params[7].Descriptor.ShaderRegister = 1;
     transport_params[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+    // 8: SRV persistent flattened spatial edge IDs (t5)
+    transport_params[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    transport_params[8].Descriptor.ShaderRegister = 5;
+    transport_params[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    // 9: SRV per-update touched-cell ranges (t6)
+    transport_params[9].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    transport_params[9].Descriptor.ShaderRegister = 6;
+    transport_params[9].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    // 10: UAV persistent edge dedup stamps (u2)
+    transport_params[10].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    transport_params[10].Descriptor.ShaderRegister = 2;
+    transport_params[10].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    // 11: UAV persistent (object slot, edge) visibility state (u3)
+    transport_params[11].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+    transport_params[11].Descriptor.ShaderRegister = 3;
+    transport_params[11].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
     D3D12_ROOT_SIGNATURE_DESC transport_sig_desc = {};
-    transport_sig_desc.NumParameters = 8;
+    transport_sig_desc.NumParameters = 12;
     transport_sig_desc.pParameters = transport_params;
 
     ComPtr<ID3DBlob> transport_sig_blob;
@@ -528,6 +572,11 @@ RTX_API bool rtx_init() {
     UINT64 candidate_bytes = g_rtx.max_candidates_capacity * sizeof(ASTGGPUVisibilityCandidate);
     UINT64 occluder_bytes = g_rtx.max_occluders_capacity * sizeof(ASTGGPUOccluderAABB);
     UINT64 result_bytes = g_rtx.max_candidates_capacity * sizeof(ASTGEdgeVisibilityResult);
+    UINT64 spatial_edge_index_bytes = g_rtx.max_spatial_edge_references_capacity * sizeof(uint32_t);
+    UINT64 discovery_range_bytes = g_rtx.max_discovery_ranges_capacity * sizeof(ASTGGPUCellRange);
+    UINT64 discovery_stamp_bytes = g_rtx.max_astg_edges_capacity * sizeof(uint32_t);
+    UINT64 visibility_state_bytes = (UINT64)g_rtx.max_visibility_state_slots *
+        g_rtx.max_astg_edges_capacity * sizeof(ASTGPersistentVisibilityState);
 
     g_rtx.astg_nodes_buffer = CreateBuffer(g_rtx.device.Get(), astg_node_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     g_rtx.astg_nodes_upload_buffer = CreateBuffer(g_rtx.device.Get(), astg_node_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -541,6 +590,21 @@ RTX_API bool rtx_init() {
 
     g_rtx.candidate_upload_buffer = CreateBuffer(g_rtx.device.Get(), candidate_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
     g_rtx.candidate_upload_buffer->Map(0, nullptr, &g_rtx.mapped_candidates_upload);
+
+    g_rtx.spatial_edge_indices_buffer = CreateBuffer(g_rtx.device.Get(), spatial_edge_index_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    g_rtx.spatial_edge_indices_upload_buffer = CreateBuffer(g_rtx.device.Get(), spatial_edge_index_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+    g_rtx.spatial_edge_indices_upload_buffer->Map(0, nullptr, &g_rtx.mapped_spatial_edge_indices_upload);
+    g_rtx.discovery_ranges_upload_buffer = CreateBuffer(g_rtx.device.Get(), discovery_range_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+    g_rtx.discovery_ranges_upload_buffer->Map(0, nullptr, &g_rtx.mapped_discovery_ranges_upload);
+    g_rtx.edge_discovery_stamps_buffer = CreateBuffer(g_rtx.device.Get(), discovery_stamp_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    g_rtx.edge_discovery_stamps_upload_buffer = CreateBuffer(g_rtx.device.Get(), discovery_stamp_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+    g_rtx.edge_discovery_stamps_upload_buffer->Map(0, nullptr, &g_rtx.mapped_edge_discovery_stamps_upload);
+    memset(g_rtx.mapped_edge_discovery_stamps_upload, 0, (size_t)discovery_stamp_bytes);
+    g_rtx.persistent_visibility_state_buffer = CreateBuffer(g_rtx.device.Get(), visibility_state_bytes,
+        D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    g_rtx.persistent_visibility_state_upload_buffer = CreateBuffer(g_rtx.device.Get(), visibility_state_bytes,
+        D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+    g_rtx.persistent_visibility_state_upload_buffer->Map(0, nullptr, &g_rtx.mapped_persistent_visibility_state_upload);
 
     g_rtx.occluder_buffer = CreateBuffer(g_rtx.device.Get(), occluder_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     g_rtx.occluder_upload_buffer = CreateBuffer(g_rtx.device.Get(), occluder_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -1694,6 +1758,99 @@ RTX_API bool rtx_set_dynamic_occluders_gpu(const ASTGGPUOccluderAABB* occluders,
     return true;
 }
 
+RTX_API bool rtx_upload_astg_spatial_edge_indices(const uint32_t* edge_indices, uint32_t count) {
+    if (!g_rtx.is_initialized || !edge_indices || count == 0 ||
+        count > g_rtx.max_spatial_edge_references_capacity) return false;
+
+    const UINT64 edge_index_bytes = (UINT64)count * sizeof(uint32_t);
+    const UINT64 stamp_bytes = (UINT64)g_rtx.max_astg_edges_capacity * sizeof(uint32_t);
+    memcpy(g_rtx.mapped_spatial_edge_indices_upload, edge_indices, (size_t)edge_index_bytes);
+    memset(g_rtx.mapped_edge_discovery_stamps_upload, 0, (size_t)stamp_bytes);
+
+    g_rtx.command_allocator->Reset();
+    g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
+
+    D3D12_RESOURCE_BARRIER to_copy[2] = {};
+    to_copy[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    to_copy[0].Transition.pResource = g_rtx.spatial_edge_indices_buffer.Get();
+    to_copy[0].Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    to_copy[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+    to_copy[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    to_copy[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    to_copy[1].Transition.pResource = g_rtx.edge_discovery_stamps_buffer.Get();
+    to_copy[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    to_copy[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+    to_copy[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    g_rtx.command_list->ResourceBarrier(2, to_copy);
+    g_rtx.command_list->CopyBufferRegion(g_rtx.spatial_edge_indices_buffer.Get(), 0,
+        g_rtx.spatial_edge_indices_upload_buffer.Get(), 0, edge_index_bytes);
+    g_rtx.command_list->CopyBufferRegion(g_rtx.edge_discovery_stamps_buffer.Get(), 0,
+        g_rtx.edge_discovery_stamps_upload_buffer.Get(), 0, stamp_bytes);
+    for (auto& b : to_copy) std::swap(b.Transition.StateBefore, b.Transition.StateAfter);
+    g_rtx.command_list->ResourceBarrier(2, to_copy);
+    g_rtx.command_list->Close();
+    ID3D12CommandList* lists[] = { g_rtx.command_list.Get() };
+    g_rtx.command_queue->ExecuteCommandLists(1, lists);
+    WaitForGPU();
+    g_rtx.total_spatial_edge_references_registered = count;
+    return true;
+}
+
+RTX_API bool rtx_reset_astg_visibility_state_slot(uint32_t slot) {
+    if (!g_rtx.is_initialized || slot >= g_rtx.max_visibility_state_slots) return false;
+    const UINT64 slot_bytes = (UINT64)g_rtx.max_astg_edges_capacity * sizeof(ASTGPersistentVisibilityState);
+    const UINT64 slot_offset = (UINT64)slot * slot_bytes;
+    memset((uint8_t*)g_rtx.mapped_persistent_visibility_state_upload + slot_offset, 0, (size_t)slot_bytes);
+
+    g_rtx.command_allocator->Reset();
+    g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
+    D3D12_RESOURCE_BARRIER b = {};
+    b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    b.Transition.pResource = g_rtx.persistent_visibility_state_buffer.Get();
+    b.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    b.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    g_rtx.command_list->ResourceBarrier(1, &b);
+    g_rtx.command_list->CopyBufferRegion(g_rtx.persistent_visibility_state_buffer.Get(), slot_offset,
+        g_rtx.persistent_visibility_state_upload_buffer.Get(), slot_offset, slot_bytes);
+    std::swap(b.Transition.StateBefore, b.Transition.StateAfter);
+    g_rtx.command_list->ResourceBarrier(1, &b);
+    g_rtx.command_list->Close();
+    ID3D12CommandList* lists[] = { g_rtx.command_list.Get() };
+    g_rtx.command_queue->ExecuteCommandLists(1, lists);
+    WaitForGPU();
+    return true;
+}
+
+RTX_API int32_t rtx_trace_spatial_edge_ranges(
+    const ASTGGPUCellRange* ranges,
+    uint32_t range_count,
+    uint32_t edge_reference_count,
+    uint32_t object_id,
+    uint32_t occluder_index,
+    uint32_t discovery_stamp,
+    uint32_t visibility_state_slot,
+    ASTGEdgeVisibilityResult* out_results,
+    ASTGVisibilityCounters* out_counters,
+    RTGPUTimings* out_timings
+) {
+    if (!ranges || !out_results || range_count == 0 || edge_reference_count == 0 ||
+        range_count > g_rtx.max_discovery_ranges_capacity ||
+        edge_reference_count > g_rtx.max_candidates_capacity ||
+        discovery_stamp == 0 || visibility_state_slot >= g_rtx.max_visibility_state_slots ||
+        !g_rtx.spatial_edge_indices_buffer) return 0;
+    memcpy(g_rtx.mapped_discovery_ranges_upload, ranges, (size_t)range_count * sizeof(ASTGGPUCellRange));
+    g_rtx.discovery_active = true;
+    g_rtx.discovery_range_count = range_count;
+    g_rtx.discovery_object_id = object_id;
+    g_rtx.discovery_occluder_index = occluder_index;
+    g_rtx.discovery_stamp = discovery_stamp;
+    g_rtx.visibility_state_slot = visibility_state_slot;
+    const int32_t traced = rtx_trace_candidates_batch(nullptr, edge_reference_count, out_results, out_counters, out_timings);
+    g_rtx.discovery_active = false;
+    return traced;
+}
+
 RTX_API int32_t rtx_trace_candidates_batch(
     const ASTGGPUVisibilityCandidate* candidates,
     uint32_t candidate_count,
@@ -1701,7 +1858,7 @@ RTX_API int32_t rtx_trace_candidates_batch(
     ASTGVisibilityCounters* out_counters,
     RTGPUTimings* out_timings
 ) {
-    if (!g_rtx.is_initialized || candidate_count == 0 || !candidates || !out_results) return 0;
+    if (!g_rtx.is_initialized || candidate_count == 0 || (!candidates && !g_rtx.discovery_active) || !out_results) return 0;
     if (!g_rtx.tlas_buffer) return 0;
 
     uint32_t count = min(candidate_count, g_rtx.max_candidates_capacity);
@@ -1710,8 +1867,10 @@ RTX_API int32_t rtx_trace_candidates_batch(
 
     auto t_gen_start = std::chrono::high_resolution_clock::now();
 
-    // 1. Copy candidates into mapped upload buffer
-    memcpy(g_rtx.mapped_candidates_upload, candidates, cand_bytes);
+    // 1. Copy legacy candidates only when this is not GPU spatial discovery.
+    if (!g_rtx.discovery_active) {
+        memcpy(g_rtx.mapped_candidates_upload, candidates, cand_bytes);
+    }
 
     // 2. Set Transport Constants
     TransportConstants constants = {};
@@ -1722,7 +1881,12 @@ RTX_API int32_t rtx_trace_candidates_batch(
     constants.dynamic_occlusion_mode = (g_rtx.total_occluders_registered > 0) ? 1 : 0;
     constants.occluder_count = g_rtx.total_occluders_registered;
     constants.destroyed_chunk_mask = 0;
-    constants.flags = 0;
+    constants.flags = g_rtx.discovery_active ? 1u : 0u;
+    constants.discovery_range_count = g_rtx.discovery_active ? g_rtx.discovery_range_count : 0;
+    constants.discovery_object_id = g_rtx.discovery_object_id;
+    constants.discovery_occluder_index = g_rtx.discovery_occluder_index;
+    constants.discovery_stamp = g_rtx.discovery_stamp;
+    constants.visibility_state_slot = g_rtx.visibility_state_slot;
 
     memcpy(g_rtx.mapped_transport_cb, &constants, sizeof(constants));
 
@@ -1817,6 +1981,10 @@ RTX_API int32_t rtx_trace_candidates_batch(
     g_rtx.command_list->SetComputeRootShaderResourceView(5, g_rtx.occluder_buffer->GetGPUVirtualAddress());
     g_rtx.command_list->SetComputeRootUnorderedAccessView(6, g_rtx.visibility_results_buffer->GetGPUVirtualAddress());
     g_rtx.command_list->SetComputeRootUnorderedAccessView(7, g_rtx.visibility_counters_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(8, g_rtx.spatial_edge_indices_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(9, g_rtx.discovery_ranges_upload_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(10, g_rtx.edge_discovery_stamps_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(11, g_rtx.persistent_visibility_state_buffer->GetGPUVirtualAddress());
 
     uint32_t num_groups = (count + 63) / 64;
     g_rtx.command_list->Dispatch(num_groups, 1, 1);
@@ -1824,28 +1992,34 @@ RTX_API int32_t rtx_trace_candidates_batch(
     // Timestamp 7: End Candidate Traversal
     g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 7);
 
-    // Transition results & counters to COPY_SOURCE for readback
+    // Legacy batches copy the complete result array. GPU spatial discovery
+    // first copies only counters; once the appended transition count is known,
+    // it issues a small second copy for exactly those records.
     D3D12_RESOURCE_BARRIER rb_barriers[2] = {};
-    rb_barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb_barriers[0].Transition.pResource = g_rtx.visibility_results_buffer.Get();
-    rb_barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    rb_barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb_barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    const UINT rb_barrier_count = g_rtx.discovery_active ? 1u : 2u;
+    const UINT counter_barrier_index = g_rtx.discovery_active ? 0u : 1u;
+    if (!g_rtx.discovery_active) {
+        rb_barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        rb_barriers[0].Transition.pResource = g_rtx.visibility_results_buffer.Get();
+        rb_barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        rb_barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        rb_barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    }
+    rb_barriers[counter_barrier_index].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    rb_barriers[counter_barrier_index].Transition.pResource = g_rtx.visibility_counters_buffer.Get();
+    rb_barriers[counter_barrier_index].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    rb_barriers[counter_barrier_index].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    rb_barriers[counter_barrier_index].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-    rb_barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb_barriers[1].Transition.pResource = g_rtx.visibility_counters_buffer.Get();
-    rb_barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    rb_barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb_barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    g_rtx.command_list->ResourceBarrier(rb_barrier_count, rb_barriers);
 
-    g_rtx.command_list->ResourceBarrier(2, rb_barriers);
-
-    g_rtx.command_list->CopyBufferRegion(g_rtx.visibility_results_readback_buffer.Get(), 0, g_rtx.visibility_results_buffer.Get(), 0, result_bytes);
+    if (!g_rtx.discovery_active) {
+        g_rtx.command_list->CopyBufferRegion(g_rtx.visibility_results_readback_buffer.Get(), 0, g_rtx.visibility_results_buffer.Get(), 0, result_bytes);
+    }
     g_rtx.command_list->CopyBufferRegion(g_rtx.visibility_counters_readback_buffer.Get(), 0, g_rtx.visibility_counters_buffer.Get(), 0, sizeof(ASTGVisibilityCounters));
 
-    std::swap(rb_barriers[0].Transition.StateBefore, rb_barriers[0].Transition.StateAfter);
-    std::swap(rb_barriers[1].Transition.StateBefore, rb_barriers[1].Transition.StateAfter);
-    g_rtx.command_list->ResourceBarrier(2, rb_barriers);
+    for (UINT i = 0; i < rb_barrier_count; ++i) std::swap(rb_barriers[i].Transition.StateBefore, rb_barriers[i].Transition.StateAfter);
+    g_rtx.command_list->ResourceBarrier(rb_barrier_count, rb_barriers);
 
     g_rtx.command_list->ResolveQueryData(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 6, 2, g_rtx.timestamp_readback_buffer.Get(), sizeof(UINT64) * 6);
     g_rtx.command_list->Close();
@@ -1857,18 +2031,43 @@ RTX_API int32_t rtx_trace_candidates_batch(
     WaitForGPU();
     auto t_gpu_end = std::chrono::high_resolution_clock::now();
 
-    // 5. Readback results
+    // 5. Read back counters first. They determine the compact discovery-copy
+    // size, and are always authoritative even when the caller omits counters.
     auto t_proc_start = std::chrono::high_resolution_clock::now();
-    void* mapped_results = nullptr;
-    g_rtx.visibility_results_readback_buffer->Map(0, nullptr, &mapped_results);
-    memcpy(out_results, mapped_results, result_bytes);
-    g_rtx.visibility_results_readback_buffer->Unmap(0, nullptr);
+    ASTGVisibilityCounters observed_counters = {};
+    void* mapped_cnt = nullptr;
+    g_rtx.visibility_counters_readback_buffer->Map(0, nullptr, &mapped_cnt);
+    memcpy(&observed_counters, mapped_cnt, sizeof(ASTGVisibilityCounters));
+    g_rtx.visibility_counters_readback_buffer->Unmap(0, nullptr);
+    if (out_counters) *out_counters = observed_counters;
 
-    if (out_counters) {
-        void* mapped_cnt = nullptr;
-        g_rtx.visibility_counters_readback_buffer->Map(0, nullptr, &mapped_cnt);
-        memcpy(out_counters, mapped_cnt, sizeof(ASTGVisibilityCounters));
-        g_rtx.visibility_counters_readback_buffer->Unmap(0, nullptr);
+    const uint32_t output_records = g_rtx.discovery_active
+        ? min(observed_counters.changed_state_count, count) : count;
+    const UINT64 output_result_bytes = (UINT64)output_records * sizeof(ASTGEdgeVisibilityResult);
+    if (g_rtx.discovery_active && output_records > 0) {
+        g_rtx.command_allocator->Reset();
+        g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
+        D3D12_RESOURCE_BARRIER result_barrier = {};
+        result_barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        result_barrier.Transition.pResource = g_rtx.visibility_results_buffer.Get();
+        result_barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        result_barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        result_barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        g_rtx.command_list->ResourceBarrier(1, &result_barrier);
+        g_rtx.command_list->CopyBufferRegion(g_rtx.visibility_results_readback_buffer.Get(), 0,
+            g_rtx.visibility_results_buffer.Get(), 0, output_result_bytes);
+        std::swap(result_barrier.Transition.StateBefore, result_barrier.Transition.StateAfter);
+        g_rtx.command_list->ResourceBarrier(1, &result_barrier);
+        g_rtx.command_list->Close();
+        ID3D12CommandList* copy_lists[] = { g_rtx.command_list.Get() };
+        g_rtx.command_queue->ExecuteCommandLists(1, copy_lists);
+        WaitForGPU();
+    }
+    if (output_records > 0) {
+        void* mapped_results = nullptr;
+        g_rtx.visibility_results_readback_buffer->Map(0, nullptr, &mapped_results);
+        memcpy(out_results, mapped_results, (size_t)output_result_bytes);
+        g_rtx.visibility_results_readback_buffer->Unmap(0, nullptr);
     }
 
     UINT64 timestamps[2] = {};
@@ -1886,7 +2085,7 @@ RTX_API int32_t rtx_trace_candidates_batch(
     auto t_proc_end = std::chrono::high_resolution_clock::now();
 
     uint32_t blocked_count = 0;
-    for (uint32_t i = 0; i < count; ++i) {
+    for (uint32_t i = 0; i < output_records; ++i) {
         if (out_results[i].visibility_state == 1) blocked_count++;
     }
 
@@ -1927,6 +2126,22 @@ RTX_API void rtx_shutdown() {
     if (g_rtx.candidate_upload_buffer && g_rtx.mapped_candidates_upload) {
         g_rtx.candidate_upload_buffer->Unmap(0, nullptr);
         g_rtx.mapped_candidates_upload = nullptr;
+    }
+    if (g_rtx.spatial_edge_indices_upload_buffer && g_rtx.mapped_spatial_edge_indices_upload) {
+        g_rtx.spatial_edge_indices_upload_buffer->Unmap(0, nullptr);
+        g_rtx.mapped_spatial_edge_indices_upload = nullptr;
+    }
+    if (g_rtx.discovery_ranges_upload_buffer && g_rtx.mapped_discovery_ranges_upload) {
+        g_rtx.discovery_ranges_upload_buffer->Unmap(0, nullptr);
+        g_rtx.mapped_discovery_ranges_upload = nullptr;
+    }
+    if (g_rtx.edge_discovery_stamps_upload_buffer && g_rtx.mapped_edge_discovery_stamps_upload) {
+        g_rtx.edge_discovery_stamps_upload_buffer->Unmap(0, nullptr);
+        g_rtx.mapped_edge_discovery_stamps_upload = nullptr;
+    }
+    if (g_rtx.persistent_visibility_state_upload_buffer && g_rtx.mapped_persistent_visibility_state_upload) {
+        g_rtx.persistent_visibility_state_upload_buffer->Unmap(0, nullptr);
+        g_rtx.mapped_persistent_visibility_state_upload = nullptr;
     }
     if (g_rtx.occluder_upload_buffer && g_rtx.mapped_occluder_upload) {
         g_rtx.occluder_upload_buffer->Unmap(0, nullptr);
@@ -1986,6 +2201,13 @@ RTX_API void rtx_shutdown() {
     g_rtx.astg_edges_upload_buffer.Reset();
     g_rtx.astg_edges_readback_buffer.Reset();
     g_rtx.candidate_upload_buffer.Reset();
+    g_rtx.spatial_edge_indices_buffer.Reset();
+    g_rtx.spatial_edge_indices_upload_buffer.Reset();
+    g_rtx.discovery_ranges_upload_buffer.Reset();
+    g_rtx.edge_discovery_stamps_buffer.Reset();
+    g_rtx.edge_discovery_stamps_upload_buffer.Reset();
+    g_rtx.persistent_visibility_state_buffer.Reset();
+    g_rtx.persistent_visibility_state_upload_buffer.Reset();
     g_rtx.occluder_buffer.Reset();
     g_rtx.occluder_upload_buffer.Reset();
     g_rtx.visibility_results_buffer.Reset();

@@ -3132,7 +3132,10 @@ public:
         float mae_direct = 0.0f;
         float p95_direct = 0.0f;
         float p99_direct = 0.0f;
-        float rmse_indirect = 0.0f;
+        float rmse_indirect = -1.0f; // -1: indirect reference not exercised
+        float indirect_reference_l1 = 0.0f;
+        float indirect_reconstruction_l1 = 0.0f;
+        bool indirect_validation_exercised = false;
         float max_error = 0.0f;
         float temporal_error = 0.0f;
         uint64_t memory_bytes = 0;
@@ -5507,6 +5510,15 @@ public:
                 total_m.group_id = count;
                 for (const auto& sm : all_m) {
                     total_m.candidate_edges += sm.candidate_edges;
+                    total_m.spatial_cells_touched += sm.spatial_cells_touched;
+                    total_m.spatial_edge_references += sm.spatial_edge_references;
+                    total_m.spatial_duplicate_edges_removed += sm.spatial_duplicate_edges_removed;
+                    total_m.gpu_generation_rejected += sm.gpu_generation_rejected;
+                    total_m.gpu_angular_rejected += sm.gpu_angular_rejected;
+                    total_m.gpu_aabb_rejected += sm.gpu_aabb_rejected;
+                    total_m.gpu_rayquery_required += sm.gpu_rayquery_required;
+                    total_m.gpu_visibility_state_transitions += sm.gpu_visibility_state_transitions;
+                    total_m.gpu_changed_result_readback_bytes += sm.gpu_changed_result_readback_bytes;
                     total_m.fine_tested_edges += sm.fine_tested_edges;
                     total_m.intersected_edges += sm.intersected_edges;
                     total_m.total_update_ms += sm.total_update_ms;
@@ -5706,6 +5718,15 @@ public:
                 ASTGDynamicOcclusionMetrics frame_m = mp;
                 frame_m.group_id = f + 1; // frame
                 frame_m.candidate_edges += mc.candidate_edges;
+                frame_m.spatial_cells_touched += mc.spatial_cells_touched;
+                frame_m.spatial_edge_references += mc.spatial_edge_references;
+                frame_m.spatial_duplicate_edges_removed += mc.spatial_duplicate_edges_removed;
+                frame_m.gpu_generation_rejected += mc.gpu_generation_rejected;
+                frame_m.gpu_angular_rejected += mc.gpu_angular_rejected;
+                frame_m.gpu_aabb_rejected += mc.gpu_aabb_rejected;
+                frame_m.gpu_rayquery_required += mc.gpu_rayquery_required;
+                frame_m.gpu_visibility_state_transitions += mc.gpu_visibility_state_transitions;
+                frame_m.gpu_changed_result_readback_bytes += mc.gpu_changed_result_readback_bytes;
                 frame_m.fine_tested_edges += mc.fine_tested_edges;
                 frame_m.intersected_edges += mc.intersected_edges;
                 frame_m.newly_blocked_edges += mc.newly_blocked_edges;
@@ -7751,6 +7772,8 @@ public:
                     float direct_sq_sum = 0.0f;
                     float direct_abs_sum = 0.0f;
                     float indirect_sq_sum = 0.0f;
+                    float indirect_reference_l1 = 0.0f;
+                    float indirect_reconstruction_l1 = 0.0f;
                     float max_err = 0.0f;
                     std::vector<float> abs_errors(16000);
 
@@ -7768,6 +7791,8 @@ public:
                         direct_sq_sum += d_diff * d_diff;
                         direct_abs_sum += d_diff;
                         indirect_sq_sum += ind_diff * ind_diff;
+                        indirect_reference_l1 += std::abs(ref_indirect_e[j]);
+                        indirect_reconstruction_l1 += std::abs(ind_recon);
                         abs_errors[j] = d_diff;
                         if (d_diff > max_err) max_err = d_diff;
                     }
@@ -7845,7 +7870,10 @@ public:
                     q.mae_direct = direct_abs_sum / 16000.0f;
                     q.p95_direct = p95_err;
                     q.p99_direct = p99_err;
-                    q.rmse_indirect = std::sqrt(indirect_sq_sum / 16000.0f);
+                    q.indirect_reference_l1 = indirect_reference_l1;
+                    q.indirect_reconstruction_l1 = indirect_reconstruction_l1;
+                    q.indirect_validation_exercised = indirect_reference_l1 > 1e-5f || indirect_reconstruction_l1 > 1e-5f;
+                    q.rmse_indirect = q.indirect_validation_exercised ? std::sqrt(indirect_sq_sum / 16000.0f) : -1.0f;
                     q.max_error = max_err;
                     q.temporal_error = temp_err;
                     q.memory_bytes = eng.compute_dynamic_receiver_memory_bytes(gid);
@@ -7876,7 +7904,7 @@ public:
             AssertionRecord a_sw;
             a_sw.assertion_name = "probe_density_and_cluster_sweeps";
             a_sw.expected = "36 configurations have finite measured errors, temporal spread > 1e-6, and a documented 5 ms negative-control threshold";
-            a_sw.actual = rec_test_k_sweeps_pass ? "full 36-configuration sweep validated with real measured quality on canonical domain" : "sweep execution error";
+            a_sw.actual = rec_test_k_sweeps_pass ? "36 direct/temporal configurations validated; indirect RMSE is marked unvalidated when the reference has zero indirect energy" : "sweep execution error";
             a_sw.status = rec_test_k_sweeps_pass ? STATUS_PASS : STATUS_FAIL;
             b_k.add_assertion(a_sw);
 
@@ -7971,11 +7999,17 @@ public:
                 { hit_pos.x + 0.8f, hit_pos.y, hit_pos.z + 0.6f },
                 { hit_pos.x + 1.2f, hit_pos.y, hit_pos.z + 1.0f }
             };
+            double last_angular_projection_ms = 0.0;
+            double last_spatial_lookup_ms = 0.0;
+            double last_edge_filter_ms = 0.0;
 
             for (size_t f = 0; f < waypoints.size(); ++f) {
                 auto wp = waypoints[f];
                 eng.set_dynamic_group_rigid_transform(gid, RTXMatrix4x4::translation(wp.x - hit_pos.x, wp.y - hit_pos.y, wp.z - hit_pos.z));
                 ASTGDynamicOcclusionMetrics m = eng.update_dynamic_occlusion(gid);
+                last_angular_projection_ms = m.angular_projection_us / 1000.0;
+                last_spatial_lookup_ms = m.spatial_query_us / 1000.0;
+                last_edge_filter_ms = m.fine_test_us / 1000.0;
 
                 auto t_ind_0 = std::chrono::high_resolution_clock::now();
                 eng.evaluate_dynamic_receiver_indirect(gid);
@@ -8023,17 +8057,54 @@ public:
                 }
             }
 
-            rec_test_m_gpu_bistro_trajectory_pass = (receiver_trajectory_records.size() == waypoints.size() &&
-                                                     receiver_trajectory_records.back().total_receiver_ms < 0.050);
+            double receiver_total_ms = 0.0;
+            double receiver_direct_ms = 0.0;
+            double receiver_indirect_ms = 0.0;
+            double angular_projection_ms = 0.0;
+            double spatial_lookup_ms = 0.0;
+            double edge_filter_ms = 0.0;
+            bool receiver_timings_finite = receiver_trajectory_records.size() == waypoints.size();
+            for (const auto& tr : receiver_trajectory_records) {
+                receiver_total_ms += tr.total_receiver_ms;
+                receiver_direct_ms += tr.direct_receiver_ms;
+                receiver_indirect_ms += tr.indirect_receiver_ms;
+                receiver_timings_finite = receiver_timings_finite &&
+                    std::isfinite(tr.total_receiver_ms) && std::isfinite(tr.direct_receiver_ms) &&
+                    std::isfinite(tr.indirect_receiver_ms);
+            }
+            // Profile the actual production update phases instead of hiding a
+            // regression behind an arbitrary sub-0.05 ms threshold. This
+            // fixture does not dispatch receiver visibility rays yet, so it is
+            // deliberately an integration timing record, not a GPU claim.
+            rec_test_m_gpu_bistro_trajectory_pass = receiver_timings_finite;
+            if (!receiver_trajectory_records.empty()) {
+                const double denom = (double)receiver_trajectory_records.size();
+                receiver_total_ms /= denom;
+                receiver_direct_ms /= denom;
+                receiver_indirect_ms /= denom;
+                angular_projection_ms = last_angular_projection_ms;
+                spatial_lookup_ms = last_spatial_lookup_ms;
+                edge_filter_ms = last_edge_filter_ms;
+            }
 
             AssertionRecord a_bist;
             a_bist.assertion_name = "gpu_bistro_dynamic_receiver_trajectory";
-            a_bist.expected = "Bistro dynamic player receiver trajectory executes sub-millisecond (<0.05ms) across 5 waypoints";
-            a_bist.actual = rec_test_m_gpu_bistro_trajectory_pass ? "GPU Bistro trajectory validated with continuous receiver illumination" : "trajectory timing regression";
+            a_bist.expected = "Five Bistro receiver waypoints produce finite production-path timing samples; phase costs are exported without an arbitrary pass threshold";
+            a_bist.actual = rec_test_m_gpu_bistro_trajectory_pass ? "receiver trajectory is finite; measured phase costs exported" : "receiver trajectory produced invalid timing";
             a_bist.status = rec_test_m_gpu_bistro_trajectory_pass ? STATUS_PASS : STATUS_FAIL;
             b_m.add_assertion(a_bist);
 
-            wl.gpu_work_sentinel = 1;
+            b_m.add_metric(MetricEvidence::measured_cpu("receiver_total_evaluation_ms", receiver_total_ms, "receiver_trajectory_mean", "ms"));
+            b_m.add_metric(MetricEvidence::measured_cpu("receiver_direct_accumulation_ms", receiver_direct_ms, "receiver_trajectory_mean", "ms"));
+            b_m.add_metric(MetricEvidence::measured_cpu("receiver_indirect_accumulation_ms", receiver_indirect_ms, "receiver_trajectory_mean", "ms"));
+            b_m.add_metric(MetricEvidence::measured_cpu("angular_footprint_and_receiver_selection_ms", angular_projection_ms, "receiver_trajectory_last_frame", "ms"));
+            b_m.add_metric(MetricEvidence::measured_cpu("edge_spatial_lookup_ms", spatial_lookup_ms, "receiver_trajectory_last_frame", "ms"));
+            b_m.add_metric(MetricEvidence::measured_cpu("edge_filtering_ms", edge_filter_ms, "receiver_trajectory_last_frame", "ms"));
+            b_m.add_metric(MetricEvidence::not_measured("gpu_buffer_upload_ms", "no GPU receiver dispatch in this fixture"));
+            b_m.add_metric(MetricEvidence::not_measured("gpu_visibility_query_ms", "no GPU receiver dispatch in this fixture"));
+            b_m.add_metric(MetricEvidence::not_measured("readback_wait_ms", "no GPU receiver dispatch in this fixture"));
+            wl.category = "SUBSYSTEM"; wl.evidence_level = "INTEGRATION";
+            wl.gpu_work_sentinel = 0;
             b_m.set_identity(id); b_m.set_workload(wl);
             finalized_results.push_back(b_m.build_and_seal());
         }
@@ -9928,13 +9999,22 @@ public:
         // 29. dynamic_object_occlusion_trajectory.csv (Handoff Item 54)
         {
             std::ofstream f(tmp_dir + "/dynamic_object_occlusion_trajectory.csv");
-            f << "frame,group_id,enabled,candidate_edges,fine_tested_edges,blocked_edges,newly_blocked,newly_unblocked,update_ms\n";
+            f << "frame,group_id,enabled,candidate_edges,spatial_cells_touched,spatial_edge_references,spatial_duplicates_removed,gpu_generation_rejected,gpu_angular_rejected,gpu_aabb_rejected,gpu_rayquery_required,gpu_visibility_state_transitions,gpu_changed_result_readback_bytes,fine_tested_edges,blocked_edges,newly_blocked,newly_unblocked,update_ms\n";
             for (size_t i = 0; i < occ_e2e_trajectory_metrics.size(); ++i) {
                 const auto& m = occ_e2e_trajectory_metrics[i];
                 f << (i + 1) << ","
                   << m.group_id << ","
                   << "1,"
                   << m.candidate_edges << ","
+                  << m.spatial_cells_touched << ","
+                  << m.spatial_edge_references << ","
+                  << m.spatial_duplicate_edges_removed << ","
+                  << m.gpu_generation_rejected << ","
+                  << m.gpu_angular_rejected << ","
+                  << m.gpu_aabb_rejected << ","
+                  << m.gpu_rayquery_required << ","
+                  << m.gpu_visibility_state_transitions << ","
+                  << m.gpu_changed_result_readback_bytes << ","
                   << m.fine_tested_edges << ","
                   << m.currently_blocked_edges << ","
                   << m.newly_blocked_edges << ","
@@ -10116,6 +10196,9 @@ public:
                 f << "      \"p95_direct\": " << std::setprecision(6) << q.p95_direct << ",\n";
                 f << "      \"p99_direct\": " << std::setprecision(6) << q.p99_direct << ",\n";
                 f << "      \"rmse_indirect\": " << std::setprecision(6) << q.rmse_indirect << ",\n";
+                f << "      \"indirect_reference_l1\": " << std::setprecision(6) << q.indirect_reference_l1 << ",\n";
+                f << "      \"indirect_reconstruction_l1\": " << std::setprecision(6) << q.indirect_reconstruction_l1 << ",\n";
+                f << "      \"indirect_validation_state\": \"" << (q.indirect_validation_exercised ? "EXERCISED_NOT_INDEPENDENT" : "NOT_EXERCISED_ZERO_ENERGY") << "\",\n";
                 f << "      \"max_error\": " << std::setprecision(6) << q.max_error << ",\n";
                 f << "      \"temporal_error\": " << std::setprecision(6) << q.temporal_error << ",\n";
                 f << "      \"memory_bytes\": " << q.memory_bytes << ",\n";

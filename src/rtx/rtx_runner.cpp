@@ -498,7 +498,7 @@ void run_milestone1_verification(BenchmarkManifest& manifest) {
         std::cerr << "❌ ASTGVisibilityCounters size mismatch!\n";
         struct_pass = false;
     }
-    if (sizeof(TransportConstants) != 32) {
+    if (sizeof(TransportConstants) != 52) {
         std::cerr << "❌ TransportConstants size mismatch!\n";
         struct_pass = false;
     }
@@ -519,12 +519,12 @@ void run_milestone1_verification(BenchmarkManifest& manifest) {
     }
 
     if (struct_pass) {
-        std::cout << "  ✅ ASTGGPUVisibilityCandidate : 12 Bytes (4-byte aligned)\n";
+        std::cout << "  ✅ ASTGGPUVisibilityCandidate : 16 Bytes (4-byte aligned)\n";
         std::cout << "  ✅ ASTGGPUNode               : 48 Bytes (16-byte aligned, 3x float4 vectors)\n";
         std::cout << "  ✅ ASTGGPUDAGEdge            : 32 Bytes (16-byte aligned, 2x uint4 vectors)\n";
         std::cout << "  ✅ ASTGEdgeVisibilityResult  : 12 Bytes (4-byte aligned)\n";
         std::cout << "  ✅ ASTGVisibilityCounters   : 32 Bytes (8x uint32 telemetry)\n";
-        std::cout << "  ✅ TransportConstants        : 32 Bytes (CBV 256B aligned)\n";
+        std::cout << "  ✅ TransportConstants        : 52 Bytes (CBV 256B aligned)\n";
     }
 
     // -------------------------------------------------------------------------
@@ -789,13 +789,13 @@ void run_milestone1_verification(BenchmarkManifest& manifest) {
 
 void run_milestone2_verification(BenchmarkManifest& manifest) {
     manifest.category = BENCHMARK_SUBSYSTEM;
-    manifest.scene_name = "Milestone 2: GPU Broadphase Rejection & SM 6.5 Wave Compaction";
+    manifest.scene_name = "Milestone 2: GPU Broadphase Rejection & Single-Pass RayQuery";
     manifest.synthetic_geometry = true;
     manifest.synthetic_transport = true;
     manifest.print_startup_banner();
 
     std::cout << "================================================================================\n";
-    std::cout << "🚀 RUNNING MILESTONE 2 (R3) GPU BROADPHASE & COMPACTION VERIFICATION\n";
+    std::cout << "🚀 RUNNING MILESTONE 2 (R3) GPU SPATIAL DISCOVERY & BROADPHASE VERIFICATION\n";
     std::cout << "================================================================================\n\n";
 
     // -------------------------------------------------------------------------
@@ -812,7 +812,7 @@ void run_milestone2_verification(BenchmarkManifest& manifest) {
         std::cerr << "❌ ASTGVisibilityCounters size mismatch!\n";
         struct_pass = false;
     }
-    if (sizeof(TransportConstants) != 32) {
+    if (sizeof(TransportConstants) != 52) {
         std::cerr << "❌ TransportConstants size mismatch!\n";
         struct_pass = false;
     }
@@ -838,7 +838,7 @@ void run_milestone2_verification(BenchmarkManifest& manifest) {
     if (struct_pass) {
         std::cout << "  ✅ ASTGGPUOccluderAABB      : 32 Bytes (16-byte aligned, 2x float4 vectors)\n";
         std::cout << "  ✅ ASTGVisibilityCounters   : 32 Bytes (8x uint32 telemetry)\n";
-        std::cout << "  ✅ TransportConstants        : 32 Bytes (CBV 256B aligned)\n";
+        std::cout << "  ✅ TransportConstants        : 52 Bytes (CBV 256B aligned)\n";
     }
 
     // Build microbenchmark test BLAS/TLAS on RT Cores for geometry traversal
@@ -963,6 +963,70 @@ void run_milestone2_verification(BenchmarkManifest& manifest) {
         std::cerr << "❌ GPU Broadphase Slab Rejection test failed! Culled=" << bp_counters.broadphase_rejected << " Surv=" << bp_counters.rayquery_candidates << "\n";
     }
 
+    // The same four edges occupy two overlapping spatial cells. The CPU only
+    // supplies ranges; the GPU fetches edge IDs and stamps edge 1 so it is
+    // evaluated once despite appearing in both ranges.
+    const uint32_t spatial_edge_ids[] = { 0, 1, 1, 2, 3 };
+    const ASTGGPUCellRange spatial_ranges[] = {
+        { 0, 3, 0 },
+        { 3, 2, 3 }
+    };
+    std::vector<ASTGEdgeVisibilityResult> spatial_results(5);
+    ASTGVisibilityCounters spatial_counters = {};
+    const bool spatial_uploaded = rtx_upload_astg_spatial_edge_indices(spatial_edge_ids, 5);
+    const bool spatial_state_reset = spatial_uploaded && rtx_reset_astg_visibility_state_slot(0);
+    const int32_t spatial_traced = spatial_state_reset
+        ? rtx_trace_spatial_edge_ranges(spatial_ranges, 2, 5, 0, 0, 1, 0,
+            spatial_results.data(), &spatial_counters, nullptr)
+        : 0;
+    std::vector<uint32_t> changed_edge_ids;
+    for (uint32_t i = 0; i < spatial_counters.changed_state_count && i < spatial_results.size(); ++i) {
+        changed_edge_ids.push_back(spatial_results[i].edge_id);
+    }
+    std::sort(changed_edge_ids.begin(), changed_edge_ids.end());
+    ASTGVisibilityCounters spatial_repeat_counters = {};
+    const int32_t spatial_repeat_traced = spatial_state_reset
+        ? rtx_trace_spatial_edge_ranges(spatial_ranges, 2, 5, 0, 0, 2, 0,
+            spatial_results.data(), &spatial_repeat_counters, nullptr)
+        : 0;
+
+    // Generation changes must invalidate persistent state for the reused edge
+    // ID. A freshly reset object slot must likewise emit a complete initial
+    // state set rather than inheriting the prior object's decisions.
+    bp_edges[0].generation = 2;
+    rtx_upload_astg_edges(bp_edges.data(), 0, (uint32_t)bp_edges.size());
+    ASTGVisibilityCounters generation_change_counters = {};
+    const int32_t generation_change_traced = spatial_state_reset
+        ? rtx_trace_spatial_edge_ranges(spatial_ranges, 2, 5, 0, 0, 3, 0,
+            spatial_results.data(), &generation_change_counters, nullptr)
+        : 0;
+    const bool generation_change_pass = generation_change_traced == 5 &&
+        generation_change_counters.changed_state_count == 1 &&
+        spatial_results[0].edge_id == 0 && spatial_results[0].generation == 2;
+
+    const bool slot_reuse_reset = rtx_reset_astg_visibility_state_slot(0);
+    ASTGVisibilityCounters slot_reuse_counters = {};
+    const int32_t slot_reuse_traced = slot_reuse_reset
+        ? rtx_trace_spatial_edge_ranges(spatial_ranges, 2, 5, 7, 0, 4, 0,
+            spatial_results.data(), &slot_reuse_counters, nullptr)
+        : 0;
+    const bool spatial_discovery_pass = spatial_traced == 5 &&
+        spatial_counters.edges_considered == 4 &&
+        spatial_counters.broadphase_rejected == 2 &&
+        spatial_counters.rayquery_candidates == 2 &&
+        spatial_counters.changed_state_count == 4 &&
+        changed_edge_ids == std::vector<uint32_t>({ 0, 1, 2, 3 }) &&
+        spatial_repeat_traced == 5 && spatial_repeat_counters.changed_state_count == 0 &&
+        generation_change_pass && slot_reuse_traced == 5 && slot_reuse_counters.changed_state_count == 4;
+    if (spatial_discovery_pass) {
+        std::cout << "  ✅ GPU cell-range discovery: 5 references -> 4 unique edges (1 duplicate removed)\n";
+        std::cout << "  ✅ Persistent visibility state: repeated identical update returned 0 changed edges\n";
+        std::cout << "  ✅ Generation and object-slot reuse: stale state never survives an edge/slot reset\n";
+    } else {
+        std::cerr << "❌ GPU cell-range discovery failed! traced=" << spatial_traced
+                  << " considered=" << spatial_counters.edges_considered << "\n";
+    }
+
     // -------------------------------------------------------------------------
     // TEST 3: 64-Bin Octahedral Angular Hierarchy & Emission Cone Culling
     // -------------------------------------------------------------------------
@@ -1003,9 +1067,9 @@ void run_milestone2_verification(BenchmarkManifest& manifest) {
     }
 
     // -------------------------------------------------------------------------
-    // TEST 4: SM 6.5 Wave Compaction & Monotonicity Ordering
+    // TEST 4: Single-pass early-return filtering & monotonicity ordering.
     // -------------------------------------------------------------------------
-    std::cout << "\n[Test 4/6] Testing SM 6.5 Wave-Level Compaction (0 Intra-Wave Atomics)...\n";
+    std::cout << "\n[Test 4/6] Testing single-pass GPU filtering and early-return ordering...\n";
     const uint32_t wave_test_count = 128; // 4 waves of 32 lanes
     std::vector<ASTGGPUNode> wave_nodes(wave_test_count * 2);
     std::vector<ASTGGPUDAGEdge> wave_edges(wave_test_count);
@@ -1038,10 +1102,10 @@ void run_milestone2_verification(BenchmarkManifest& manifest) {
                      (wave_counters.rayquery_candidates == 64);
 
     if (wave_pass) {
-        std::cout << "  ✅ 128 SIMD Lanes (4 Waves) Processed with 0 Intra-Wave Atomics\n";
-        std::cout << "  ✅ 50% Alternating Pattern Compaction: Exact 64 Culled / 64 Traversed Balance\n";
+        std::cout << "  ✅ 128 SIMD lanes processed by the single-pass early-return shader\n";
+        std::cout << "  ✅ 50% alternating filter pattern: exact 64 culled / 64 RayQuery candidates\n";
     } else {
-        std::cerr << "❌ Wave compaction test failed! Considered=" << wave_counters.edges_considered
+        std::cerr << "❌ Single-pass filter test failed! Considered=" << wave_counters.edges_considered
                   << " Ang=" << wave_counters.angular_rejected << " RQ=" << wave_counters.rayquery_candidates << "\n";
     }
 
