@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.071364 ms",
+    "actual": "1.425688 ms",
     "status": "PASS"
   },
   {
@@ -577,7 +577,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.716400ms",
+    "actual": "128 groups update = 0.870600ms",
     "status": "PASS"
   },
   {
