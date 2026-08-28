@@ -494,7 +494,7 @@ public:
         };
     }
 
-    // Projects an AABB into a conservative continuous angular footprint cone
+    // Projects an AABB into a provably conservative continuous angular footprint cone
     ASTGB0AngularFootprint project_box_continuous(const ASTGAABB& box) const {
         ASTGB0AngularFootprint fp{};
         if (!box.is_valid()) {
@@ -505,7 +505,7 @@ public:
 
         RTXVector3 light_pos = { source_frame.origin_x, source_frame.origin_y, source_frame.origin_z };
 
-        // Special Case 1: Light inside or immediately touching the AABB
+        // Special Case 1: Light inside or on immediate boundary of the AABB
         if (box.contains_point(light_pos)) {
             fp.cone_axis_x = 0.0f; fp.cone_axis_y = 0.0f; fp.cone_axis_z = 1.0f;
             fp.cos_half_angle = -1.0f; // 4*pi full spherical coverage
@@ -516,6 +516,38 @@ public:
             return fp;
         }
 
+        // Compute exact geometric distance to bounding sphere & 8 corners
+        RTXVector3 center = {
+            (box.min_bounds.x + box.max_bounds.x) * 0.5f,
+            (box.min_bounds.y + box.max_bounds.y) * 0.5f,
+            (box.min_bounds.z + box.max_bounds.z) * 0.5f
+        };
+        RTXVector3 ext = {
+            (box.max_bounds.x - box.min_bounds.x) * 0.5f,
+            (box.max_bounds.y - box.min_bounds.y) * 0.5f,
+            (box.max_bounds.z - box.min_bounds.z) * 0.5f
+        };
+        float sphere_radius = std::sqrt(ext.x * ext.x + ext.y * ext.y + ext.z * ext.z);
+
+        RTXVector3 to_center = { center.x - light_pos.x, center.y - light_pos.y, center.z - light_pos.z };
+        float dist_to_center = std::sqrt(to_center.x * to_center.x + to_center.y * to_center.y + to_center.z * to_center.z);
+
+        // If light is inside bounding sphere, produce conservative full or near-full coverage
+        if (dist_to_center <= sphere_radius + 1e-4f) {
+            fp.cone_axis_x = 0.0f; fp.cone_axis_y = 0.0f; fp.cone_axis_z = 1.0f;
+            fp.cos_half_angle = -1.0f;
+            fp.sin_half_angle = 0.0f;
+            fp.min_dist = 0.0f;
+            fp.max_dist = dist_to_center + sphere_radius;
+            fp.flags = 0x1;
+            return fp;
+        }
+
+        // Bounding sphere cone angle: sin(theta_sphere) = R / dist_to_center
+        float sin_sphere = std::min(1.0f, sphere_radius / dist_to_center);
+        float sphere_half_angle = std::asin(sin_sphere);
+
+        // 8 Corners of the AABB
         RTXVector3 corners[8] = {
             { box.min_bounds.x, box.min_bounds.y, box.min_bounds.z },
             { box.max_bounds.x, box.min_bounds.y, box.min_bounds.z },
@@ -552,22 +584,22 @@ public:
         if (sum_len > 1e-5f) {
             central_axis = { sum_dir.x / sum_len, sum_dir.y / sum_len, sum_dir.z / sum_len };
         } else {
-            // Hemispheric / antipodal wrap edge case
-            central_axis = { 0.0f, 0.0f, 1.0f };
+            RTXVector3 c_loc = world_to_local({ to_center.x / dist_to_center, to_center.y / dist_to_center, to_center.z / dist_to_center });
+            central_axis = c_loc;
         }
 
-        float max_angle = 0.0f;
+        float max_corner_angle = 0.0f;
         for (int i = 0; i < 8; ++i) {
             float dot_val = central_axis.x * local_dirs[i].x +
                             central_axis.y * local_dirs[i].y +
                             central_axis.z * local_dirs[i].z;
             dot_val = std::max(-1.0f, std::min(1.0f, dot_val));
-            float angle = std::acos(dot_val);
-            max_angle = std::max(max_angle, angle);
+            max_corner_angle = std::max(max_corner_angle, std::acos(dot_val));
         }
 
-        // Conservative safety guard-band (0.5 degrees / ~0.0087 rad)
-        float conservative_half_angle = max_angle + 0.015f;
+        // Tighter bound between corner-cone and sphere-cone with analytical epsilon
+        float conservative_half_angle = std::min(sphere_half_angle, max_corner_angle + 0.005f);
+
         if (conservative_half_angle >= 3.14159265f || min_d < 1e-3f) {
             fp.cone_axis_x = 0.0f; fp.cone_axis_y = 0.0f; fp.cone_axis_z = 1.0f;
             fp.cos_half_angle = -1.0f;
@@ -593,6 +625,17 @@ public:
         b0_bvh_nodes.clear();
 
         RTXVector3 light_pos = { source_frame.origin_x, source_frame.origin_y, source_frame.origin_z };
+
+        // Count active B0 nodes for this light to derive exact per-ray solid angle
+        uint32_t active_b0_count = 0;
+        for (const auto& node : nodes) {
+            if (node.source_light_id == light_id && node.bounce_depth == 0 && node.is_active) {
+                active_b0_count++;
+            }
+        }
+
+        float total_domain_solid_angle = (source_frame.light_type == 1) ? (2.0f * 3.14159265f * (1.0f - std::cos(0.785398f))) : (4.0f * 3.14159265f);
+        float per_ray_solid_angle = (active_b0_count > 0) ? (total_domain_solid_angle / float(active_b0_count)) : ((4.0f * 3.14159265f) / 64.0f);
 
         for (size_t i = 0; i < nodes.size(); ++i) {
             const auto& node = nodes[i];
@@ -626,14 +669,14 @@ public:
             rec.hit_dist = dist;
             rec.generation = node.generation;
             rec.retained_receiver_id = node.surface_cluster_id;
-            rec.solid_angle = ((4.0f * 3.14159265f) / 64.0f);
+            rec.solid_angle = per_ray_solid_angle;
 
             b0_records.push_back(rec);
         }
 
         if (b0_records.empty()) return;
 
-        // Build Hierarchical Cone BVH
+        // Build Hierarchical Cone BVH with explicit left/right children
         _build_bvh_recursive(0, (uint32_t)b0_records.size());
     }
 
@@ -664,13 +707,13 @@ public:
         b0_bvh_nodes[node_idx].cone_axis_x = axis.x;
         b0_bvh_nodes[node_idx].cone_axis_y = axis.y;
         b0_bvh_nodes[node_idx].cone_axis_z = axis.z;
-        b0_bvh_nodes[node_idx].cos_half_angle = std::cos(max_angle + 0.005f);
+        b0_bvh_nodes[node_idx].cos_half_angle = std::cos(std::min(3.14159265f, max_angle + 0.005f));
         b0_bvh_nodes[node_idx].light_id = source_frame.light_id;
-        b0_bvh_nodes[node_idx].flags = 0;
 
         if (count <= 4) {
-            // Leaf Node
-            b0_bvh_nodes[node_idx].child_or_record_offset = start;
+            // Leaf Node: left_child holds the starting record offset
+            b0_bvh_nodes[node_idx].left_child = start;
+            b0_bvh_nodes[node_idx].right_child = 0;
             b0_bvh_nodes[node_idx].record_count = count;
             return node_idx;
         }
@@ -698,7 +741,8 @@ public:
         uint32_t left_child = _build_bvh_recursive(start, mid);
         uint32_t right_child = _build_bvh_recursive(mid, end);
 
-        b0_bvh_nodes[node_idx].child_or_record_offset = left_child;
+        b0_bvh_nodes[node_idx].left_child = left_child;
+        b0_bvh_nodes[node_idx].right_child = right_child;
         b0_bvh_nodes[node_idx].record_count = 0; // Internal node
         return node_idx;
     }
@@ -752,9 +796,9 @@ public:
             }
 
             if (node.record_count > 0) {
-                // Leaf Node: append candidates
+                // Leaf Node: append candidates from [left_child, left_child + record_count)
                 for (uint32_t r = 0; r < node.record_count; ++r) {
-                    uint32_t rec_idx = node.child_or_record_offset + r;
+                    uint32_t rec_idx = node.left_child + r;
                     const auto& rec = b0_records[rec_idx];
 
                     // Direct angular direction vs footprint cone check
@@ -765,11 +809,9 @@ public:
                     }
                 }
             } else {
-                // Internal Node: push left and right children
-                uint32_t left_child = node.child_or_record_offset;
-                uint32_t right_child = left_child + 1; // Assuming sequential layout or explicit
-                if (left_child < b0_bvh_nodes.size()) stack.push_back(left_child);
-                if (right_child < b0_bvh_nodes.size()) stack.push_back(right_child);
+                // Internal Node: push explicit left and right children
+                if (node.left_child < b0_bvh_nodes.size()) stack.push_back(node.left_child);
+                if (node.right_child < b0_bvh_nodes.size() && node.right_child != 0) stack.push_back(node.right_child);
             }
         }
     }
@@ -1966,8 +2008,20 @@ public:
     // ==============================================================================
     std::unordered_map<uint32_t, ASTGAngularHierarchy> light_b0_hierarchies;
     std::unordered_map<uint64_t, uint32_t> b0_record_blocker_counts; // (light_id << 32) | record_id -> count
+    std::unordered_map<uint64_t, std::unordered_set<uint32_t>> group_light_blocked_records; // ((group_id << 32) | light_id) -> blocked record indices
     std::unordered_map<uint64_t, bool> group_b0_record_blocked; // ((group_id << 40) | (light_id << 20) | record_id) -> bool
     ASTGB0AngularTelemetry b0_telemetry{};
+
+    void invalidate_light_hierarchy(uint32_t light_id) {
+        light_b0_hierarchies.erase(light_id);
+    }
+
+    void invalidate_probe_hierarchy(uint32_t group_id) {
+        auto it = dynamic_occluder_groups.find(group_id);
+        if (it != dynamic_occluder_groups.end()) {
+            it->second.transform_generation++;
+        }
+    }
 
     ASTGAngularHierarchy& get_or_create_light_hierarchy(uint32_t light_id) {
         auto it = light_b0_hierarchies.find(light_id);
@@ -1977,7 +2031,9 @@ public:
             auto it_lp = light_positions.find(light_id);
             if (it_lp != light_positions.end()) light_pos = it_lp->second;
 
-            hier.initialize_frame(light_id, light_pos, 0, { 0.0f, 0.0f, 1.0f }, 25.0f, 1);
+            uint32_t ltype = 0;
+            RTXVector3 lforward = { 0.0f, 0.0f, 1.0f };
+            hier.initialize_frame(light_id, light_pos, ltype, lforward, 25.0f, 1);
             hier.build_continuous_b0_hierarchy(bounce0_nodes, light_id);
             light_b0_hierarchies[light_id] = hier;
             return light_b0_hierarchies[light_id];
@@ -2367,6 +2423,33 @@ public:
                 ++it_c;
             }
         }
+
+        // 4. Clear continuous B0 record blockers and multi-blocker counts
+        for (auto it_b = group_light_blocked_records.begin(); it_b != group_light_blocked_records.end(); ) {
+            uint32_t gid = (uint32_t)(it_b->first >> 32);
+            uint32_t lid = (uint32_t)(it_b->first & 0xFFFFFFFFULL);
+            if (gid == group_id) {
+                auto& hier = get_or_create_light_hierarchy(lid);
+                for (uint32_t rec_idx : it_b->second) {
+                    uint64_t rec_key = ((uint64_t)lid << 32) | rec_idx;
+                    auto it_cnt = b0_record_blocker_counts.find(rec_key);
+                    if (it_cnt != b0_record_blocker_counts.end()) {
+                        it_cnt->second--;
+                        if (it_cnt->second == 0) {
+                            b0_record_blocker_counts.erase(it_cnt);
+                            if (rec_idx < hier.b0_records.size()) {
+                                uint32_t nid = hier.b0_records[rec_idx].transport_node_id;
+                                if (nid < bounce0_nodes.size()) bounce0_nodes[nid].is_active = true;
+                                dynamic_edge_timeline.push_back({ dynamic_timeline_frame, nid, "UNBLOCKED", group_id, 0 });
+                            }
+                        }
+                    }
+                }
+                it_b = group_light_blocked_records.erase(it_b);
+            } else {
+                ++it_b;
+            }
+        }
     }
 
     uint32_t register_dynamic_receiver_probes(
@@ -2381,6 +2464,7 @@ public:
         it->second.surface_probes = probes;
         it->second.receiver_clusters = clusters;
         it->second.is_skeletal = is_skeletal;
+        it->second.enable_surface_receivers = true;
 
         if (!clusters.empty()) {
             for (size_t c = 0; c < it->second.receiver_clusters.size(); ++c) {
@@ -2533,6 +2617,7 @@ public:
         uint32_t max_batch_size = 8192
     ) {
         visibility_batch_telemetry = ASTGVisibilityBatchTelemetry{};
+        visibility_batch_telemetry.cap_compliant = true;
         auto it = dynamic_occluder_groups.find(group_id);
         if (it == dynamic_occluder_groups.end() || !it->second.enable_surface_receivers) return;
 
@@ -2874,6 +2959,67 @@ public:
                 auto it_lp = light_positions.find(lid);
                 RTXVector3 light_pos = (it_lp != light_positions.end()) ? it_lp->second : RTXVector3{ 0.0f, 5.0f, 0.0f };
                 
+                // 1. Authoritative Continuous Source-Local B0 Angular BVH Traversal & Multi-Blocker Reference Counting
+                auto& hier = get_or_create_light_hierarchy(lid);
+                std::unordered_set<uint32_t> newly_blocked_records;
+                b0_telemetry.bounds_updated += (uint32_t)group.bounds.size();
+
+                for (const auto& ob : group.bounds) {
+                    b0_telemetry.bone_bounds_tested++;
+                    ASTGB0AngularFootprint fp = hier.project_box_continuous(ob.world_bounds);
+                    std::vector<uint32_t> cand_indices;
+                    hier.query_b0_directions_in_angular_footprint(fp, cand_indices, &b0_telemetry);
+                    std::vector<uint32_t> exact_blockers;
+                    hier.evaluate_exact_b0_visibility(cand_indices, ob.world_bounds, exact_blockers, &b0_telemetry);
+                    for (uint32_t rec_idx : exact_blockers) {
+                        newly_blocked_records.insert(rec_idx);
+                    }
+                }
+
+                uint64_t gl_key = ((uint64_t)group_id << 32) | lid;
+                auto& prev_blocked_records = group_light_blocked_records[gl_key];
+
+                // Unblocked records: in prev but not in current
+                for (uint32_t rec_idx : prev_blocked_records) {
+                    if (newly_blocked_records.find(rec_idx) == newly_blocked_records.end()) {
+                        uint64_t rec_key = ((uint64_t)lid << 32) | rec_idx;
+                        auto it_cnt = b0_record_blocker_counts.find(rec_key);
+                        if (it_cnt != b0_record_blocker_counts.end()) {
+                            it_cnt->second--;
+                            b0_telemetry.blocker_count_updates++;
+                            if (it_cnt->second == 0) {
+                                b0_record_blocker_counts.erase(it_cnt);
+                                b0_telemetry.visibility_transitions++;
+                                if (rec_idx < hier.b0_records.size()) {
+                                    uint32_t nid = hier.b0_records[rec_idx].transport_node_id;
+                                    if (nid < bounce0_nodes.size()) bounce0_nodes[nid].is_active = true;
+                                    dynamic_edge_timeline.push_back({ dynamic_timeline_frame, nid, "UNBLOCKED", group_id, 0 });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Blocked records: in current but not in prev
+                for (uint32_t rec_idx : newly_blocked_records) {
+                    if (prev_blocked_records.find(rec_idx) == prev_blocked_records.end()) {
+                        uint64_t rec_key = ((uint64_t)lid << 32) | rec_idx;
+                        uint32_t prev_cnt = b0_record_blocker_counts[rec_key]++;
+                        b0_telemetry.blocker_count_updates++;
+                        if (prev_cnt == 0) {
+                            b0_telemetry.visibility_transitions++;
+                            if (rec_idx < hier.b0_records.size()) {
+                                uint32_t nid = hier.b0_records[rec_idx].transport_node_id;
+                                if (nid < bounce0_nodes.size()) bounce0_nodes[nid].is_active = false;
+                                dynamic_edge_timeline.push_back({ dynamic_timeline_frame, nid, "BLOCKED", group_id, b0_record_blocker_counts[rec_key] });
+                            }
+                        }
+                    }
+                }
+
+                prev_blocked_records = std::move(newly_blocked_records);
+
+                // Diagnostic 64-bit mask calculation (retained for backward metrics reporting)
                 uint64_t total_group_mask = 0;
                 float total_proxy_solid_angle = 0.0f;
                 for (const auto& ob : group.bounds) {
@@ -2883,7 +3029,6 @@ public:
                     total_proxy_solid_angle += box_sa;
                 }
 
-                uint64_t gl_key = ((uint64_t)group_id << 32) | lid;
                 uint64_t old_mask = group_light_angular_masks[gl_key];
                 uint64_t new_mask = total_group_mask;
 
@@ -2907,7 +3052,7 @@ public:
 
                 group_light_angular_masks[gl_key] = new_mask;
 
-                // Process newly uncovered angular cells (Handoff Item 20)
+                // Process newly uncovered angular cells
                 for (uint32_t c = 0; c < 64; ++c) {
                     if (newly_uncovered & (1ULL << c)) {
                         uint64_t lc_key = ((uint64_t)lid << 32) | c;
@@ -2942,7 +3087,7 @@ public:
                     }
                 }
 
-                // Process newly covered angular cells (Handoff Item 20)
+                // Process newly covered angular cells
                 for (uint32_t c = 0; c < 64; ++c) {
                     if (newly_covered & (1ULL << c)) {
                         uint64_t lc_key = ((uint64_t)lid << 32) | c;

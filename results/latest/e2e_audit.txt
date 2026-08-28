@@ -1,0 +1,189 @@
+[RTX] Initializing Direct3D 12 Factory...
+[RTX] Selected Hardware RT Core GPU: NVIDIA GeForce RTX 4070 Laptop GPU
+[RTX] DXR 1.1 Compute Pipeline & 131,072-Light GPU Engine successfully initialized!
+[GLTFSceneLoader] Parsing Bistro geometry (91 MB binary)...
+================================================================================
+🛡️ BISTRO SCENE VALIDATION (Native DXR Geometry & Material Verification)
+================================================================================
+Meshes:                          551
+Primitives:                      551
+Instances:                       551
+Triangles:                       1753630
+Vertices:                        1738262
+Materials:                       552
+AABB min:                        (-0.336325, -0.477751, -0.0472619)
+AABB max:                        (0.675231, 0.482492, 0.240149)
+Node transforms applied:         YES
+Multi-primitive meshes:          YES
+Material mapping valid:          YES
+Synthetic modulo IDs removed:    YES
+================================================================================
+
+[RTX] Built Partitioned TLAS (551 Chunk BLASes) in 590.813 ms
+[E2E Test Suite] Building Partitioned BLAS/TLAS for Bistro scene (1738262 vertices, 1753630 tris)...
+[E2E Test Suite] ✅ DXR Acceleration Structures built successfully.
+================================================================================
+🛡️ RAYLESS E2E REQUIREMENT-DRIVEN TEST SUITE (TIERS 1-4, F1-F16)
+================================================================================
+Build Commit: 708ce42ed7091f02029f55ea9c1d695d05205554
+Run UUID:     e2e_run_17877676617257572
+Hardware GPU: NVIDIA GeForce RTX 4070 Laptop GPU (DXR 1.1 Active: YES)
+--------------------------------------------------------------------------------
+
+▶ Running Tier 1: F1 - Persistent GPU ASTG Buffers...
+  [PASS] F1.1 (F1): ASTGGPUNode size == 48 bytes with 16-byte alignment [0.1 us]
+  [PASS] F1.2 (F1): ASTGGPUDAGEdge size == 32 bytes [0.1 us]
+  [PASS] F1.3 (F1): Incremental dirty range modification isolated to dirty bounds [23.7 us]
+  [PASS] F1.4 (F1): Buffer capacity dynamically expands while preserving existing elements [3.5 us]
+  [PASS] F1.5 (F1): Raw memory roundtrip preservation for ASTGGPUNode [0.0 us]
+
+▶ Running Tier 1: F2 - Compact Visibility Candidates...
+  [PASS] F2.1 (F2): ASTGGPUVisibilityCandidate size == 16 bytes [0.0 us]
+  [PASS] F2.2 (F2): Upload bandwidth reduction ratio >= 66% vs baseline ASTGRay [0.0 us]
+  [PASS] F2.3 (F2): Candidate edge_id exact bitfield resolution [0.0 us]
+  [PASS] F2.4 (F2): Candidate object_id links to target bounding volume [0.0 us]
+  [PASS] F2.5 (F2): Candidate 32-bit transport generation tag exact retention [0.0 us]
+
+▶ Running Tier 1: F3 - Register-Based RayDesc Synthesis...
+  [PASS] F3.1 (F3): RayDesc.Origin synthesized from source node position [0.0 us]
+  [PASS] F3.2 (F3): RayDesc.Direction normalized in registers with unit magnitude [0.0 us]
+  [PASS] F3.3 (F3): RayDesc.TMin set to self-intersection safe geometric bias [0.0 us]
+  [PASS] F3.4 (F3): RayDesc.TMax accurately set to Euclidean distance minus epsilon [0.0 us]
+  [PASS] F3.5 (F3): Zero global UAV buffer memory allocated for synthesized RayDesc [0.0 us]
+
+▶ Running Tier 1: F4 - GPU Segment vs AABB Broadphase...
+  [PASS] F4.1 (F4): Segment traversing through AABB interior returns HIT [0.1 us]
+  [PASS] F4.2 (F4): Segment parallel to AABB slab outside extents returns MISS [0.0 us]
+  [PASS] F4.3 (F4): Segment completely outside box extents along ray axis returns MISS [0.0 us]
+  [PASS] F4.4 (F4): Segment grazing AABB corner interior edge returns HIT [0.0 us]
+  [PASS] F4.5 (F4): Conservative margin expansion applied to dynamic object AABB [0.0 us]
+
+▶ Running Tier 1: F5 - GPU Angular-Cell Footprint Filter...
+  [PASS] F5.1 (F5): Spherical normal maps into valid octahedral bin in [0, 63] [0.1 us]
+  [PASS] F5.2 (F5): Candidate ray within emission hemisphere survives filter [0.0 us]
+  [PASS] F5.3 (F5): Back-facing ray (>90 deg from normal) culled in angular phase [0.1 us]
+  [PASS] F5.4 (F5): Rays straddling octahedral coordinate seams encode deterministically [0.1 us]
+  [PASS] F5.5 (F5): 64-bit hierarchy bitmask culls inactive angular bins in O(1) [0.0 us]
+
+▶ Running Tier 1: F6 - GPU Transport Generation Filter...
+  [PASS] F6.1 (F6): Candidate generation matching edge generation is accepted [0.1 us]
+  [PASS] F6.2 (F6): Stale candidate with older generation rejected before traversal [0.0 us]
+  [PASS] F6.3 (F6): Mutated endpoint node generation triggers candidate invalidation [0.0 us]
+  [PASS] F6.4 (F6): LightState generation increments monotonically on light property edits [0.1 us]
+  [PASS] F6.5 (F6): Monotonic generation increment guarantee across 1,000 DAG updates [0.1 us]
+
+▶ Running Tier 1: F7 - SM 6.5 Wave Ballot Compaction...
+  [PASS] F7.1 (F7): WaveActiveBallot bitmask computes exact active lane count [0.1 us]
+  [PASS] F7.2 (F7): WavePrefixCountBits computes monotonic lane compaction offsets [0.7 us]
+  [PASS] F7.3 (F7): Single atomic allocation per wave reserves contiguous buffer span [0.0 us]
+  [PASS] F7.4 (F7): Fully culled wave skips atomic buffer writes entirely [0.1 us]
+  [PASS] F7.5 (F7): 1024-thread compute workgroup decomposes into exactly 32 SIMD waves [0.0 us]
+
+▶ Running Tier 1: F8 - Traversal Hardware Counter Tracking...
+  [PASS] F8.1 (F8): edges_considered exactly matches input candidate count [0.0 us]
+  [PASS] F8.2 (F8): broadphase_rejected counter captures all slab-culled segments [0.0 us]
+  [PASS] F8.3 (F8): angular_rejected counter tracks cone-culled candidate rays [0.0 us]
+  [PASS] F8.4 (F8): generation_rejected counter records stale candidate invalidations [0.0 us]
+  [PASS] F8.5 (F8): Counter Conservation Law: Considered == Culled + RayQuery [0.0 us]
+
+▶ Running Tier 1: F9 - Inline DXR RayQuery Traversal...
+  [PASS] F9.1 (F9): DXR 1.1 Hardware RT Core Traversal Engine active and initialized [0.3 us]
+  [PASS] F9.2 (F9): RayQuery terminates immediately on first opaque surface collision [611.7 us]
+  [PASS] F9.3 (F9): Occluded line-of-sight correctly classified as BLOCKED [174.4 us]
+  [PASS] F9.4 (F9): Clear line-of-sight ray correctly classified as VISIBLE [121.8 us]
+  [PASS] F9.5 (F9): 100% of rays in batch complete RayQuery traversal without hang [244.5 us]
+
+▶ Running Tier 1: F10 - Compact Changed-State Return...
+  [PASS] F10.1 (F10): 2-bit state bitmask accurately encodes edge visibility states [0.0 us]
+  [PASS] F10.2 (F10): Delta filtering isolates only mutated visibility states [2.4 us]
+  [PASS] F10.3 (F10): Host DAG state updates canonically upon GPU readback [0.0 us]
+  [PASS] F10.4 (F10): Triple-buffered readback ring prevents CPU/GPU pipeline stalls [0.0 us]
+  [PASS] F10.5 (F10): Host drops stale readback results if generation does not match current [0.0 us]
+
+▶ Running Tier 1: F11 - GPU Dynamic Surface Receiver Evaluation...
+  [PASS] F11.1 (F11): Probe spatial grid cell coordinates resolve in O(1) [0.1 us]
+  [PASS] F11.2 (F11): Surface receiver backface culling discards incident light from behind [0.0 us]
+  [PASS] F11.3 (F11): Closest receiver along ray path correctly wins first-hit occlusion [0.0 us]
+  [PASS] F11.4 (F11): Articulated sub-mesh clusters evaluate self-occlusion correctly [0.1 us]
+  [PASS] F11.5 (F11): Dynamic vehicle position update preserves continuous trajectory GI [0.0 us]
+
+▶ Running Tier 1: F12 - GPU Irradiance Accumulation...
+  [PASS] F12.1 (F12): Persistent GPU irradiance buffer maintains values across frames [0.9 us]
+  [PASS] F12.2 (F12): Linear superposition matches multi-light analytical ground truth [0.0 us]
+  [PASS] F12.3 (F12): Dynamic light RGB update computes new irradiance in < 0.1ms without ray re-trace [0.0 us]
+  [PASS] F12.4 (F12): Negative values clamped to 0.0 and NaN/Inf strictly guarded [0.0 us]
+  [PASS] F12.5 (F12): Exponential Moving Average temporal filter produces smooth blend [0.0 us]
+
+▶ Running Tier 1: F13 - A/B Benchmark Suite (64 to 131k rays)...
+  [PASS] F13.1 (F13): 9-tier batch ladder spans 64 through 131,072 rays [0.0 us]
+  [PASS] F13.2 (F13): Direct A/B comparison executes under identical hardware TLAS [0.0 us]
+  [PASS] F13.3 (F13): Path B GPU-driven path achieves >80% latency reduction at 131k rays [0.0 us]
+  [PASS] F13.4 (F13): cpu_raygen_ms strictly eliminated (0.0 ms) on Path B [0.0 us]
+  [PASS] F13.5 (F13): Hybrid crossover threshold empirically determined and bounded [0.0 us]
+
+▶ Running Tier 1: F14 - Timing Provenance & Metrics...
+  [PASS] F14.1 (F14): All metrics explicitly tagged with provenance source [0.0 us]
+  [PASS] F14.2 (F14): GPU timestamp intervals resolved via hardware timestamp heap [142.3 us]
+  [PASS] F14.3 (F14): Uninstrumented pipeline stages tagged NOT_MEASURED (never fake/derived) [0.1 us]
+  [PASS] F14.4 (F14): Separate non-overlapping stages measured independently [0.0 us]
+  [PASS] F14.5 (F14): Metric provenance schema exports complete metadata, units, and scope [0.1 us]
+
+▶ Running Tier 1: F15 - Invariant & Ground-Truth Verification...
+  [PASS] F15.1 (F15): 100% visibility classification agreement between GPU RayQuery & baseline DXR [0.0 us]
+  [PASS] F15.2 (F15): Zero false negatives in visibility classification against ground truth oracle [0.0 us]
+  [PASS] F15.3 (F15): Exact source_light_id, angular_cell_id, and node_id prove[RTX] Invalidated Chunk 3 in Hardware TLAS in 0.9133 ms
+[RTX] Restored Chunk 3 in Hardware TLAS in 0.7937 ms
+[RTX] Hardware RT Core Engine shutdown cleanly.
+nance hash preserved [0.0 us]
+  [PASS] F15.4 (F15): Static DAG exhibits 0 mutations across dynamic receiver evaluation frames [56.3 us]
+  [PASS] F15.5 (F15): Canonical JSON benchmark result sealed with SHA-256 digest [4.8 us]
+
+▶ Running Tier 1: F16 - Clean-Commit Workflow...
+  [PASS] F16.1 (F16): Compiler /DASTG_BUILD_COMMIT embeds valid Git commit SHA [0.2 us]
+  [PASS] F16.2 (F16): Active GPU verified as NVIDIA GeForce RTX 4070 Laptop GPU [0.1 us]
+  [PASS] F16.3 (F16): Atomic staging directory creation and cleanup validated [623.1 us]
+  [PASS] F16.4 (F16): MSVC C++17 compilation and DXC SM 6.5 shader builds complete with 0 errors [0.0 us]
+  [PASS] F16.5 (F16): Benchmark manifest sealed with deterministic SHA-256 hash [4.8 us]
+
+▶ Running Tier 2: Boundary Value Analysis (BVA)...
+  [PASS] BVA-01 (BVA): Empty batch (0 rays) dispatches gracefully without crash or D3D12 removal [0.1 us]
+  [PASS] BVA-02 (BVA): Maximum batch capacity (131,072 rays) traces with 100% throughput [7624.5 us]
+  [PASS] BVA-03 (BVA): Single-element buffer (1 ray) resolves exactly without alignment padding faults [263.2 us]
+  [PASS] BVA-04 (BVA): Zero-length segment detected and culled prior to RayQuery dispatch [0.0 us]
+  [PASS] BVA-05 (BVA): Axis-parallel segments with 0.0 direction components evaluate without IEEE-754 NaN/Inf fault [0.2 us]
+  [PASS] BVA-06 (BVA): Epsilon offset (1e-5m) prevents false self-intersection at node origin [0.0 us]
+  [PASS] BVA-07 (BVA): Extreme coordinates (+/- 100,000m) evaluated without integer or float overflow [0.1 us]
+  [PASS] BVA-08 (BVA): Generation integer rollover (0xFFFFFFFF -> 0x0) handled cleanly by unsigned arithmetic [0.0 us]
+  [PASS] BVA-09 (BVA): Massive light scaling (128,000 lights) consumes < 20MB VRAM [0.0 us]
+  [PASS] BVA-10 (BVA): Partial wave dispatches (1..129 lanes) allocate exact wave count without overrun [0.2 us]
+
+▶ Running Tier 3: Pairwise Combinatorial Testing...
+  [PASS] COMB-01 (COMB): Host DAG mutation race: in-flight stale candidate safely rejected on GPU [0.0 us]
+  [PASS] COMB-02 (COMB): Broadphase rejection feeds directly into wave compaction bitmask [52.6 us]
+  [PASS] COMB-03 (COMB): Inline RayQuery evaluates receiver obstruction against dynamic scene geometry [258.1 us]
+  [PASS] COMB-04 (COMB): Changed-state occlusion trigger immediately attenuates receiver irradiance [0.1 us]
+  [PASS] COMB-05 (COMB): Dynamic receiver motion across octahedral angular bins smoothly transitions [0.0 us]
+  [PASS] COMB-06 (COMB): Heterogeneous wave compaction offsets sum exactly to global survivor counter [0.0 us]
+
+▶ Running Tier 4: Real-World Workload Testing...
+  [PASS] RW-01 (RW): Amazon Bistro full architectural scene (1.75M tri glTF) hardware TLAS traversal [232.7 us]
+  [PASS] RW-02 (RW): 16 dynamic moving lights update state with persistent transport graph reuse (>95% reuse) [124.9 us]
+  [PASS] RW-03 (RW): Destructible chunk TLAS instance masking: instantaneous unblocking & 0 stale hits [2426.1 us]
+  [PASS] RW-04 (RW): Articulated player skeletal model (192 receiver probes) receives smooth dynamic GI [0.0 us]
+  [PASS] RW-05 (RW): 1,000-cycle hysteresis & temporal stability torture: 0 memory leaks, 0 dangling pointers [0.0 us]
+
+================================================================================
+📊 E2E TEST SUITE EXECUTION SUMMARY
+================================================================================
+  • Tier 1         : 80 / 80 Passing (100.0%)
+  • Tier 2         : 10 / 10 Passing (100.0%)
+  • Tier 3         : 6 / 6 Passing (100.0%)
+  • Tier 4         : 5 / 5 Passing (100.0%)
+--------------------------------------------------------------------------------
+TOTAL TESTS EXECUTED: 101
+PASSING ASSERTIONS:   101 (100.0%)
+FAILING ASSERTIONS:   0
+TOTAL EXECUTION TIME: 13.00 ms
+OVERALL STATUS:       ✅ ALL PASS
+================================================================================
+

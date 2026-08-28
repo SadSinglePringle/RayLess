@@ -350,10 +350,10 @@ typedef struct ASTGB0AngularBVHNode {
 #endif
     float cone_axis_x, cone_axis_y, cone_axis_z; // Offset 0..11: Bounding cone axis (light-local)
     float cos_half_angle;                        // Offset 12..15: cos(half_angle) of bounding cone
-    uint32_t child_or_record_offset;             // Offset 16..19: Offset to children or first leaf record
-    uint32_t record_count;                       // Offset 20..23: 0 = internal node, >0 = leaf record count
-    uint32_t light_id;                           // Offset 24..27: Owning light ID
-    uint32_t flags;                              // Offset 28..31: Node flags
+    uint32_t left_child;                         // Offset 16..19: Offset to left child node (or first record offset if leaf)
+    uint32_t right_child;                        // Offset 20..23: Offset to right child node (or 0 if leaf)
+    uint32_t record_count;                       // Offset 24..27: 0 = internal node, >0 = leaf record count
+    uint32_t light_id;                           // Offset 28..31: Owning light ID
 #ifdef __cplusplus
 };
 #else

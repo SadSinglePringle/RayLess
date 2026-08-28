@@ -8782,18 +8782,19 @@ public:
                 for (int n = 0; n < 200; ++n) {
                     ASTGTransportNode node;
                     node.node_id = (uint32_t)n;
-                    node.position = { (float)(n % 20) * 0.1f - 1.0f, 0.5f, (float)(n / 20) * 0.1f - 0.5f };
-                    node.geometric_normal = { 0.0f, -1.0f, 0.0f };
+                    node.position = { (float)(n % 20) * 0.1f + 1.2f, 0.5f, (float)(n / 20) * 0.1f - 0.5f };
+                    node.geometric_normal = { -1.0f, 0.0f, 0.0f };
                     node.path_transfer_r = 1.0f; node.path_transfer_g = 0.8f; node.path_transfer_b = 0.6f;
                     node.is_active = true;
                     eng.bounce0_nodes.push_back(node);
                 }
-                uint32_t gid = eng.register_dynamic_occluder_group({ ASTGAABB({ -1.0f, 0.0f, -1.0f }, { 1.0f, 1.0f, 1.0f }) }, "BatchGroup");
+                uint32_t gid = eng.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, -0.2f, -0.5f }, { 0.5f, 0.2f, 0.5f }) }, "BatchGroup");
                 std::vector<ASTGDynamicSurfaceProbe> p_vec(500);
                 for (uint32_t i = 0; i < 500; ++i) {
                     p_vec[i].probe_id = i; p_vec[i].dynamic_group_id = gid;
-                    p_vec[i].local_position = { (float)(i % 25) * 0.08f - 1.0f, 0.0f, (float)(i / 25) * 0.05f - 0.5f };
-                    p_vec[i].local_normal = { 0.0f, 1.0f, 0.0f };
+                    p_vec[i].local_position = { (float)(i % 25) * 0.04f - 0.5f, 0.0f, (float)(i / 25) * 0.04f - 0.5f };
+                    p_vec[i].local_normal = { 1.0f, 0.0f, 0.0f };
+                    p_vec[i].is_active = true;
                 }
                 eng.register_dynamic_receiver_probes(gid, p_vec, {}, false);
                 return std::make_pair(std::move(eng), gid);

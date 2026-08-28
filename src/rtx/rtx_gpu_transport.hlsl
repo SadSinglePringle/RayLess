@@ -432,3 +432,101 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID) {
     // retained for scene traversal telemetry until dynamic BLAS attachment.
     EmitVisibilityResult(idx, candidate_edge_id, 1, edge.generation);
 }
+
+// ==============================================================================
+// ASTG PARTS J/K: CONTINUOUS B0 ANGULAR HIERARCHY & DYNAMIC SURFACE RECEIVERS
+// ==============================================================================
+
+struct ASTGSourceAngularFrameGPU {
+    float3 origin;
+    uint   light_id;
+    float3 forward;
+    uint   light_type;
+    float3 right;
+    float  range;
+    float3 up;
+    uint   generation;
+};
+
+struct ASTGB0DirectionRecordGPU {
+    float3 dir_local;
+    uint   source_light_id;
+    float  theta;
+    float  phi;
+    uint   transport_node_id;
+    uint   flags;
+    float  hit_dist;
+    uint   generation;
+    uint   retained_receiver_id;
+    float  solid_angle;
+};
+
+struct ASTGB0AngularBVHNodeGPU {
+    float3 cone_axis;
+    float  cos_half_angle;
+    uint   left_child;
+    uint   right_child;
+    uint   record_count;
+    uint   light_id;
+};
+
+struct ASTGB0AngularFootprintGPU {
+    float3 cone_axis;
+    float  cos_half_angle;
+    float  sin_half_angle;
+    float  min_dist;
+    float  max_dist;
+    uint   flags;
+};
+
+struct ASTGBoneBoundGPU_HLSL {
+    float3 local_min;
+    uint   bone_id;
+    float3 local_max;
+    uint   group_id;
+    float3 world_min;
+    uint   cluster_offset;
+    float3 world_max;
+    uint   cluster_count;
+};
+
+struct ASTGReceiverClusterGPU_HLSL {
+    float3 local_centroid;
+    uint   bone_id;
+    float3 world_centroid;
+    uint   cluster_id;
+    float3 local_normal;
+    float  cone_cos_half_angle;
+    float3 world_normal;
+    uint   probe_count;
+};
+
+struct ASTGDynamicSurfaceProbeGPU_HLSL {
+    float3 local_position;
+    uint   probe_id;
+    float3 local_normal;
+    uint   bone_id;
+    float3 world_position;
+    uint   cluster_id;
+    float3 world_normal;
+    uint   group_id;
+    float3 direct_irradiance;
+    uint   generation;
+};
+
+bool SegmentIntersectsAABB_HLSL(float3 A, float3 B, float3 box_min, float3 box_max) {
+    float3 d = B - A;
+    float3 safe_d = float3(
+        (abs(d.x) > 1e-7f) ? d.x : (d.x >= 0.0f ? 1e-7f : -1e-7f),
+        (abs(d.y) > 1e-7f) ? d.y : (d.y >= 0.0f ? 1e-7f : -1e-7f),
+        (abs(d.z) > 1e-7f) ? d.z : (d.z >= 0.0f ? 1e-7f : -1e-7f)
+    );
+    float3 inv_d = 1.0f / safe_d;
+    float3 t0 = (box_min - A) * inv_d;
+    float3 t1 = (box_max - A) * inv_d;
+    float3 tmin_v = min(t0, t1);
+    float3 tmax_v = max(t0, t1);
+    float tmin = max(0.0f, max(tmin_v.x, max(tmin_v.y, tmin_v.z)));
+    float tmax = min(1.0f, min(tmax_v.x, min(tmax_v.y, tmax_v.z)));
+    return tmin <= tmax;
+}

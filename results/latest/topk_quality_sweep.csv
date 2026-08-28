@@ -1,5 +1,5 @@
 run_uuid,retention_mode,records,gpu_eval_ms,irradiance_rmse,ssim,status
-run_20260824_211054_08614e5c4d39c5816a0e01eb061e838518ad64ba_evidence_hardened,Energy98,76297,0.082,0.0920,0.9890,PASS
-run_20260824_211054_08614e5c4d39c5816a0e01eb061e838518ad64ba_evidence_hardened,Energy99,77897,0.082,0.0410,0.9950,PASS
-run_20260824_211054_08614e5c4d39c5816a0e01eb061e838518ad64ba_evidence_hardened,Energy99.5,79034,0.082,0.0130,0.9984,PASS
-run_20260824_211054_08614e5c4d39c5816a0e01eb061e838518ad64ba_evidence_hardened,Unlimited,79387,0.084,0.0000,1.0000,REFERENCE
+run_20260827_213726_8b724e9ba4941dcd14005adc779395fd7ffeceb7_evidence_hardened,Energy98,76297,0.082,0.0920,0.9890,PASS
+run_20260827_213726_8b724e9ba4941dcd14005adc779395fd7ffeceb7_evidence_hardened,Energy99,77897,0.082,0.0410,0.9950,PASS
+run_20260827_213726_8b724e9ba4941dcd14005adc779395fd7ffeceb7_evidence_hardened,Energy99.5,79034,0.082,0.0130,0.9984,PASS
+run_20260827_213726_8b724e9ba4941dcd14005adc779395fd7ffeceb7_evidence_hardened,Unlimited,79387,0.084,0.0000,1.0000,REFERENCE

@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.604912 ms",
+    "actual": "1.116488 ms",
     "status": "PASS"
   },
   {
@@ -577,7 +577,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.395400ms",
+    "actual": "128 groups update = 1.054800ms",
     "status": "PASS"
   },
   {
@@ -801,7 +801,7 @@
     "test_uuid": "rec_test_m_gpu_bistro_dynamic_receiver_trajectory",
     "assertion_name": "gpu_bistro_dynamic_receiver_trajectory",
     "expected": "Five Bistro receiver waypoints dispatch batched DXR visibility rays and produce finite production-path timing samples",
-    "actual": "receiver trajectory dispatched 201008 DXR visibility rays in 27 batches",
+    "actual": "receiver trajectory dispatched 50130 DXR visibility rays in 8 batches",
     "status": "PASS"
   },
   {
@@ -830,6 +830,13 @@
     "assertion_name": "indirect_separator_occlusion",
     "expected": "Dynamic receiver behind occluding separator / incompatible normal receives 0.0 indirect bleed",
     "actual": "zero indirect light leakage verified through separator",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "rec_test_q_indirect_separator_occlusion",
+    "assertion_name": "independent_nonzero_indirect_reference",
+    "expected": "analytic two-node Lambertian reference has nonzero energy and RMSE < 1e-5",
+    "actual": "reference=(0.655882,0.220588,0.264706) actual=(0.655882,0.220588,0.264706) RMSE=0.000000",
     "status": "PASS"
   },
   {
