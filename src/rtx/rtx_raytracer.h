@@ -178,6 +178,70 @@ RTX_API int32_t rtx_trace_candidates_batch(
 // Releases all D3D12 / RT Core resources
 RTX_API void rtx_shutdown();
 
+// ==============================================================================
+// ASTG PARTS J/K: GPU CONTINUOUS ANGULAR B0 & DYNAMIC RECEIVER RUNTIME APIS
+// ==============================================================================
+
+// Uploads per-light B0 records and BVH hierarchy nodes to GPU
+RTX_API bool rtx_upload_parts_jk_static_data(
+    const RTXSourceAngularFrame* frames,
+    const ASTGLightB0RangeGPU* ranges,
+    uint32_t light_count,
+    const ASTGB0DirectionRecord* records,
+    const RTXVector3* hit_positions,
+    uint32_t record_count,
+    const ASTGB0AngularBVHNode* bvh_nodes,
+    uint32_t bvh_node_count
+);
+
+// Resets persistent GPU tracking buffers (previous membership and persistent states)
+RTX_API void rtx_reset_parts_jk_persistent_state();
+
+// Updates dynamic inputs for Part J (changed group/light pairs and bone bounds)
+RTX_API bool rtx_update_part_j_dynamic_inputs(
+    const ASTGChangedGroupLightPairGPU* pairs,
+    uint32_t pair_count,
+    const ASTGBoneBoundGPU* bounds,
+    uint32_t bound_count,
+    uint32_t current_generation,
+    uint32_t dynamic_occlusion_mode
+);
+
+// Dispatches GPU Part J compute pipeline (Passes J1 -> J2 -> J4 -> J5)
+RTX_API bool rtx_dispatch_part_j_gpu(
+    uint32_t pair_count,
+    uint32_t bound_count,
+    ASTGB0TransitionRecord* out_transitions,
+    uint32_t* out_transition_count,
+    uint32_t max_transitions,
+    ASTGPartsJKTelemetryGPU* out_telemetry
+);
+
+// Updates dynamic inputs for Part K (bone transforms, clusters, surface probes)
+RTX_API bool rtx_update_part_k_dynamic_inputs(
+    const ASTGBoneTransformGPU* bone_transforms,
+    uint32_t bone_count,
+    const ASTGBoneBoundGPU* bone_bounds,
+    uint32_t bound_count,
+    const ASTGReceiverClusterGPU* clusters,
+    uint32_t cluster_count,
+    const ASTGDynamicSurfaceProbeGPU* probes,
+    uint32_t probe_count,
+    uint32_t light_count,
+    uint32_t current_generation,
+    uint32_t is_skeletal
+);
+
+// Dispatches GPU Part K compute pipeline (Passes K1 -> K2 -> K3 -> K4 -> K5)
+RTX_API bool rtx_dispatch_part_k_gpu(
+    uint32_t bone_count,
+    uint32_t cluster_count,
+    uint32_t probe_count,
+    uint32_t light_count,
+    ASTGDynamicSurfaceProbeGPU* out_probes,
+    ASTGPartsJKTelemetryGPU* out_telemetry
+);
+
 #ifdef __cplusplus
 }
 #endif

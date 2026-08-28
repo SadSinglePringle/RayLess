@@ -22,6 +22,20 @@ Write-Host "Compiling HLSL GPU Massive Light Animator compute shader..."
 Write-Host "Compiling HLSL GPU ASTG Transport Visibility compute shader..."
 & $DXC -T cs_6_5 -E CSMain -Fh src/rtx/rtx_gpu_transport_cso.h -Vn g_rtx_gpu_transport_bytecode src/rtx/rtx_gpu_transport.hlsl
 
+Write-Host "Compiling HLSL Part J Continuous B0 compute shaders..."
+& $DXC -T cs_6_5 -E CSProjectDynamicBounds -Fh src/rtx/rtx_b0_project_bounds_cso.h -Vn g_rtx_b0_project_bounds_bytecode src/rtx/rtx_b0_angular_runtime.hlsl
+& $DXC -T cs_6_5 -E CSTraverseB0AngularBVH -Fh src/rtx/rtx_b0_traverse_bvh_cso.h -Vn g_rtx_b0_traverse_bvh_bytecode src/rtx/rtx_b0_angular_runtime.hlsl
+& $DXC -T cs_6_5 -E CSApplyB0MembershipDeltas -Fh src/rtx/rtx_b0_apply_deltas_cso.h -Vn g_rtx_b0_apply_deltas_bytecode src/rtx/rtx_b0_angular_runtime.hlsl
+& $DXC -T cs_6_5 -E CSCompactB0Transitions -Fh src/rtx/rtx_b0_compact_transitions_cso.h -Vn g_rtx_b0_compact_transitions_bytecode src/rtx/rtx_b0_angular_runtime.hlsl
+
+Write-Host "Compiling HLSL Part K Dynamic Receiver compute shaders..."
+& $DXC -T cs_6_5 -E CSTransformBoneBounds -Fh src/rtx/rtx_rec_transform_bones_cso.h -Vn g_rtx_rec_transform_bones_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
+& $DXC -T cs_6_5 -E CSTransformReceiverClusters -Fh src/rtx/rtx_rec_transform_clusters_cso.h -Vn g_rtx_rec_transform_clusters_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
+& $DXC -T cs_6_5 -E CSTransformSurfaceProbes -Fh src/rtx/rtx_rec_transform_probes_cso.h -Vn g_rtx_rec_transform_probes_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
+& $DXC -T cs_6_5 -E CSCullReceiverHierarchy -Fh src/rtx/rtx_rec_cull_hierarchy_cso.h -Vn g_rtx_rec_cull_hierarchy_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
+& $DXC -T cs_6_5 -E CSEvaluateReceiverVisibility -Fh src/rtx/rtx_rec_eval_visibility_cso.h -Vn g_rtx_rec_eval_visibility_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
+& $DXC -T cs_6_5 -E CSAccumulateReceiverIrradiance -Fh src/rtx/rtx_rec_accum_irradiance_cso.h -Vn g_rtx_rec_accum_irradiance_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
+
 $cl = "$MSVC_DIR\cl.exe"
 $args = @(
     "/LD",
