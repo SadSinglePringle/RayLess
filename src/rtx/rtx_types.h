@@ -296,6 +296,191 @@ struct TransportConstants {
 };
 typedef struct TransportConstants TransportConstants;
 
+// ==============================================================================
+// ASTG PARTS J/K: GPU-FIRST CONTINUOUS ANGULAR B0 & DYNAMIC RECEIVER HIERARCHY
+// ==============================================================================
+
+// 64-byte Source-Local Angular Coordinate Basis (16-byte aligned)
+#ifdef __cplusplus
+struct alignas(16) RTXSourceAngularFrame {
+#else
+typedef struct RTXSourceAngularFrame {
+#endif
+    float origin_x, origin_y, origin_z; // Offset 0..11: Light world position
+    uint32_t light_id;                  // Offset 12..15: Emitting light ID
+    float forward_x, forward_y, forward_z; // Offset 16..27: Documented source-local zero-angle dir
+    uint32_t light_type;                // Offset 28..31: 0=Omni, 1=Spot, 2=Directional, 3=Area
+    float right_x, right_y, right_z;    // Offset 32..43: Orthonormal basis vector
+    float range;                        // Offset 44..47: Effective emission range
+    float up_x, up_y, up_z;             // Offset 48..59: Orthonormal basis vector
+    uint32_t generation;                // Offset 60..63: Monotonic frame generation
+#ifdef __cplusplus
+};
+#else
+} RTXSourceAngularFrame;
+#endif
+
+// 48-byte Continuous B0 Direction Record (16-byte aligned)
+#ifdef __cplusplus
+struct alignas(16) ASTGB0DirectionRecord {
+#else
+typedef struct ASTGB0DirectionRecord {
+#endif
+    float dir_local_x, dir_local_y, dir_local_z; // Offset 0..11: Normalized dir in light-local frame
+    uint32_t source_light_id;                    // Offset 12..15: Owning source light ID
+    float theta;                                 // Offset 16..19: Continuous elevation angle in [-pi/2, pi/2]
+    float phi;                                   // Offset 20..23: Continuous azimuth angle in [-pi, pi]
+    uint32_t transport_node_id;                  // Offset 24..27: Associated B0 transport node ID
+    uint32_t flags;                              // Offset 28..31: Validity / classification flags
+    float hit_dist;                              // Offset 32..35: Euclidean distance to static surface hit
+    uint32_t generation;                         // Offset 36..39: Record generation
+    uint32_t retained_receiver_id;               // Offset 40..43: Retained receiver or probe ID
+    float solid_angle;                           // Offset 44..47: Differential solid angle steradians
+#ifdef __cplusplus
+};
+#else
+} ASTGB0DirectionRecord;
+#endif
+
+// 32-byte Continuous B0 Angular BVH / Cone Hierarchy Node (16-byte aligned)
+#ifdef __cplusplus
+struct alignas(16) ASTGB0AngularBVHNode {
+#else
+typedef struct ASTGB0AngularBVHNode {
+#endif
+    float cone_axis_x, cone_axis_y, cone_axis_z; // Offset 0..11: Bounding cone axis (light-local)
+    float cos_half_angle;                        // Offset 12..15: cos(half_angle) of bounding cone
+    uint32_t child_or_record_offset;             // Offset 16..19: Offset to children or first leaf record
+    uint32_t record_count;                       // Offset 20..23: 0 = internal node, >0 = leaf record count
+    uint32_t light_id;                           // Offset 24..27: Owning light ID
+    uint32_t flags;                              // Offset 28..31: Node flags
+#ifdef __cplusplus
+};
+#else
+} ASTGB0AngularBVHNode;
+#endif
+
+// 32-byte Conservative Continuous Angular Footprint (16-byte aligned)
+#ifdef __cplusplus
+struct alignas(16) ASTGB0AngularFootprint {
+#else
+typedef struct ASTGB0AngularFootprint {
+#endif
+    float cone_axis_x, cone_axis_y, cone_axis_z; // Offset 0..11: Bounding cone axis (light-local)
+    float cos_half_angle;                        // Offset 12..15: cos(half_angle) (-1.0 = full sphere)
+    float sin_half_angle;                        // Offset 16..19: sin(half_angle)
+    float min_dist;                              // Offset 20..23: Min distance from light origin
+    float max_dist;                              // Offset 24..27: Max distance from light origin
+    uint32_t flags;                              // Offset 28..31: Bit 0: full coverage, Bit 1: seam cross, Bit 2: polar cross
+#ifdef __cplusplus
+};
+#else
+} ASTGB0AngularFootprint;
+#endif
+
+// 64-byte Dynamic Bone Bound (16-byte aligned)
+#ifdef __cplusplus
+struct alignas(16) ASTGBoneBoundGPU {
+#else
+typedef struct ASTGBoneBoundGPU {
+#endif
+    float local_min_x, local_min_y, local_min_z; // Offset 0..11: Bone-local AABB min
+    uint32_t bone_id;                            // Offset 12..15: Bone ID within character
+    float local_max_x, local_max_y, local_max_z; // Offset 16..27: Bone-local AABB max
+    uint32_t group_id;                           // Offset 28..31: Owning Dynamic Group ID
+    float world_min_x, world_min_y, world_min_z; // Offset 32..43: Current world-space AABB min
+    uint32_t cluster_offset;                     // Offset 44..47: First receiver cluster offset
+    float world_max_x, world_max_y, world_max_z; // Offset 48..59: Current world-space AABB max
+    uint32_t cluster_count;                      // Offset 60..63: Number of child receiver clusters
+#ifdef __cplusplus
+};
+#else
+} ASTGBoneBoundGPU;
+#endif
+
+// 48-byte Dynamic Receiver Cluster (16-byte aligned)
+#ifdef __cplusplus
+struct alignas(16) ASTGReceiverClusterGPU {
+#else
+typedef struct ASTGReceiverClusterGPU {
+#endif
+    float world_center_x, world_center_y, world_center_z; // Offset 0..11: Cluster world center
+    float radius;                                         // Offset 12..15: Cluster bounding radius
+    float normal_axis_x, normal_axis_y, normal_axis_z;    // Offset 16..27: Representative normal cone axis
+    float cos_normal_half_angle;                          // Offset 28..31: cos(half_angle) of cluster normal cone
+    uint32_t probe_offset;                                // Offset 32..35: First surface probe offset
+    uint32_t probe_count;                                 // Offset 36..39: Number of member surface probes
+    uint32_t bone_id;                                     // Offset 40..43: Owning bone ID
+    uint32_t generation;                                  // Offset 44..47: Cluster dirty generation
+#ifdef __cplusplus
+};
+#else
+} ASTGReceiverClusterGPU;
+#endif
+
+// 80-byte Dynamic Bone-Local Surface Probe (16-byte aligned)
+#ifdef __cplusplus
+struct alignas(16) ASTGDynamicSurfaceProbeGPU {
+#else
+typedef struct ASTGDynamicSurfaceProbeGPU {
+#endif
+    float local_pos_x, local_pos_y, local_pos_z; // Offset 0..11: True BONE-LOCAL position
+    uint32_t bone_id;                            // Offset 12..15: Owning bone ID
+    float local_norm_x, local_norm_y, local_norm_z; // Offset 16..27: True BONE-LOCAL normal
+    uint32_t cluster_id;                         // Offset 28..31: Owning receiver cluster ID
+    float world_pos_x, world_pos_y, world_pos_z; // Offset 32..43: Transformed world position
+    uint32_t group_id;                           // Offset 44..47: Owning dynamic group ID
+    float world_norm_x, world_norm_y, world_norm_z; // Offset 48..59: Transformed world normal
+    uint32_t generation;                         // Offset 60..63: Probe mutation generation
+    float irradiance_r, irradiance_g, irradiance_b; // Offset 64..75: Direct + Indirect irradiance
+    uint32_t last_visibility_mask;               // Offset 76..79: Direct light visibility bitmask / cache tag
+#ifdef __cplusplus
+};
+#else
+} ASTGDynamicSurfaceProbeGPU;
+#endif
+
+// 8-byte Persistent B0 Blocker State per (light_id, b0_record_id)
+struct ASTGB0PersistentState {
+    uint32_t blocker_count;    // Number of dynamic occluders currently blocking this ray
+    uint32_t last_generation;  // Generation stamp of last state modification
+};
+typedef struct ASTGB0PersistentState ASTGB0PersistentState;
+
+// 16-byte B0 State Transition Record
+struct ASTGB0TransitionRecord {
+    uint32_t b0_record_id;     // Index into g_b0_records
+    uint32_t light_id;         // Light ID
+    uint32_t transition_type;  // 0 = UNBLOCKED (blocker_count 1->0), 1 = BLOCKED (blocker_count 0->1)
+    uint32_t blocker_count;    // Resulting active blocker count
+};
+typedef struct ASTGB0TransitionRecord ASTGB0TransitionRecord;
+
+// Comprehensive GPU Telemetry for B0 Angular & Dynamic Receivers
+struct ASTGB0AngularTelemetry {
+    uint32_t bounds_updated;
+    uint32_t bone_bounds_tested;
+    uint32_t angular_hierarchy_nodes_visited;
+    uint32_t angular_candidates;
+    uint32_t exact_visibility_tests;
+    uint32_t exact_blockers;
+    uint32_t angular_false_positives;
+    uint32_t visibility_transitions;
+    uint32_t blocker_count_updates;
+    uint32_t receiver_clusters_touched;
+    uint32_t receiver_probes_touched;
+    uint32_t receiver_probes_reused;
+    double gpu_projection_us;
+    double gpu_hierarchy_query_us;
+    double gpu_exact_test_us;
+    double gpu_compaction_update_us;
+    double gpu_total_us;
+    double cpu_submission_us;
+    double cpu_wall_us;
+    uint64_t readback_bytes;
+};
+typedef struct ASTGB0AngularTelemetry ASTGB0AngularTelemetry;
+
 #ifdef __cplusplus
 }
 
@@ -355,6 +540,31 @@ static_assert(offsetof(ASTGGPUOccluderAABB, max_x) == 16, "ASTGGPUOccluderAABB::
 static_assert(offsetof(ASTGGPUOccluderAABB, max_y) == 20, "ASTGGPUOccluderAABB::max_y offset != 20");
 static_assert(offsetof(ASTGGPUOccluderAABB, max_z) == 24, "ASTGGPUOccluderAABB::max_z offset != 24");
 static_assert(offsetof(ASTGGPUOccluderAABB, flags) == 28, "ASTGGPUOccluderAABB::flags offset != 28");
+
+// Static Assertions for Parts J/K Data Structures
+static_assert(sizeof(RTXSourceAngularFrame) == 64, "RTXSourceAngularFrame size must be exactly 64 bytes");
+static_assert(alignof(RTXSourceAngularFrame) == 16, "RTXSourceAngularFrame alignment must be 16 bytes");
+
+static_assert(sizeof(ASTGB0DirectionRecord) == 48, "ASTGB0DirectionRecord size must be exactly 48 bytes");
+static_assert(alignof(ASTGB0DirectionRecord) == 16, "ASTGB0DirectionRecord alignment must be 16 bytes");
+
+static_assert(sizeof(ASTGB0AngularBVHNode) == 32, "ASTGB0AngularBVHNode size must be exactly 32 bytes");
+static_assert(alignof(ASTGB0AngularBVHNode) == 16, "ASTGB0AngularBVHNode alignment must be 16 bytes");
+
+static_assert(sizeof(ASTGB0AngularFootprint) == 32, "ASTGB0AngularFootprint size must be exactly 32 bytes");
+static_assert(alignof(ASTGB0AngularFootprint) == 16, "ASTGB0AngularFootprint alignment must be 16 bytes");
+
+static_assert(sizeof(ASTGBoneBoundGPU) == 64, "ASTGBoneBoundGPU size must be exactly 64 bytes");
+static_assert(alignof(ASTGBoneBoundGPU) == 16, "ASTGBoneBoundGPU alignment must be 16 bytes");
+
+static_assert(sizeof(ASTGReceiverClusterGPU) == 48, "ASTGReceiverClusterGPU size must be exactly 48 bytes");
+static_assert(alignof(ASTGReceiverClusterGPU) == 16, "ASTGReceiverClusterGPU alignment must be 16 bytes");
+
+static_assert(sizeof(ASTGDynamicSurfaceProbeGPU) == 80, "ASTGDynamicSurfaceProbeGPU size must be exactly 80 bytes");
+static_assert(alignof(ASTGDynamicSurfaceProbeGPU) == 16, "ASTGDynamicSurfaceProbeGPU alignment must be 16 bytes");
+
+static_assert(sizeof(ASTGB0PersistentState) == 8, "ASTGB0PersistentState size must be exactly 8 bytes");
+static_assert(sizeof(ASTGB0TransitionRecord) == 16, "ASTGB0TransitionRecord size must be exactly 16 bytes");
 
 // Static Assertions for ASTGVisibilityCounters (32 bytes) and the extended
 // spatial-discovery TransportConstants block (48 bytes).

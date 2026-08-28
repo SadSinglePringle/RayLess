@@ -379,7 +379,7 @@ inline void decode_octahedral(float u, float v, RTXVector3& out_dir) {
     }
 }
 
-// 64-Bin Octahedral Angular Hierarchy (Quadtree depth 3, 8x8 leaf cells) (Handoff Item 18, 51, 55)
+// Continuous & Hierarchical Source-Local B0 Angular Transport Hierarchy (Parts J & K)
 class ASTGAngularHierarchy {
 public:
     static constexpr uint32_t LEAF_BINS_PER_DIM = 8;
@@ -398,6 +398,13 @@ public:
 
     AngularCellInfo cells[TOTAL_LEAF_CELLS];
 
+    // Source-Local Angular Coordinate Basis
+    RTXSourceAngularFrame source_frame{};
+
+    // Continuous B0 Direction Records & GPU Angular BVH
+    std::vector<ASTGB0DirectionRecord> b0_records;
+    std::vector<ASTGB0AngularBVHNode> b0_bvh_nodes;
+
     ASTGAngularHierarchy() {
         for (uint32_t i = 0; i < TOTAL_LEAF_CELLS; ++i) {
             cells[i].cell_id = i;
@@ -412,6 +419,392 @@ public:
             decode_octahedral(cells[i].u_center, cells[i].v_center, cells[i].dir_center);
             cells[i].solid_angle = (4.0f * 3.14159265f) / 64.0f;
         }
+
+        // Initialize default canonical frame
+        initialize_frame(0, { 0.0f, 0.0f, 0.0f }, 0, { 0.0f, 0.0f, 1.0f }, 25.0f, 1);
+    }
+
+    void initialize_frame(
+        uint32_t light_id,
+        const RTXVector3& light_pos,
+        uint32_t light_type,
+        const RTXVector3& forward,
+        float range = 25.0f,
+        uint32_t gen = 1
+    ) {
+        source_frame.light_id = light_id;
+        source_frame.origin_x = light_pos.x;
+        source_frame.origin_y = light_pos.y;
+        source_frame.origin_z = light_pos.z;
+        source_frame.light_type = light_type;
+        source_frame.range = range;
+        source_frame.generation = gen;
+
+        RTXVector3 f = forward;
+        float f_len = std::sqrt(f.x * f.x + f.y * f.y + f.z * f.z);
+        if (f_len > 1e-5f) {
+            f.x /= f_len; f.y /= f_len; f.z /= f_len;
+        } else {
+            f = { 0.0f, 0.0f, 1.0f };
+        }
+
+        RTXVector3 r, u;
+        if (light_type == 1 || light_type == 2) {
+            // Spot or Directional: derive orthonormal basis from forward
+            RTXVector3 tmp_up = (std::abs(f.y) < 0.99f) ? RTXVector3{ 0.0f, 1.0f, 0.0f } : RTXVector3{ 1.0f, 0.0f, 0.0f };
+            // r = tmp_up x f
+            r = {
+                tmp_up.y * f.z - tmp_up.z * f.y,
+                tmp_up.z * f.x - tmp_up.x * f.z,
+                tmp_up.x * f.y - tmp_up.y * f.x
+            };
+            float r_len = std::sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
+            if (r_len > 1e-5f) { r.x /= r_len; r.y /= r_len; r.z /= r_len; } else { r = { 1.0f, 0.0f, 0.0f }; }
+            // u = f x r
+            u = {
+                f.y * r.z - f.z * r.y,
+                f.z * r.x - f.x * r.z,
+                f.x * r.y - f.y * r.x
+            };
+        } else {
+            // Point / Omni: canonical deterministic basis
+            f = { 0.0f, 0.0f, 1.0f };
+            r = { 1.0f, 0.0f, 0.0f };
+            u = { 0.0f, 1.0f, 0.0f };
+        }
+
+        source_frame.forward_x = f.x; source_frame.forward_y = f.y; source_frame.forward_z = f.z;
+        source_frame.right_x = r.x; source_frame.right_y = r.y; source_frame.right_z = r.z;
+        source_frame.up_x = u.x; source_frame.up_y = u.y; source_frame.up_z = u.z;
+    }
+
+    RTXVector3 world_to_local(const RTXVector3& w) const {
+        return {
+            w.x * source_frame.right_x + w.y * source_frame.right_y + w.z * source_frame.right_z,
+            w.x * source_frame.up_x + w.y * source_frame.up_y + w.z * source_frame.up_z,
+            w.x * source_frame.forward_x + w.y * source_frame.forward_y + w.z * source_frame.forward_z
+        };
+    }
+
+    RTXVector3 local_to_world(const RTXVector3& l) const {
+        return {
+            source_frame.right_x * l.x + source_frame.up_x * l.y + source_frame.forward_x * l.z,
+            source_frame.right_y * l.x + source_frame.up_y * l.y + source_frame.forward_y * l.z,
+            source_frame.right_z * l.x + source_frame.up_z * l.y + source_frame.forward_z * l.z
+        };
+    }
+
+    // Projects an AABB into a conservative continuous angular footprint cone
+    ASTGB0AngularFootprint project_box_continuous(const ASTGAABB& box) const {
+        ASTGB0AngularFootprint fp{};
+        if (!box.is_valid()) {
+            fp.cos_half_angle = 1.0f; // 0-degree cone (empty)
+            fp.sin_half_angle = 0.0f;
+            return fp;
+        }
+
+        RTXVector3 light_pos = { source_frame.origin_x, source_frame.origin_y, source_frame.origin_z };
+
+        // Special Case 1: Light inside or immediately touching the AABB
+        if (box.contains_point(light_pos)) {
+            fp.cone_axis_x = 0.0f; fp.cone_axis_y = 0.0f; fp.cone_axis_z = 1.0f;
+            fp.cos_half_angle = -1.0f; // 4*pi full spherical coverage
+            fp.sin_half_angle = 0.0f;
+            fp.min_dist = 0.0f;
+            fp.max_dist = 1000.0f;
+            fp.flags = 0x1; // Full coverage
+            return fp;
+        }
+
+        RTXVector3 corners[8] = {
+            { box.min_bounds.x, box.min_bounds.y, box.min_bounds.z },
+            { box.max_bounds.x, box.min_bounds.y, box.min_bounds.z },
+            { box.min_bounds.x, box.max_bounds.y, box.min_bounds.z },
+            { box.max_bounds.x, box.max_bounds.y, box.min_bounds.z },
+            { box.min_bounds.x, box.min_bounds.y, box.max_bounds.z },
+            { box.max_bounds.x, box.min_bounds.y, box.max_bounds.z },
+            { box.min_bounds.x, box.max_bounds.y, box.max_bounds.z },
+            { box.max_bounds.x, box.max_bounds.y, box.max_bounds.z }
+        };
+
+        RTXVector3 local_dirs[8];
+        float min_d = 1e30f, max_d = 0.0f;
+        RTXVector3 sum_dir = { 0.0f, 0.0f, 0.0f };
+
+        for (int i = 0; i < 8; ++i) {
+            RTXVector3 v = { corners[i].x - light_pos.x, corners[i].y - light_pos.y, corners[i].z - light_pos.z };
+            float len = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+            min_d = std::min(min_d, len);
+            max_d = std::max(max_d, len);
+            if (len > 1e-5f) {
+                v.x /= len; v.y /= len; v.z /= len;
+            } else {
+                v = { 0.0f, 0.0f, 1.0f };
+            }
+            local_dirs[i] = world_to_local(v);
+            sum_dir.x += local_dirs[i].x;
+            sum_dir.y += local_dirs[i].y;
+            sum_dir.z += local_dirs[i].z;
+        }
+
+        float sum_len = std::sqrt(sum_dir.x * sum_dir.x + sum_dir.y * sum_dir.y + sum_dir.z * sum_dir.z);
+        RTXVector3 central_axis;
+        if (sum_len > 1e-5f) {
+            central_axis = { sum_dir.x / sum_len, sum_dir.y / sum_len, sum_dir.z / sum_len };
+        } else {
+            // Hemispheric / antipodal wrap edge case
+            central_axis = { 0.0f, 0.0f, 1.0f };
+        }
+
+        float max_angle = 0.0f;
+        for (int i = 0; i < 8; ++i) {
+            float dot_val = central_axis.x * local_dirs[i].x +
+                            central_axis.y * local_dirs[i].y +
+                            central_axis.z * local_dirs[i].z;
+            dot_val = std::max(-1.0f, std::min(1.0f, dot_val));
+            float angle = std::acos(dot_val);
+            max_angle = std::max(max_angle, angle);
+        }
+
+        // Conservative safety guard-band (0.5 degrees / ~0.0087 rad)
+        float conservative_half_angle = max_angle + 0.015f;
+        if (conservative_half_angle >= 3.14159265f || min_d < 1e-3f) {
+            fp.cone_axis_x = 0.0f; fp.cone_axis_y = 0.0f; fp.cone_axis_z = 1.0f;
+            fp.cos_half_angle = -1.0f;
+            fp.sin_half_angle = 0.0f;
+            fp.flags = 0x1;
+        } else {
+            fp.cone_axis_x = central_axis.x;
+            fp.cone_axis_y = central_axis.y;
+            fp.cone_axis_z = central_axis.z;
+            fp.cos_half_angle = std::cos(conservative_half_angle);
+            fp.sin_half_angle = std::sin(conservative_half_angle);
+            fp.flags = 0;
+        }
+
+        fp.min_dist = min_d;
+        fp.max_dist = max_d;
+        return fp;
+    }
+
+    // Builds the Continuous B0 Direction Records and Cone Hierarchy over static transport nodes
+    void build_continuous_b0_hierarchy(const std::vector<ASTGTransportNode>& nodes, uint32_t light_id) {
+        b0_records.clear();
+        b0_bvh_nodes.clear();
+
+        RTXVector3 light_pos = { source_frame.origin_x, source_frame.origin_y, source_frame.origin_z };
+
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            const auto& node = nodes[i];
+            if (node.source_light_id != light_id || node.bounce_depth != 0 || !node.is_active) continue;
+
+            RTXVector3 delta = { node.position.x - light_pos.x, node.position.y - light_pos.y, node.position.z - light_pos.z };
+            float dist = std::sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+            RTXVector3 dir_world;
+            if (dist > 1e-5f) {
+                dir_world = { delta.x / dist, delta.y / dist, delta.z / dist };
+            } else {
+                dir_world = { 0.0f, 1.0f, 0.0f };
+            }
+
+            RTXVector3 dir_loc = world_to_local(dir_world);
+            float d_len = std::sqrt(dir_loc.x * dir_loc.x + dir_loc.y * dir_loc.y + dir_loc.z * dir_loc.z);
+            if (d_len > 1e-5f) { dir_loc.x /= d_len; dir_loc.y /= d_len; dir_loc.z /= d_len; }
+
+            float theta = std::asin(std::max(-1.0f, std::min(1.0f, dir_loc.y)));
+            float phi = std::atan2(dir_loc.x, dir_loc.z);
+
+            ASTGB0DirectionRecord rec{};
+            rec.dir_local_x = dir_loc.x;
+            rec.dir_local_y = dir_loc.y;
+            rec.dir_local_z = dir_loc.z;
+            rec.source_light_id = light_id;
+            rec.theta = theta;
+            rec.phi = phi;
+            rec.transport_node_id = (uint32_t)i;
+            rec.flags = 0x1;
+            rec.hit_dist = dist;
+            rec.generation = node.generation;
+            rec.retained_receiver_id = node.surface_cluster_id;
+            rec.solid_angle = ((4.0f * 3.14159265f) / 64.0f);
+
+            b0_records.push_back(rec);
+        }
+
+        if (b0_records.empty()) return;
+
+        // Build Hierarchical Cone BVH
+        _build_bvh_recursive(0, (uint32_t)b0_records.size());
+    }
+
+    uint32_t _build_bvh_recursive(uint32_t start, uint32_t end) {
+        uint32_t count = end - start;
+        uint32_t node_idx = (uint32_t)b0_bvh_nodes.size();
+        b0_bvh_nodes.push_back(ASTGB0AngularBVHNode{});
+
+        // Compute Bounding Cone for [start, end)
+        RTXVector3 sum_dir = { 0.0f, 0.0f, 0.0f };
+        for (uint32_t i = start; i < end; ++i) {
+            sum_dir.x += b0_records[i].dir_local_x;
+            sum_dir.y += b0_records[i].dir_local_y;
+            sum_dir.z += b0_records[i].dir_local_z;
+        }
+        float sum_len = std::sqrt(sum_dir.x * sum_dir.x + sum_dir.y * sum_dir.y + sum_dir.z * sum_dir.z);
+        RTXVector3 axis = (sum_len > 1e-5f) ? RTXVector3{ sum_dir.x / sum_len, sum_dir.y / sum_len, sum_dir.z / sum_len } : RTXVector3{ 0.0f, 0.0f, 1.0f };
+
+        float max_angle = 0.0f;
+        for (uint32_t i = start; i < end; ++i) {
+            float dot_val = axis.x * b0_records[i].dir_local_x +
+                            axis.y * b0_records[i].dir_local_y +
+                            axis.z * b0_records[i].dir_local_z;
+            dot_val = std::max(-1.0f, std::min(1.0f, dot_val));
+            max_angle = std::max(max_angle, std::acos(dot_val));
+        }
+
+        b0_bvh_nodes[node_idx].cone_axis_x = axis.x;
+        b0_bvh_nodes[node_idx].cone_axis_y = axis.y;
+        b0_bvh_nodes[node_idx].cone_axis_z = axis.z;
+        b0_bvh_nodes[node_idx].cos_half_angle = std::cos(max_angle + 0.005f);
+        b0_bvh_nodes[node_idx].light_id = source_frame.light_id;
+        b0_bvh_nodes[node_idx].flags = 0;
+
+        if (count <= 4) {
+            // Leaf Node
+            b0_bvh_nodes[node_idx].child_or_record_offset = start;
+            b0_bvh_nodes[node_idx].record_count = count;
+            return node_idx;
+        }
+
+        // Partition along dominant variation axis (azimuth phi or elevation theta)
+        float min_phi = 1e9f, max_phi = -1e9f;
+        float min_th = 1e9f, max_th = -1e9f;
+        for (uint32_t i = start; i < end; ++i) {
+            min_phi = std::min(min_phi, b0_records[i].phi);
+            max_phi = std::max(max_phi, b0_records[i].phi);
+            min_th = std::min(min_th, b0_records[i].theta);
+            max_th = std::max(max_th, b0_records[i].theta);
+        }
+
+        bool sort_by_phi = (max_phi - min_phi) >= (max_th - min_th);
+        uint32_t mid = start + count / 2;
+        if (sort_by_phi) {
+            std::nth_element(b0_records.begin() + start, b0_records.begin() + mid, b0_records.begin() + end,
+                [](const ASTGB0DirectionRecord& a, const ASTGB0DirectionRecord& b) { return a.phi < b.phi; });
+        } else {
+            std::nth_element(b0_records.begin() + start, b0_records.begin() + mid, b0_records.begin() + end,
+                [](const ASTGB0DirectionRecord& a, const ASTGB0DirectionRecord& b) { return a.theta < b.theta; });
+        }
+
+        uint32_t left_child = _build_bvh_recursive(start, mid);
+        uint32_t right_child = _build_bvh_recursive(mid, end);
+
+        b0_bvh_nodes[node_idx].child_or_record_offset = left_child;
+        b0_bvh_nodes[node_idx].record_count = 0; // Internal node
+        return node_idx;
+    }
+
+    // Traverses the continuous B0 angular hierarchy and collects candidate records within footprint
+    void query_b0_directions_in_angular_footprint(
+        const ASTGB0AngularFootprint& footprint,
+        std::vector<uint32_t>& out_candidates,
+        ASTGB0AngularTelemetry* telemetry = nullptr
+    ) const {
+        out_candidates.clear();
+        if (b0_bvh_nodes.empty() || b0_records.empty()) return;
+
+        // Full spherical coverage fast-path
+        if ((footprint.flags & 0x1) != 0 || footprint.cos_half_angle <= -0.9999f) {
+            out_candidates.resize(b0_records.size());
+            for (size_t i = 0; i < b0_records.size(); ++i) out_candidates[i] = (uint32_t)i;
+            if (telemetry) {
+                telemetry->angular_hierarchy_nodes_visited += 1;
+                telemetry->angular_candidates += (uint32_t)b0_records.size();
+            }
+            return;
+        }
+
+        RTXVector3 fp_axis = { footprint.cone_axis_x, footprint.cone_axis_y, footprint.cone_axis_z };
+        float fp_cos = footprint.cos_half_angle;
+        float fp_sin = footprint.sin_half_angle;
+
+        std::vector<uint32_t> stack;
+        stack.reserve(64);
+        stack.push_back(0);
+
+        while (!stack.empty()) {
+            uint32_t curr = stack.back();
+            stack.pop_back();
+
+            if (telemetry) telemetry->angular_hierarchy_nodes_visited++;
+
+            const auto& node = b0_bvh_nodes[curr];
+            RTXVector3 node_axis = { node.cone_axis_x, node.cone_axis_y, node.cone_axis_z };
+            float dot_val = node_axis.x * fp_axis.x + node_axis.y * fp_axis.y + node_axis.z * fp_axis.z;
+
+            // Cone-Cone overlap condition: cos(angle) >= cos(theta_node + theta_fp)
+            float node_cos = node.cos_half_angle;
+            float node_sin = std::sqrt(std::max(0.0f, 1.0f - node_cos * node_cos));
+            float threshold_cos = node_cos * fp_cos - node_sin * fp_sin;
+
+            if (dot_val < threshold_cos) {
+                // Cones are disjoint, prune branch!
+                continue;
+            }
+
+            if (node.record_count > 0) {
+                // Leaf Node: append candidates
+                for (uint32_t r = 0; r < node.record_count; ++r) {
+                    uint32_t rec_idx = node.child_or_record_offset + r;
+                    const auto& rec = b0_records[rec_idx];
+
+                    // Direct angular direction vs footprint cone check
+                    float dir_dot = rec.dir_local_x * fp_axis.x + rec.dir_local_y * fp_axis.y + rec.dir_local_z * fp_axis.z;
+                    if (dir_dot >= fp_cos) {
+                        out_candidates.push_back(rec_idx);
+                        if (telemetry) telemetry->angular_candidates++;
+                    }
+                }
+            } else {
+                // Internal Node: push left and right children
+                uint32_t left_child = node.child_or_record_offset;
+                uint32_t right_child = left_child + 1; // Assuming sequential layout or explicit
+                if (left_child < b0_bvh_nodes.size()) stack.push_back(left_child);
+                if (right_child < b0_bvh_nodes.size()) stack.push_back(right_child);
+            }
+        }
+    }
+
+    // Resolves exact candidate visibility against moving bound AABB
+    void evaluate_exact_b0_visibility(
+        const std::vector<uint32_t>& candidates,
+        const ASTGAABB& occluder_box,
+        std::vector<uint32_t>& out_exact_blockers,
+        ASTGB0AngularTelemetry* telemetry = nullptr
+    ) const {
+        out_exact_blockers.clear();
+        RTXVector3 light_pos = { source_frame.origin_x, source_frame.origin_y, source_frame.origin_z };
+
+        for (uint32_t rec_idx : candidates) {
+            if (rec_idx >= b0_records.size()) continue;
+            const auto& rec = b0_records[rec_idx];
+
+            if (telemetry) telemetry->exact_visibility_tests++;
+
+            RTXVector3 dir_world = local_to_world({ rec.dir_local_x, rec.dir_local_y, rec.dir_local_z });
+            RTXVector3 hit_pos = {
+                light_pos.x + dir_world.x * rec.hit_dist,
+                light_pos.y + dir_world.y * rec.hit_dist,
+                light_pos.z + dir_world.z * rec.hit_dist
+            };
+
+            bool hit = segment_intersects_aabb(light_pos, hit_pos, occluder_box);
+            if (hit) {
+                out_exact_blockers.push_back(rec_idx);
+                if (telemetry) telemetry->exact_blockers++;
+            } else {
+                if (telemetry) telemetry->angular_false_positives++;
+            }
+        }
     }
 
     uint32_t get_cell_id_for_dir(const RTXVector3& dir) const {
@@ -422,7 +815,7 @@ public:
         return (uint32_t)(cy * 8 + cx);
     }
 
-    // Projects an AABB from light position into a 64-bit angular cell mask with seam-safe handling
+    // Projects an AABB from light position into a 64-bit angular cell mask (Optional Coarse Broadphase / Legacy Reference)
     uint64_t query_box_footprint(
         const RTXVector3& light_pos,
         const ASTGAABB& box,
@@ -475,21 +868,15 @@ public:
             max_v = std::max(max_v, v_coords[i]);
         }
 
-        // Seam-safe robust evaluation:
-        // 1. Ray from light in cell center direction intersects box
-        // 2. Rays from light in 4 cell corner directions intersect box
-        // 3. Any of the 8 box corners project directly into the cell UV domain
         uint64_t result_mask = 0ULL;
         for (uint32_t i = 0; i < TOTAL_LEAF_CELLS; ++i) {
             const auto& cell = cells[i];
             bool cell_hit = false;
 
-            // Check 1: Cell center ray
             if (ray_intersects_aabb(light_pos, cell.dir_center, box, dist * 2.0f + 5.0f)) {
                 cell_hit = true;
             }
 
-            // Check 2: Cell corner rays
             if (!cell_hit) {
                 RTXVector3 corner_dirs[4];
                 decode_octahedral(cell.u_min, cell.v_min, corner_dirs[0]);
@@ -504,7 +891,6 @@ public:
                 }
             }
 
-            // Check 3: Box corners projected into cell UV bounds
             if (!cell_hit) {
                 for (int c = 0; c < 8; ++c) {
                     if (u_coords[c] >= cell.u_min && u_coords[c] <= cell.u_max &&
@@ -1576,6 +1962,66 @@ public:
     uint32_t dynamic_timeline_frame = 0;
 
     // ==============================================================================
+    // Parts J & K: Continuous Source-Local B0 Angular Hierarchies & Blocker Tracking
+    // ==============================================================================
+    std::unordered_map<uint32_t, ASTGAngularHierarchy> light_b0_hierarchies;
+    std::unordered_map<uint64_t, uint32_t> b0_record_blocker_counts; // (light_id << 32) | record_id -> count
+    std::unordered_map<uint64_t, bool> group_b0_record_blocked; // ((group_id << 40) | (light_id << 20) | record_id) -> bool
+    ASTGB0AngularTelemetry b0_telemetry{};
+
+    ASTGAngularHierarchy& get_or_create_light_hierarchy(uint32_t light_id) {
+        auto it = light_b0_hierarchies.find(light_id);
+        if (it == light_b0_hierarchies.end()) {
+            ASTGAngularHierarchy hier;
+            RTXVector3 light_pos = { 0.0f, 5.0f, 0.0f };
+            auto it_lp = light_positions.find(light_id);
+            if (it_lp != light_positions.end()) light_pos = it_lp->second;
+
+            hier.initialize_frame(light_id, light_pos, 0, { 0.0f, 0.0f, 1.0f }, 25.0f, 1);
+            hier.build_continuous_b0_hierarchy(bounce0_nodes, light_id);
+            light_b0_hierarchies[light_id] = hier;
+            return light_b0_hierarchies[light_id];
+        }
+        return it->second;
+    }
+
+    struct B0GroundTruthResult {
+        std::unordered_set<uint32_t> blocked_b0_record_indices;
+        std::unordered_set<uint32_t> blocked_b0_node_ids;
+        uint32_t total_b0_rays_tested = 0;
+        uint32_t total_bounds_tested = 0;
+    };
+
+    // Canonical slow CPU exact reference validator (no hierarchy shortcuts)
+    B0GroundTruthResult evaluate_b0_ground_truth_exact(uint32_t light_id, const std::vector<ASTGAABB>& moving_boxes) {
+        B0GroundTruthResult gt;
+        auto& hier = get_or_create_light_hierarchy(light_id);
+        RTXVector3 light_pos = { hier.source_frame.origin_x, hier.source_frame.origin_y, hier.source_frame.origin_z };
+
+        for (size_t r = 0; r < hier.b0_records.size(); ++r) {
+            const auto& rec = hier.b0_records[r];
+            gt.total_b0_rays_tested++;
+
+            RTXVector3 dir_world = hier.local_to_world({ rec.dir_local_x, rec.dir_local_y, rec.dir_local_z });
+            RTXVector3 hit_pos = {
+                light_pos.x + dir_world.x * rec.hit_dist,
+                light_pos.y + dir_world.y * rec.hit_dist,
+                light_pos.z + dir_world.z * rec.hit_dist
+            };
+
+            for (const auto& box : moving_boxes) {
+                gt.total_bounds_tested++;
+                if (segment_intersects_aabb(light_pos, hit_pos, box)) {
+                    gt.blocked_b0_record_indices.insert((uint32_t)r);
+                    gt.blocked_b0_node_ids.insert(rec.transport_node_id);
+                    break;
+                }
+            }
+        }
+        return gt;
+    }
+
+    // ==============================================================================
     // Milestone 1 (R1 & R2): Persistent GPU ASTG Transport Shadow Caches & Dirty State
     // ==============================================================================
     std::vector<ASTGGPUNode> gpu_nodes_shadow;
@@ -2133,37 +2579,39 @@ public:
                         float dz = node.position.z - probe.world_position.z;
                         float dist_sq = dx * dx + dy * dy + dz * dz;
                         if (dist_sq < 9.0f) { // Within 3m
-                            float dist = std::sqrt(dist_sq) + 1e-4f;
-                            RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
-                            float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
-                            float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
+                            float dist = std::sqrt(dist_sq);
+                            if (dist > 1e-5f) {
+                                RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
+                                float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
+                                float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
 
-                            if (cos_probe > 0.05f && cos_node > 0.05f) {
-                                float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
-                                if (geom_factor > 1e-4f) {
-                                    float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
-                                    if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
-                                        IndirectVisibilityCandidate cand;
-                                        cand.probe_index = p_idx;
-                                        cand.node_index = nid;
-                                        cand.weight = w;
-                                        cand.dist = dist;
-                                        visibility_candidates.push_back(cand);
-                                        visibility_batch_telemetry.ambiguous_candidates_gathered++;
+                                if (cos_probe > 0.05f && cos_node > 0.05f) {
+                                    float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
+                                    if (geom_factor > 1e-4f) {
+                                        float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
+                                        if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
+                                            IndirectVisibilityCandidate cand;
+                                            cand.probe_index = p_idx;
+                                            cand.node_index = nid;
+                                            cand.weight = w;
+                                            cand.dist = dist;
+                                            visibility_candidates.push_back(cand);
+                                            visibility_batch_telemetry.ambiguous_candidates_gathered++;
 
-                                        ASTGRay ray;
-                                        ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
-                                        ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
-                                        ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
-                                        ray.dir_x = to_node.x; ray.dir_y = to_node.y; ray.dir_z = to_node.z;
-                                        ray.t_min = 0.001f; ray.t_max = dist - 0.02f;
-                                        ray.source_light_id = 0; ray.transport_node_id = nid; ray.angular_cell_id = 0; ray.flags = 0;
-                                        batched_rays.push_back(ray);
-                                    } else {
-                                        probe_accum_indirect[p_idx].x += node.path_transfer_r * w;
-                                        probe_accum_indirect[p_idx].y += node.path_transfer_g * w;
-                                        probe_accum_indirect[p_idx].z += node.path_transfer_b * w;
-                                        probe_total_weight[p_idx] += w;
+                                            ASTGRay ray;
+                                            ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
+                                            ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
+                                            ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
+                                            ray.dir_x = to_node.x; ray.dir_y = to_node.y; ray.dir_z = to_node.z;
+                                            ray.t_min = 0.001f; ray.t_max = dist - 0.02f;
+                                            ray.source_light_id = 0; ray.transport_node_id = nid; ray.angular_cell_id = 0; ray.flags = 0;
+                                            batched_rays.push_back(ray);
+                                        } else {
+                                            probe_accum_indirect[p_idx].x += node.path_transfer_r * w;
+                                            probe_accum_indirect[p_idx].y += node.path_transfer_g * w;
+                                            probe_accum_indirect[p_idx].z += node.path_transfer_b * w;
+                                            probe_total_weight[p_idx] += w;
+                                        }
                                     }
                                 }
                             }
@@ -2194,37 +2642,39 @@ public:
                     float dz = node.position.z - probe.world_position.z;
                     float dist_sq = dx * dx + dy * dy + dz * dz;
                     if (dist_sq < 9.0f) {
-                        float dist = std::sqrt(dist_sq) + 1e-4f;
-                        RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
-                        float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
-                        float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
+                        float dist = std::sqrt(dist_sq);
+                        if (dist > 1e-5f) {
+                            RTXVector3 to_node = { dx / dist, dy / dist, dz / dist };
+                            float cos_probe = std::max(0.0f, probe.world_normal.x * to_node.x + probe.world_normal.y * to_node.y + probe.world_normal.z * to_node.z);
+                            float cos_node = std::max(0.0f, -(node.geometric_normal.x * to_node.x + node.geometric_normal.y * to_node.y + node.geometric_normal.z * to_node.z));
 
-                        if (cos_probe > 0.05f && cos_node > 0.05f) {
-                            float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
-                            if (geom_factor > 1e-4f) {
-                                float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
-                                if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
-                                    IndirectVisibilityCandidate cand;
-                                    cand.probe_index = (uint32_t)p_idx;
-                                    cand.node_index = nid;
-                                    cand.weight = w;
-                                    cand.dist = dist;
-                                    visibility_candidates.push_back(cand);
-                                    visibility_batch_telemetry.ambiguous_candidates_gathered++;
+                            if (cos_probe > 0.05f && cos_node > 0.05f) {
+                                float geom_factor = (cos_probe * cos_node) / (dist_sq + 0.05f);
+                                if (geom_factor > 1e-4f) {
+                                    float w = geom_factor * (node.geometric_factor > 0.0f ? node.geometric_factor : 1.0f);
+                                    if (enable_gpu_visibility_refinement && rtx_is_hardware_active()) {
+                                        IndirectVisibilityCandidate cand;
+                                        cand.probe_index = (uint32_t)p_idx;
+                                        cand.node_index = nid;
+                                        cand.weight = w;
+                                        cand.dist = dist;
+                                        visibility_candidates.push_back(cand);
+                                        visibility_batch_telemetry.ambiguous_candidates_gathered++;
 
-                                    ASTGRay ray;
-                                    ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
-                                    ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
-                                    ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
-                                    ray.dir_x = to_node.x; ray.dir_y = to_node.y; ray.dir_z = to_node.z;
-                                    ray.t_min = 0.001f; ray.t_max = dist - 0.02f;
-                                    ray.source_light_id = 0; ray.transport_node_id = nid; ray.angular_cell_id = 0; ray.flags = 0;
-                                    batched_rays.push_back(ray);
-                                } else {
-                                    probe_accum_indirect[p_idx].x += node.path_transfer_r * w;
-                                    probe_accum_indirect[p_idx].y += node.path_transfer_g * w;
-                                    probe_accum_indirect[p_idx].z += node.path_transfer_b * w;
-                                    probe_total_weight[p_idx] += w;
+                                        ASTGRay ray;
+                                        ray.origin_x = probe.world_position.x + probe.world_normal.x * 0.01f;
+                                        ray.origin_y = probe.world_position.y + probe.world_normal.y * 0.01f;
+                                        ray.origin_z = probe.world_position.z + probe.world_normal.z * 0.01f;
+                                        ray.dir_x = to_node.x; ray.dir_y = to_node.y; ray.dir_z = to_node.z;
+                                        ray.t_min = 0.001f; ray.t_max = dist - 0.02f;
+                                        ray.source_light_id = 0; ray.transport_node_id = nid; ray.angular_cell_id = 0; ray.flags = 0;
+                                        batched_rays.push_back(ray);
+                                    } else {
+                                        probe_accum_indirect[p_idx].x += node.path_transfer_r * w;
+                                        probe_accum_indirect[p_idx].y += node.path_transfer_g * w;
+                                        probe_accum_indirect[p_idx].z += node.path_transfer_b * w;
+                                        probe_total_weight[p_idx] += w;
+                                    }
                                 }
                             }
                         }
