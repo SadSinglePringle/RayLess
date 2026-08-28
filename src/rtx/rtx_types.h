@@ -542,29 +542,97 @@ static_assert(offsetof(ASTGGPUOccluderAABB, max_z) == 24, "ASTGGPUOccluderAABB::
 static_assert(offsetof(ASTGGPUOccluderAABB, flags) == 28, "ASTGGPUOccluderAABB::flags offset != 28");
 
 // Static Assertions for Parts J/K Data Structures
+using ASTGSourceAngularFrameGPU = RTXSourceAngularFrame;
+using ASTGB0AngularBVHNodeGPU = ASTGB0AngularBVHNode;
+using ASTGB0AngularFootprintGPU = ASTGB0AngularFootprint;
+using ASTGB0DirectionRecordGPU = ASTGB0DirectionRecord;
+
 static_assert(sizeof(RTXSourceAngularFrame) == 64, "RTXSourceAngularFrame size must be exactly 64 bytes");
 static_assert(alignof(RTXSourceAngularFrame) == 16, "RTXSourceAngularFrame alignment must be 16 bytes");
+static_assert(offsetof(RTXSourceAngularFrame, origin_x) == 0, "RTXSourceAngularFrame::origin_x offset != 0");
+static_assert(offsetof(RTXSourceAngularFrame, light_id) == 12, "RTXSourceAngularFrame::light_id offset != 12");
+static_assert(offsetof(RTXSourceAngularFrame, forward_x) == 16, "RTXSourceAngularFrame::forward_x offset != 16");
+static_assert(offsetof(RTXSourceAngularFrame, light_type) == 28, "RTXSourceAngularFrame::light_type offset != 28");
+static_assert(offsetof(RTXSourceAngularFrame, right_x) == 32, "RTXSourceAngularFrame::right_x offset != 32");
+static_assert(offsetof(RTXSourceAngularFrame, range) == 44, "RTXSourceAngularFrame::range offset != 44");
+static_assert(offsetof(RTXSourceAngularFrame, up_x) == 48, "RTXSourceAngularFrame::up_x offset != 48");
+static_assert(offsetof(RTXSourceAngularFrame, generation) == 60, "RTXSourceAngularFrame::generation offset != 60");
 
 static_assert(sizeof(ASTGB0DirectionRecord) == 48, "ASTGB0DirectionRecord size must be exactly 48 bytes");
 static_assert(alignof(ASTGB0DirectionRecord) == 16, "ASTGB0DirectionRecord alignment must be 16 bytes");
+static_assert(offsetof(ASTGB0DirectionRecord, dir_local_x) == 0, "ASTGB0DirectionRecord::dir_local_x offset != 0");
+static_assert(offsetof(ASTGB0DirectionRecord, source_light_id) == 12, "ASTGB0DirectionRecord::source_light_id offset != 12");
+static_assert(offsetof(ASTGB0DirectionRecord, theta) == 16, "ASTGB0DirectionRecord::theta offset != 16");
+static_assert(offsetof(ASTGB0DirectionRecord, phi) == 20, "ASTGB0DirectionRecord::phi offset != 20");
+static_assert(offsetof(ASTGB0DirectionRecord, transport_node_id) == 24, "ASTGB0DirectionRecord::transport_node_id offset != 24");
+static_assert(offsetof(ASTGB0DirectionRecord, flags) == 28, "ASTGB0DirectionRecord::flags offset != 28");
+static_assert(offsetof(ASTGB0DirectionRecord, hit_dist) == 32, "ASTGB0DirectionRecord::hit_dist offset != 32");
+static_assert(offsetof(ASTGB0DirectionRecord, generation) == 36, "ASTGB0DirectionRecord::generation offset != 36");
+static_assert(offsetof(ASTGB0DirectionRecord, retained_receiver_id) == 40, "ASTGB0DirectionRecord::retained_receiver_id offset != 40");
+static_assert(offsetof(ASTGB0DirectionRecord, solid_angle) == 44, "ASTGB0DirectionRecord::solid_angle offset != 44");
 
 static_assert(sizeof(ASTGB0AngularBVHNode) == 32, "ASTGB0AngularBVHNode size must be exactly 32 bytes");
 static_assert(alignof(ASTGB0AngularBVHNode) == 16, "ASTGB0AngularBVHNode alignment must be 16 bytes");
+static_assert(offsetof(ASTGB0AngularBVHNode, cone_axis_x) == 0, "ASTGB0AngularBVHNode::cone_axis_x offset != 0");
+static_assert(offsetof(ASTGB0AngularBVHNode, cos_half_angle) == 12, "ASTGB0AngularBVHNode::cos_half_angle offset != 12");
+static_assert(offsetof(ASTGB0AngularBVHNode, left_child) == 16, "ASTGB0AngularBVHNode::left_child offset != 16");
+static_assert(offsetof(ASTGB0AngularBVHNode, right_child) == 20, "ASTGB0AngularBVHNode::right_child offset != 20");
+static_assert(offsetof(ASTGB0AngularBVHNode, record_count) == 24, "ASTGB0AngularBVHNode::record_count offset != 24");
+static_assert(offsetof(ASTGB0AngularBVHNode, light_id) == 28, "ASTGB0AngularBVHNode::light_id offset != 28");
 
 static_assert(sizeof(ASTGB0AngularFootprint) == 32, "ASTGB0AngularFootprint size must be exactly 32 bytes");
 static_assert(alignof(ASTGB0AngularFootprint) == 16, "ASTGB0AngularFootprint alignment must be 16 bytes");
+static_assert(offsetof(ASTGB0AngularFootprint, cone_axis_x) == 0, "ASTGB0AngularFootprint::cone_axis_x offset != 0");
+static_assert(offsetof(ASTGB0AngularFootprint, cos_half_angle) == 12, "ASTGB0AngularFootprint::cos_half_angle offset != 12");
+static_assert(offsetof(ASTGB0AngularFootprint, sin_half_angle) == 16, "ASTGB0AngularFootprint::sin_half_angle offset != 16");
+static_assert(offsetof(ASTGB0AngularFootprint, min_dist) == 20, "ASTGB0AngularFootprint::min_dist offset != 20");
+static_assert(offsetof(ASTGB0AngularFootprint, max_dist) == 24, "ASTGB0AngularFootprint::max_dist offset != 24");
+static_assert(offsetof(ASTGB0AngularFootprint, flags) == 28, "ASTGB0AngularFootprint::flags offset != 28");
 
 static_assert(sizeof(ASTGBoneBoundGPU) == 64, "ASTGBoneBoundGPU size must be exactly 64 bytes");
 static_assert(alignof(ASTGBoneBoundGPU) == 16, "ASTGBoneBoundGPU alignment must be 16 bytes");
+static_assert(offsetof(ASTGBoneBoundGPU, local_min_x) == 0, "ASTGBoneBoundGPU::local_min_x offset != 0");
+static_assert(offsetof(ASTGBoneBoundGPU, bone_id) == 12, "ASTGBoneBoundGPU::bone_id offset != 12");
+static_assert(offsetof(ASTGBoneBoundGPU, local_max_x) == 16, "ASTGBoneBoundGPU::local_max_x offset != 16");
+static_assert(offsetof(ASTGBoneBoundGPU, group_id) == 28, "ASTGBoneBoundGPU::group_id offset != 28");
+static_assert(offsetof(ASTGBoneBoundGPU, world_min_x) == 32, "ASTGBoneBoundGPU::world_min_x offset != 32");
+static_assert(offsetof(ASTGBoneBoundGPU, cluster_offset) == 44, "ASTGBoneBoundGPU::cluster_offset offset != 44");
+static_assert(offsetof(ASTGBoneBoundGPU, world_max_x) == 48, "ASTGBoneBoundGPU::world_max_x offset != 48");
+static_assert(offsetof(ASTGBoneBoundGPU, cluster_count) == 60, "ASTGBoneBoundGPU::cluster_count offset != 60");
 
 static_assert(sizeof(ASTGReceiverClusterGPU) == 48, "ASTGReceiverClusterGPU size must be exactly 48 bytes");
 static_assert(alignof(ASTGReceiverClusterGPU) == 16, "ASTGReceiverClusterGPU alignment must be 16 bytes");
+static_assert(offsetof(ASTGReceiverClusterGPU, world_center_x) == 0, "ASTGReceiverClusterGPU::world_center_x offset != 0");
+static_assert(offsetof(ASTGReceiverClusterGPU, radius) == 12, "ASTGReceiverClusterGPU::radius offset != 12");
+static_assert(offsetof(ASTGReceiverClusterGPU, normal_axis_x) == 16, "ASTGReceiverClusterGPU::normal_axis_x offset != 16");
+static_assert(offsetof(ASTGReceiverClusterGPU, cos_normal_half_angle) == 28, "ASTGReceiverClusterGPU::cos_normal_half_angle offset != 28");
+static_assert(offsetof(ASTGReceiverClusterGPU, probe_offset) == 32, "ASTGReceiverClusterGPU::probe_offset offset != 32");
+static_assert(offsetof(ASTGReceiverClusterGPU, probe_count) == 36, "ASTGReceiverClusterGPU::probe_count offset != 36");
+static_assert(offsetof(ASTGReceiverClusterGPU, bone_id) == 40, "ASTGReceiverClusterGPU::bone_id offset != 40");
+static_assert(offsetof(ASTGReceiverClusterGPU, generation) == 44, "ASTGReceiverClusterGPU::generation offset != 44");
 
 static_assert(sizeof(ASTGDynamicSurfaceProbeGPU) == 80, "ASTGDynamicSurfaceProbeGPU size must be exactly 80 bytes");
 static_assert(alignof(ASTGDynamicSurfaceProbeGPU) == 16, "ASTGDynamicSurfaceProbeGPU alignment must be 16 bytes");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, local_pos_x) == 0, "ASTGDynamicSurfaceProbeGPU::local_pos_x offset != 0");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, bone_id) == 12, "ASTGDynamicSurfaceProbeGPU::bone_id offset != 12");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, local_norm_x) == 16, "ASTGDynamicSurfaceProbeGPU::local_norm_x offset != 16");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, cluster_id) == 28, "ASTGDynamicSurfaceProbeGPU::cluster_id offset != 28");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, world_pos_x) == 32, "ASTGDynamicSurfaceProbeGPU::world_pos_x offset != 32");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, group_id) == 44, "ASTGDynamicSurfaceProbeGPU::group_id offset != 44");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, world_norm_x) == 48, "ASTGDynamicSurfaceProbeGPU::world_norm_x offset != 48");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, generation) == 60, "ASTGDynamicSurfaceProbeGPU::generation offset != 60");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, irradiance_r) == 64, "ASTGDynamicSurfaceProbeGPU::irradiance_r offset != 64");
+static_assert(offsetof(ASTGDynamicSurfaceProbeGPU, last_visibility_mask) == 76, "ASTGDynamicSurfaceProbeGPU::last_visibility_mask offset != 76");
 
 static_assert(sizeof(ASTGB0PersistentState) == 8, "ASTGB0PersistentState size must be exactly 8 bytes");
+static_assert(offsetof(ASTGB0PersistentState, blocker_count) == 0, "ASTGB0PersistentState::blocker_count offset != 0");
+static_assert(offsetof(ASTGB0PersistentState, last_generation) == 4, "ASTGB0PersistentState::last_generation offset != 4");
+
 static_assert(sizeof(ASTGB0TransitionRecord) == 16, "ASTGB0TransitionRecord size must be exactly 16 bytes");
+static_assert(offsetof(ASTGB0TransitionRecord, b0_record_id) == 0, "ASTGB0TransitionRecord::b0_record_id offset != 0");
+static_assert(offsetof(ASTGB0TransitionRecord, light_id) == 4, "ASTGB0TransitionRecord::light_id offset != 4");
+static_assert(offsetof(ASTGB0TransitionRecord, transition_type) == 8, "ASTGB0TransitionRecord::transition_type offset != 8");
+static_assert(offsetof(ASTGB0TransitionRecord, blocker_count) == 12, "ASTGB0TransitionRecord::blocker_count offset != 12");
 
 // Static Assertions for ASTGVisibilityCounters (32 bytes) and the extended
 // spatial-discovery TransportConstants block (48 bytes).

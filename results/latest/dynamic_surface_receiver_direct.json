@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260827_213726_8b724e9ba4941dcd14005adc779395fd7ffeceb7_evidence_hardened",
+  "run_uuid": "run_20260828_001348_77346ea65629443b1836b5e8b14ad2b186e0f6d8_evidence_hardened",
   "direct_receivers": [
     {
       "group_label": "BistroPlayer",
@@ -7,13 +7,13 @@
       "light_id": 0,
       "probe_count": 500,
       "cluster_count": 50,
-      "affected_angular_cells": 2,
-      "receiver_mappings_active": 2,
-      "receiver_mappings_reused": 2,
+      "affected_angular_cells": 4,
+      "receiver_mappings_active": 140,
+      "receiver_mappings_reused": 140,
       "receiver_mappings_created": 0,
       "exact_visibility_rays": 12268,
-      "direct_energy": 3.69,
-      "runtime_us": 13.00
+      "direct_energy": 223.56,
+      "runtime_us": 373.40
     }
   ]
 }

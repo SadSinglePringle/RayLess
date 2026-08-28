@@ -479,7 +479,7 @@ struct ASTGB0AngularFootprintGPU {
     uint   flags;
 };
 
-struct ASTGBoneBoundGPU_HLSL {
+struct ASTGBoneBoundGPU {
     float3 local_min;
     uint   bone_id;
     float3 local_max;
@@ -490,28 +490,40 @@ struct ASTGBoneBoundGPU_HLSL {
     uint   cluster_count;
 };
 
-struct ASTGReceiverClusterGPU_HLSL {
-    float3 local_centroid;
-    uint   bone_id;
-    float3 world_centroid;
-    uint   cluster_id;
-    float3 local_normal;
-    float  cone_cos_half_angle;
-    float3 world_normal;
+struct ASTGReceiverClusterGPU {
+    float3 world_center;
+    float  radius;
+    float3 normal_axis;
+    float  cos_normal_half_angle;
+    uint   probe_offset;
     uint   probe_count;
+    uint   bone_id;
+    uint   generation;
 };
 
-struct ASTGDynamicSurfaceProbeGPU_HLSL {
-    float3 local_position;
-    uint   probe_id;
-    float3 local_normal;
+struct ASTGDynamicSurfaceProbeGPU {
+    float3 local_pos;
     uint   bone_id;
-    float3 world_position;
+    float3 local_norm;
     uint   cluster_id;
-    float3 world_normal;
+    float3 world_pos;
     uint   group_id;
-    float3 direct_irradiance;
+    float3 world_norm;
     uint   generation;
+    float3 irradiance;
+    uint   last_visibility_mask;
+};
+
+struct ASTGB0PersistentState {
+    uint blocker_count;
+    uint last_generation;
+};
+
+struct ASTGB0TransitionRecord {
+    uint b0_record_id;
+    uint light_id;
+    uint transition_type;
+    uint blocker_count;
 };
 
 bool SegmentIntersectsAABB_HLSL(float3 A, float3 B, float3 box_min, float3 box_max) {
@@ -529,4 +541,72 @@ bool SegmentIntersectsAABB_HLSL(float3 A, float3 B, float3 box_min, float3 box_m
     float tmin = max(0.0f, max(tmin_v.x, max(tmin_v.y, tmin_v.z)));
     float tmax = min(1.0f, min(tmax_v.x, min(tmax_v.y, tmax_v.z)));
     return tmin <= tmax;
+}
+
+// Pass J1: Transform and project bounds into conservative angular footprint
+ASTGB0AngularFootprintGPU ProjectBoxContinuous_HLSL(
+    float3 box_min,
+    float3 box_max,
+    ASTGSourceAngularFrameGPU frame
+) {
+    ASTGB0AngularFootprintGPU fp;
+    float3 center = 0.5f * (box_min + box_max);
+    float3 ext = 0.5f * (box_max - box_min);
+    float sphere_radius = length(ext);
+    float3 to_center = center - frame.origin;
+    float center_dist = length(to_center);
+
+    float min_d = 1e30f;
+    float max_d = 0.0f;
+    [unroll]
+    for (int i = 0; i < 8; ++i) {
+        float3 corner = float3(
+            (i & 1) ? box_max.x : box_min.x,
+            (i & 2) ? box_max.y : box_min.y,
+            (i & 4) ? box_max.z : box_min.z
+        );
+        float d = length(corner - frame.origin);
+        min_d = min(min_d, d);
+        max_d = max(max_d, d);
+    }
+
+    if (center_dist <= sphere_radius) {
+        // Light inside or intersecting bounding sphere: full coverage
+        fp.cone_axis = float3(0.0f, 0.0f, 1.0f);
+        fp.cos_half_angle = -1.0f;
+        fp.sin_half_angle = 0.0f;
+        fp.min_dist = 0.0f;
+        fp.max_dist = max_d;
+        fp.flags = 0x1;
+    } else {
+        float3 dir_w = to_center / center_dist;
+        float3 dir_loc = float3(
+            dot(dir_w, frame.right),
+            dot(dir_w, frame.up),
+            dot(dir_w, frame.forward)
+        );
+        float d_len = length(dir_loc);
+        dir_loc = (d_len > 1e-5f) ? (dir_loc / d_len) : float3(0.0f, 0.0f, 1.0f);
+
+        float sin_half = min(1.0f, sphere_radius / center_dist);
+        float cos_half = sqrt(max(0.0f, 1.0f - sin_half * sin_half));
+
+        fp.cone_axis = dir_loc;
+        fp.cos_half_angle = cos_half;
+        fp.sin_half_angle = sin_half;
+        fp.min_dist = min_d;
+        fp.max_dist = max_d;
+        fp.flags = 0;
+    }
+    return fp;
+}
+
+// Pass J2 Helper: Overlap test between footprint cone and BVH node cone
+bool ConesOverlap_HLSL(float3 axis_a, float cos_a, float3 axis_b, float cos_b) {
+    if (cos_a <= -1.0f || cos_b <= -1.0f) return true;
+    float dot_val = clamp(dot(axis_a, axis_b), -1.0f, 1.0f);
+    float angle_between = acos(dot_val);
+    float half_a = acos(clamp(cos_a, -1.0f, 1.0f));
+    float half_b = acos(clamp(cos_b, -1.0f, 1.0f));
+    return angle_between <= (half_a + half_b);
 }

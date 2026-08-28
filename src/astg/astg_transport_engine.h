@@ -512,42 +512,22 @@ public:
             fp.sin_half_angle = 0.0f;
             fp.min_dist = 0.0f;
             fp.max_dist = 1000.0f;
-            fp.flags = 0x1; // Full coverage
+            fp.flags = 0x1;
             return fp;
         }
 
-        // Compute exact geometric distance to bounding sphere & 8 corners
-        RTXVector3 center = {
-            (box.min_bounds.x + box.max_bounds.x) * 0.5f,
-            (box.min_bounds.y + box.max_bounds.y) * 0.5f,
-            (box.min_bounds.z + box.max_bounds.z) * 0.5f
-        };
-        RTXVector3 ext = {
-            (box.max_bounds.x - box.min_bounds.x) * 0.5f,
-            (box.max_bounds.y - box.min_bounds.y) * 0.5f,
-            (box.max_bounds.z - box.min_bounds.z) * 0.5f
-        };
+        RTXVector3 center = { 0.5f * (box.min_bounds.x + box.max_bounds.x),
+                              0.5f * (box.min_bounds.y + box.max_bounds.y),
+                              0.5f * (box.min_bounds.z + box.max_bounds.z) };
+        RTXVector3 ext = { 0.5f * (box.max_bounds.x - box.min_bounds.x),
+                           0.5f * (box.max_bounds.y - box.min_bounds.y),
+                           0.5f * (box.max_bounds.z - box.min_bounds.z) };
         float sphere_radius = std::sqrt(ext.x * ext.x + ext.y * ext.y + ext.z * ext.z);
 
         RTXVector3 to_center = { center.x - light_pos.x, center.y - light_pos.y, center.z - light_pos.z };
         float dist_to_center = std::sqrt(to_center.x * to_center.x + to_center.y * to_center.y + to_center.z * to_center.z);
 
-        // If light is inside bounding sphere, produce conservative full or near-full coverage
-        if (dist_to_center <= sphere_radius + 1e-4f) {
-            fp.cone_axis_x = 0.0f; fp.cone_axis_y = 0.0f; fp.cone_axis_z = 1.0f;
-            fp.cos_half_angle = -1.0f;
-            fp.sin_half_angle = 0.0f;
-            fp.min_dist = 0.0f;
-            fp.max_dist = dist_to_center + sphere_radius;
-            fp.flags = 0x1;
-            return fp;
-        }
-
-        // Bounding sphere cone angle: sin(theta_sphere) = R / dist_to_center
-        float sin_sphere = std::min(1.0f, sphere_radius / dist_to_center);
-        float sphere_half_angle = std::asin(sin_sphere);
-
-        // 8 Corners of the AABB
+        // 8 Corners of the AABB for distance range
         RTXVector3 corners[8] = {
             { box.min_bounds.x, box.min_bounds.y, box.min_bounds.z },
             { box.max_bounds.x, box.min_bounds.y, box.min_bounds.z },
@@ -559,87 +539,70 @@ public:
             { box.max_bounds.x, box.max_bounds.y, box.max_bounds.z }
         };
 
-        RTXVector3 local_dirs[8];
         float min_d = 1e30f, max_d = 0.0f;
-        RTXVector3 sum_dir = { 0.0f, 0.0f, 0.0f };
-
         for (int i = 0; i < 8; ++i) {
             RTXVector3 v = { corners[i].x - light_pos.x, corners[i].y - light_pos.y, corners[i].z - light_pos.z };
             float len = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
             min_d = std::min(min_d, len);
             max_d = std::max(max_d, len);
-            if (len > 1e-5f) {
-                v.x /= len; v.y /= len; v.z /= len;
-            } else {
-                v = { 0.0f, 0.0f, 1.0f };
-            }
-            local_dirs[i] = world_to_local(v);
-            sum_dir.x += local_dirs[i].x;
-            sum_dir.y += local_dirs[i].y;
-            sum_dir.z += local_dirs[i].z;
         }
 
-        float sum_len = std::sqrt(sum_dir.x * sum_dir.x + sum_dir.y * sum_dir.y + sum_dir.z * sum_dir.z);
-        RTXVector3 central_axis;
-        if (sum_len > 1e-5f) {
-            central_axis = { sum_dir.x / sum_len, sum_dir.y / sum_len, sum_dir.z / sum_len };
-        } else {
-            RTXVector3 c_loc = world_to_local({ to_center.x / dist_to_center, to_center.y / dist_to_center, to_center.z / dist_to_center });
-            central_axis = c_loc;
-        }
-
-        float max_corner_angle = 0.0f;
-        for (int i = 0; i < 8; ++i) {
-            float dot_val = central_axis.x * local_dirs[i].x +
-                            central_axis.y * local_dirs[i].y +
-                            central_axis.z * local_dirs[i].z;
-            dot_val = std::max(-1.0f, std::min(1.0f, dot_val));
-            max_corner_angle = std::max(max_corner_angle, std::acos(dot_val));
-        }
-
-        // Tighter bound between corner-cone and sphere-cone with analytical epsilon
-        float conservative_half_angle = std::min(sphere_half_angle, max_corner_angle + 0.005f);
-
-        if (conservative_half_angle >= 3.14159265f || min_d < 1e-3f) {
+        if (dist_to_center <= sphere_radius) {
+            // Light lies inside or on the bounding sphere of the AABB: full spherical coverage
             fp.cone_axis_x = 0.0f; fp.cone_axis_y = 0.0f; fp.cone_axis_z = 1.0f;
             fp.cos_half_angle = -1.0f;
             fp.sin_half_angle = 0.0f;
+            fp.min_dist = 0.0f;
+            fp.max_dist = max_d;
             fp.flags = 0x1;
-        } else {
-            fp.cone_axis_x = central_axis.x;
-            fp.cone_axis_y = central_axis.y;
-            fp.cone_axis_z = central_axis.z;
-            fp.cos_half_angle = std::cos(conservative_half_angle);
-            fp.sin_half_angle = std::sin(conservative_half_angle);
-            fp.flags = 0;
+            return fp;
         }
 
+        // Conservative baseline sphere cone: axis = normalize(center - light_pos), half-angle = asin(radius / center_dist)
+        RTXVector3 dir_w = { to_center.x / dist_to_center, to_center.y / dist_to_center, to_center.z / dist_to_center };
+        RTXVector3 dir_loc = world_to_local(dir_w);
+        float d_len = std::sqrt(dir_loc.x * dir_loc.x + dir_loc.y * dir_loc.y + dir_loc.z * dir_loc.z);
+        if (d_len > 1e-5f) {
+            dir_loc.x /= d_len; dir_loc.y /= d_len; dir_loc.z /= d_len;
+        } else {
+            dir_loc = { 0.0f, 0.0f, 1.0f };
+        }
+
+        float sin_sphere = std::min(1.0f, sphere_radius / dist_to_center);
+        float cos_sphere = std::sqrt(std::max(0.0f, 1.0f - sin_sphere * sin_sphere));
+
+        fp.cone_axis_x = dir_loc.x;
+        fp.cone_axis_y = dir_loc.y;
+        fp.cone_axis_z = dir_loc.z;
+        fp.cos_half_angle = cos_sphere;
+        fp.sin_half_angle = sin_sphere;
         fp.min_dist = min_d;
         fp.max_dist = max_d;
+        fp.flags = 0;
         return fp;
     }
 
-    // Builds the Continuous B0 Direction Records and Cone Hierarchy over static transport nodes
+    // Builds the Continuous B0 Direction Records and Cone Hierarchy over ALL static transport nodes
     void build_continuous_b0_hierarchy(const std::vector<ASTGTransportNode>& nodes, uint32_t light_id) {
         b0_records.clear();
         b0_bvh_nodes.clear();
 
         RTXVector3 light_pos = { source_frame.origin_x, source_frame.origin_y, source_frame.origin_z };
 
-        // Count active B0 nodes for this light to derive exact per-ray solid angle
-        uint32_t active_b0_count = 0;
+        // Total static B0 nodes for this light regardless of temporary dynamic blocker state
+        uint32_t total_static_b0_count = 0;
         for (const auto& node : nodes) {
-            if (node.source_light_id == light_id && node.bounce_depth == 0 && node.is_active) {
-                active_b0_count++;
+            if (node.source_light_id == light_id && node.bounce_depth == 0) {
+                total_static_b0_count++;
             }
         }
 
         float total_domain_solid_angle = (source_frame.light_type == 1) ? (2.0f * 3.14159265f * (1.0f - std::cos(0.785398f))) : (4.0f * 3.14159265f);
-        float per_ray_solid_angle = (active_b0_count > 0) ? (total_domain_solid_angle / float(active_b0_count)) : ((4.0f * 3.14159265f) / 64.0f);
+        float per_ray_solid_angle = (total_static_b0_count > 0) ? (total_domain_solid_angle / float(total_static_b0_count)) : ((4.0f * 3.14159265f) / 64.0f);
 
         for (size_t i = 0; i < nodes.size(); ++i) {
             const auto& node = nodes[i];
-            if (node.source_light_id != light_id || node.bounce_depth != 0 || !node.is_active) continue;
+            if (node.source_light_id != light_id || node.bounce_depth != 0) continue;
 
             RTXVector3 delta = { node.position.x - light_pos.x, node.position.y - light_pos.y, node.position.z - light_pos.z };
             float dist = std::sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
@@ -707,7 +670,7 @@ public:
         b0_bvh_nodes[node_idx].cone_axis_x = axis.x;
         b0_bvh_nodes[node_idx].cone_axis_y = axis.y;
         b0_bvh_nodes[node_idx].cone_axis_z = axis.z;
-        b0_bvh_nodes[node_idx].cos_half_angle = std::cos(std::min(3.14159265f, max_angle + 0.005f));
+        b0_bvh_nodes[node_idx].cos_half_angle = std::cos(std::min(3.14159265f, max_angle));
         b0_bvh_nodes[node_idx].light_id = source_frame.light_id;
 
         if (count <= 4) {
@@ -2006,10 +1969,12 @@ public:
     // ==============================================================================
     // Parts J & K: Continuous Source-Local B0 Angular Hierarchies & Blocker Tracking
     // ==============================================================================
+    bool enable_legacy_angular_mask_diagnostics = true; // Read-only diagnostic mask calculation
     std::unordered_map<uint32_t, ASTGAngularHierarchy> light_b0_hierarchies;
     std::unordered_map<uint64_t, uint32_t> b0_record_blocker_counts; // (light_id << 32) | record_id -> count
     std::unordered_map<uint64_t, std::unordered_set<uint32_t>> group_light_blocked_records; // ((group_id << 32) | light_id) -> blocked record indices
     std::unordered_map<uint64_t, bool> group_b0_record_blocked; // ((group_id << 40) | (light_id << 20) | record_id) -> bool
+    std::unordered_map<uint32_t, std::unordered_set<uint32_t>> group_previously_lit_probes;
     ASTGB0AngularTelemetry b0_telemetry{};
 
     void invalidate_light_hierarchy(uint32_t light_id) {
@@ -2024,13 +1989,22 @@ public:
     }
 
     ASTGAngularHierarchy& get_or_create_light_hierarchy(uint32_t light_id) {
+        auto it_lp = light_positions.find(light_id);
+        RTXVector3 light_pos = (it_lp != light_positions.end()) ? it_lp->second : RTXVector3{ 0.0f, 5.0f, 0.0f };
+
         auto it = light_b0_hierarchies.find(light_id);
+        if (it != light_b0_hierarchies.end()) {
+            float dx = it->second.source_frame.origin_x - light_pos.x;
+            float dy = it->second.source_frame.origin_y - light_pos.y;
+            float dz = it->second.source_frame.origin_z - light_pos.z;
+            if (dx * dx + dy * dy + dz * dz > 1e-6f) {
+                light_b0_hierarchies.erase(it);
+                it = light_b0_hierarchies.end();
+            }
+        }
+
         if (it == light_b0_hierarchies.end()) {
             ASTGAngularHierarchy hier;
-            RTXVector3 light_pos = { 0.0f, 5.0f, 0.0f };
-            auto it_lp = light_positions.find(light_id);
-            if (it_lp != light_positions.end()) light_pos = it_lp->second;
-
             uint32_t ltype = 0;
             RTXVector3 lforward = { 0.0f, 0.0f, 1.0f };
             hier.initialize_frame(light_id, light_pos, ltype, lforward, 25.0f, 1);
@@ -2188,8 +2162,8 @@ public:
             out_slot = found->second;
             return true;
         }
-        if (!rtx_is_hardware_active() || next_gpu_visibility_state_slot >= 64) return false;
-        const uint32_t slot = next_gpu_visibility_state_slot++;
+        if (!rtx_is_hardware_active()) return false;
+        const uint32_t slot = (next_gpu_visibility_state_slot++) % 64;
         if (!rtx_reset_astg_visibility_state_slot(slot)) return false;
         gpu_visibility_state_slots[group_id] = slot;
         out_slot = slot;
@@ -3046,79 +3020,42 @@ public:
                 uint64_t union_mask = old_mask | new_mask;
                 m.angular_delta_fraction = (union_mask > 0) ? (double)std::bitset<64>(diff).count() / (double)std::bitset<64>(union_mask).count() : 0.0;
 
-                m.proxy_solid_angle = total_proxy_solid_angle;
-                m.cell_solid_angle = (float)std::bitset<64>(new_mask).count() * (4.0f * 3.14159265f / 64.0f);
-                m.overcoverage_ratio = (m.proxy_solid_angle > 1e-5f) ? (m.cell_solid_angle / m.proxy_solid_angle) : 1.0f;
-
-                group_light_angular_masks[gl_key] = new_mask;
-
-                // Process newly uncovered angular cells
-                for (uint32_t c = 0; c < 64; ++c) {
-                    if (newly_uncovered & (1ULL << c)) {
-                        uint64_t lc_key = ((uint64_t)lid << 32) | c;
-                        auto& b_ids = light_cell_blocker_ids[lc_key];
-                        b_ids.erase(std::remove(b_ids.begin(), b_ids.end(), group_id), b_ids.end());
-                        light_cell_blocker_count[lc_key] = (uint32_t)b_ids.size();
-
-                        if (light_cell_blocker_count[lc_key] == 0) {
-                            light_cell_blocker_count.erase(lc_key);
-                            light_cell_blocker_ids.erase(lc_key);
-                            auto it_e = light_cell_to_b0_edges.find(lc_key);
-                            if (it_e != light_cell_to_b0_edges.end()) {
-                                for (uint32_t eid : it_e->second) {
-                                    if (eid < dag_edges.size()) {
-                                        dag_edges[eid].state = (dag_edges[eid].is_active ? ASTG_EDGE_ACTIVE : ASTG_EDGE_INVALID_STATIC);
-                                        dynamic_edge_timeline.push_back({ dynamic_timeline_frame, eid, "UNBLOCKED", group_id, 0 });
-                                    }
-                                }
-                            }
-                            auto it_p = light_cell_to_paths.find(lc_key);
-                            if (it_p != light_cell_to_paths.end()) {
-                                for (uint32_t dep_id : it_p->second) {
-                                    if (dep_id < path_probe_contributions.size()) {
-                                        if (path_probe_contributions[dep_id].dynamic_occlusion_count > 0) {
-                                            path_probe_contributions[dep_id].dynamic_occlusion_count--;
-                                        }
-                                        affected_path_ids.insert(dep_id);
-                                    }
-                                }
-                            }
-                        }
+                // 2. Read-only Diagnostic 64-bit mask calculation (when enabled for telemetry reporting)
+                if (enable_legacy_angular_mask_diagnostics) {
+                    uint64_t total_group_mask = 0;
+                    float total_proxy_solid_angle = 0.0f;
+                    for (const auto& ob : group.bounds) {
+                        float box_sa = 0.0f;
+                        uint64_t box_mask = angular_hierarchy.query_box_footprint(light_pos, ob.world_bounds, &box_sa);
+                        total_group_mask |= box_mask;
+                        total_proxy_solid_angle += box_sa;
                     }
+
+                    uint64_t old_mask = group_light_angular_masks[gl_key];
+                    uint64_t new_mask = total_group_mask;
+
+                    uint64_t newly_covered = new_mask & (~old_mask);
+                    uint64_t newly_uncovered = old_mask & (~new_mask);
+                    uint64_t still_covered = new_mask & old_mask;
+
+                    m.angular_current_cells += (uint32_t)std::bitset<64>(new_mask).count();
+                    m.angular_previous_cells += (uint32_t)std::bitset<64>(old_mask).count();
+                    m.angular_newly_covered_cells += (uint32_t)std::bitset<64>(newly_covered).count();
+                    m.angular_newly_uncovered_cells += (uint32_t)std::bitset<64>(newly_uncovered).count();
+                    m.angular_still_covered_cells += (uint32_t)std::bitset<64>(still_covered).count();
+
+                    uint64_t diff = old_mask ^ new_mask;
+                    uint64_t union_mask = old_mask | new_mask;
+                    m.angular_delta_fraction = (union_mask > 0) ? (double)std::bitset<64>(diff).count() / (double)std::bitset<64>(union_mask).count() : 0.0;
+
+                    m.proxy_solid_angle = total_proxy_solid_angle;
+                    m.cell_solid_angle = (float)std::bitset<64>(new_mask).count() * (4.0f * 3.14159265f / 64.0f);
+                    m.overcoverage_ratio = (m.proxy_solid_angle > 1e-5f) ? (m.cell_solid_angle / m.proxy_solid_angle) : 1.0f;
+
+                    group_light_angular_masks[gl_key] = new_mask;
                 }
 
-                // Process newly covered angular cells
-                for (uint32_t c = 0; c < 64; ++c) {
-                    if (newly_covered & (1ULL << c)) {
-                        uint64_t lc_key = ((uint64_t)lid << 32) | c;
-                        auto& b_ids = light_cell_blocker_ids[lc_key];
-                        if (std::find(b_ids.begin(), b_ids.end(), group_id) == b_ids.end()) {
-                            b_ids.push_back(group_id);
-                        }
-                        light_cell_blocker_count[lc_key] = (uint32_t)b_ids.size();
-
-                        auto it_e = light_cell_to_b0_edges.find(lc_key);
-                        if (it_e != light_cell_to_b0_edges.end()) {
-                            for (uint32_t eid : it_e->second) {
-                                if (eid < dag_edges.size()) {
-                                    dag_edges[eid].state = ASTG_EDGE_OCCLUDED_DYNAMIC;
-                                    dynamic_edge_timeline.push_back({ dynamic_timeline_frame, eid, "BLOCKED", group_id, light_cell_blocker_count[lc_key] });
-                                }
-                            }
-                        }
-                        auto it_p = light_cell_to_paths.find(lc_key);
-                        if (it_p != light_cell_to_paths.end()) {
-                            for (uint32_t dep_id : it_p->second) {
-                                if (dep_id < path_probe_contributions.size()) {
-                                    path_probe_contributions[dep_id].dynamic_occlusion_count++;
-                                    affected_path_ids.insert(dep_id);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Dynamic Surface Receiver Discovery & Accumulation (Phase 6 / Handoff Item 2, 6, 8, 12, 14, 15, 20, 21, 22)
+                // 3. Dynamic Surface Receiver Discovery & Accumulation (Continuous Hierarchy)
                 if (group.enable_surface_receivers && !group.surface_probes.empty()) {
                     auto t_rec_start = std::chrono::high_resolution_clock::now();
                     m.receiver_probes_active = (uint32_t)group.surface_probes.size();
@@ -3131,118 +3068,129 @@ public:
                     auto it_int = light_intensities.find(lid);
                     if (it_int != light_intensities.end()) light_int = it_int->second;
 
-                    for (uint32_t c = 0; c < 64; ++c) {
-                        uint64_t lc_key = ((uint64_t)lid << 32) | c;
-                        if (new_mask & (1ULL << c)) {
-                            // Find first-hit dynamic surface probe along the cell center direction
-                            RTXVector3 dir = angular_hierarchy.cells[c].dir_center;
-                            float best_dist = 1e9f;
-                            int best_probe_idx = -1;
-                            int best_cluster_idx = -1;
+                    std::unordered_set<uint32_t> current_lit_probes;
+                    auto& prev_lit = group_previously_lit_probes[group_id];
 
-                            if (group.receiver_clustering_mode == ASTG_RECEIVERS_CLUSTERED && !group.receiver_clusters.empty()) {
-                                for (size_t cl = 0; cl < group.receiver_clusters.size(); ++cl) {
-                                    const auto& cluster = group.receiver_clusters[cl];
-                                    if (ray_intersects_aabb(light_pos, dir, cluster.world_bounds, 50.0f)) {
-                                        for (uint32_t p_idx : cluster.member_probe_indices) {
-                                            if (p_idx < group.surface_probes.size() && group.surface_probes[p_idx].is_active) {
-                                                const auto& probe = group.surface_probes[p_idx];
-                                                RTXVector3 to_p = { probe.world_position.x - light_pos.x, probe.world_position.y - light_pos.y, probe.world_position.z - light_pos.z };
-                                                float dist = std::sqrt(to_p.x * to_p.x + to_p.y * to_p.y + to_p.z * to_p.z);
-                                                if (dist > 1e-4f) {
-                                                    to_p.x /= dist; to_p.y /= dist; to_p.z /= dist;
-                                                    uint32_t p_cell = angular_hierarchy.get_cell_id_for_dir(to_p);
-                                                    float dot_dir = to_p.x * dir.x + to_p.y * dir.y + to_p.z * dir.z;
-                                                    if ((p_cell == c || dot_dir > 0.75f) && dist < best_dist) {
-                                                        best_dist = dist;
-                                                        best_probe_idx = (int)p_idx;
-                                                        best_cluster_idx = (int)cl;
-                                                    }
-                                                }
-                                            }
+                    // Direct illumination of all member surface probes from light source
+                    for (size_t p_idx = 0; p_idx < group.surface_probes.size(); ++p_idx) {
+                        if (!group.surface_probes[p_idx].is_active) continue;
+                        auto& probe = group.surface_probes[p_idx];
+
+                        RTXVector3 to_light = { light_pos.x - probe.world_position.x,
+                                                light_pos.y - probe.world_position.y,
+                                                light_pos.z - probe.world_position.z };
+                        float dist = std::sqrt(to_light.x * to_light.x + to_light.y * to_light.y + to_light.z * to_light.z);
+                        if (dist > 1e-4f) {
+                            RTXVector3 to_l_dir = { to_light.x / dist, to_light.y / dist, to_light.z / dist };
+                            float cos_n = std::max(0.0f, probe.world_normal.x * to_l_dir.x +
+                                                         probe.world_normal.y * to_l_dir.y +
+                                                         probe.world_normal.z * to_l_dir.z);
+                            if (cos_n > 0.001f) {
+                                // 1. Check occlusion against all other moving occluder groups
+                                bool is_occluded = false;
+                                for (const auto& other_grp_kv : dynamic_occluder_groups) {
+                                    if (other_grp_kv.first == group_id) continue;
+                                    if (!other_grp_kv.second.astg_occlusion_enabled) continue;
+                                    for (const auto& b : other_grp_kv.second.bounds) {
+                                        if (segment_intersects_aabb(probe.world_position, light_pos, b.world_bounds)) {
+                                            is_occluded = true;
+                                            break;
                                         }
                                     }
-                                }
-                            } else {
-                                for (size_t p = 0; p < group.surface_probes.size(); ++p) {
-                                    if (!group.surface_probes[p].is_active) continue;
-                                    const auto& probe = group.surface_probes[p];
-                                    RTXVector3 to_p = { probe.world_position.x - light_pos.x, probe.world_position.y - light_pos.y, probe.world_position.z - light_pos.z };
-                                    float dist = std::sqrt(to_p.x * to_p.x + to_p.y * to_p.y + to_p.z * to_p.z);
-                                    if (dist > 1e-4f) {
-                                        to_p.x /= dist; to_p.y /= dist; to_p.z /= dist;
-                                        uint32_t p_cell = angular_hierarchy.get_cell_id_for_dir(to_p);
-                                        float dot_dir = to_p.x * dir.x + to_p.y * dir.y + to_p.z * dir.z;
-                                        if ((p_cell == c || dot_dir > 0.75f) && dist < best_dist) {
-                                            best_dist = dist;
-                                            best_probe_idx = (int)p;
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (best_probe_idx >= 0) {
-                                // Multi-object depth resolution: if cache already has another object's hit, nearest wins (Handoff Item 21)
-                                auto it_cache = dynamic_receiver_cache.find(lc_key);
-                                bool claim_cell = true;
-                                if (it_cache != dynamic_receiver_cache.end() && it_cache->second.dynamic_group_id != group_id) {
-                                    if (it_cache->second.hit_distance < best_dist) {
-                                        claim_cell = false;
-                                    }
+                                    if (is_occluded) break;
                                 }
 
-                                if (claim_cell) {
-                                    if (it_cache != dynamic_receiver_cache.end() && it_cache->second.dynamic_group_id != group_id) {
-                                        uint32_t prev_gid = it_cache->second.dynamic_group_id;
-                                        uint32_t prev_pid = it_cache->second.probe_id;
-                                        auto it_prev = dynamic_occluder_groups.find(prev_gid);
-                                        if (it_prev != dynamic_occluder_groups.end()) {
-                                            for (auto& pr : it_prev->second.surface_probes) {
-                                                if (pr.probe_id == prev_pid) {
-                                                    pr.direct_irradiance = { 0.0f, 0.0f, 0.0f };
+                                // 2. Check first-hit self-occlusion against other probes in the same group in front along the ray
+                                if (!is_occluded) {
+                                    for (size_t q_idx = 0; q_idx < group.surface_probes.size(); ++q_idx) {
+                                        if (q_idx == p_idx || !group.surface_probes[q_idx].is_active) continue;
+                                        const auto& q_probe = group.surface_probes[q_idx];
+                                        RTXVector3 q_to_light = { light_pos.x - q_probe.world_position.x,
+                                                                  light_pos.y - q_probe.world_position.y,
+                                                                  light_pos.z - q_probe.world_position.z };
+                                        float q_dist = std::sqrt(q_to_light.x * q_to_light.x + q_to_light.y * q_to_light.y + q_to_light.z * q_to_light.z);
+                                        if (q_dist < dist - 0.4f) {
+                                            RTXVector3 ab = { light_pos.x - probe.world_position.x, light_pos.y - probe.world_position.y, light_pos.z - probe.world_position.z };
+                                            RTXVector3 ap = { q_probe.world_position.x - probe.world_position.x, q_probe.world_position.y - probe.world_position.y, q_probe.world_position.z - probe.world_position.z };
+                                            float t = (ap.x * ab.x + ap.y * ab.y + ap.z * ab.z) / (dist * dist);
+                                            if (t > 0.05f && t < 0.95f) {
+                                                RTXVector3 proj = { probe.world_position.x + ab.x * t, probe.world_position.y + ab.y * t, probe.world_position.z + ab.z * t };
+                                                float dx = q_probe.world_position.x - proj.x;
+                                                float dy = q_probe.world_position.y - proj.y;
+                                                float dz = q_probe.world_position.z - proj.z;
+                                                float d_perp = std::sqrt(dx * dx + dy * dy + dz * dz);
+                                                if (d_perp < 0.15f) {
+                                                    is_occluded = true;
                                                     break;
                                                 }
                                             }
                                         }
                                     }
+                                }
 
-                                    auto& probe = group.surface_probes[best_probe_idx];
-                                    RTXVector3 to_light = { light_pos.x - probe.world_position.x, light_pos.y - probe.world_position.y, light_pos.z - probe.world_position.z };
-                                    float dist = std::sqrt(to_light.x * to_light.x + to_light.y * to_light.y + to_light.z * to_light.z);
-                                    if (dist > 1e-4f) {
-                                        to_light.x /= dist; to_light.y /= dist; to_light.z /= dist;
-                                        float cos_n = std::max(0.0f, probe.world_normal.x * to_light.x + probe.world_normal.y * to_light.y + probe.world_normal.z * to_light.z);
-                                        float falloff = light_int * cos_n / (dist * dist + 0.1f);
-                                        RTXVector3 direct_e = { light_col.x * falloff, light_col.y * falloff, light_col.z * falloff };
-
-                                        probe.direct_irradiance.x += direct_e.x;
-                                        probe.direct_irradiance.y += direct_e.y;
-                                        probe.direct_irradiance.z += direct_e.z;
-
-                                        if (best_cluster_idx >= 0 && best_cluster_idx < (int)group.receiver_clusters.size()) {
-                                            group.receiver_clusters[best_cluster_idx].direct_irradiance.x += direct_e.x;
-                                            group.receiver_clusters[best_cluster_idx].direct_irradiance.y += direct_e.y;
-                                            group.receiver_clusters[best_cluster_idx].direct_irradiance.z += direct_e.z;
-                                        }
-
-                                        if (it_cache != dynamic_receiver_cache.end() && it_cache->second.probe_id == probe.probe_id && it_cache->second.dynamic_group_id == group_id) {
-                                            m.receiver_mappings_reused++;
-                                        } else {
-                                            m.receiver_mappings_created++;
-                                        }
-                                        m.receiver_mappings_active++;
-
-                                        dynamic_receiver_cache[lc_key] = { group_id, (uint32_t)best_cluster_idx, probe.probe_id, best_dist, group.transform_generation, 1.0f, direct_e };
+                                if (!is_occluded) {
+                                    float falloff = light_int * cos_n / (dist * dist + 0.1f);
+                                    RTXVector3 direct_e = { light_col.x * falloff, light_col.y * falloff, light_col.z * falloff };
+                                    probe.direct_irradiance.x += direct_e.x;
+                                    probe.direct_irradiance.y += direct_e.y;
+                                    probe.direct_irradiance.z += direct_e.z;
+                                    m.receiver_mappings_active++;
+                                    b0_telemetry.receiver_probes_touched++;
+                                    current_lit_probes.insert((uint32_t)p_idx);
+                                    if (prev_lit.count((uint32_t)p_idx)) {
+                                        m.receiver_mappings_reused++;
+                                    } else {
+                                        m.receiver_mappings_created++;
                                     }
                                 }
                             }
-                        } else {
-                            // Cell not covered: remove mapping if owned by this group and immediately resolve winner (Handoff Item 11)
-                            auto it_cache = dynamic_receiver_cache.find(lc_key);
-                            if (it_cache != dynamic_receiver_cache.end() && it_cache->second.dynamic_group_id == group_id) {
-                                dynamic_receiver_cache.erase(it_cache);
-                                m.receiver_mappings_removed++;
-                                resolve_receiver_cell_winner(lid, c);
+                        }
+                    }
+                    prev_lit = current_lit_probes;
+
+                    // Clustered irradiance aggregation
+                    for (auto& cluster : group.receiver_clusters) {
+                        b0_telemetry.receiver_clusters_touched++;
+                        for (uint32_t p_idx : cluster.member_probe_indices) {
+                            if (p_idx < group.surface_probes.size() && group.surface_probes[p_idx].is_active) {
+                                cluster.direct_irradiance.x += group.surface_probes[p_idx].direct_irradiance.x;
+                                cluster.direct_irradiance.y += group.surface_probes[p_idx].direct_irradiance.y;
+                                cluster.direct_irradiance.z += group.surface_probes[p_idx].direct_irradiance.z;
+                            }
+                        }
+                    }
+
+                    // Refresh direct irradiance for other receiver groups if this group vacating unshadows them
+                    for (auto& other_kv : dynamic_occluder_groups) {
+                        if (other_kv.first != group_id && other_kv.second.enable_surface_receivers && !other_kv.second.surface_probes.empty()) {
+                            for (auto& pr : other_kv.second.surface_probes) {
+                                if (!pr.is_active) continue;
+                                RTXVector3 to_l = { light_pos.x - pr.world_position.x, light_pos.y - pr.world_position.y, light_pos.z - pr.world_position.z };
+                                float d = std::sqrt(to_l.x * to_l.x + to_l.y * to_l.y + to_l.z * to_l.z);
+                                if (d > 1e-4f) {
+                                    RTXVector3 to_ld = { to_l.x / d, to_l.y / d, to_l.z / d };
+                                    float cn = std::max(0.0f, pr.world_normal.x * to_ld.x + pr.world_normal.y * to_ld.y + pr.world_normal.z * to_ld.z);
+                                    if (cn > 0.001f) {
+                                        bool is_occ = false;
+                                        for (const auto& blk_kv : dynamic_occluder_groups) {
+                                            if (blk_kv.first == other_kv.first) continue;
+                                            if (!blk_kv.second.astg_occlusion_enabled) continue;
+                                            for (const auto& b : blk_kv.second.bounds) {
+                                                if (segment_intersects_aabb(pr.world_position, light_pos, b.world_bounds)) {
+                                                    is_occ = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (is_occ) break;
+                                        }
+                                        if (!is_occ) {
+                                            float fo = light_int * cn / (d * d + 0.1f);
+                                            pr.direct_irradiance = { light_col.x * fo, light_col.y * fo, light_col.z * fo };
+                                        } else {
+                                            pr.direct_irradiance = { 0.0f, 0.0f, 0.0f };
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
