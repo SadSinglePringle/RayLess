@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260828_001555_5b4c68efd8f6f64c577f324277c2d89ffc120206_evidence_hardened",
+  "run_uuid": "run_20260828_015627_b6e5e9e9a8136d9b22cc79184bed75de2de6e54b_evidence_hardened",
   "modes": [
     {
       "mode": "NONE",
@@ -15,7 +15,7 @@
       "b0_detection": "angular",
       "b1_plus_detection": "none",
       "total_rays": 0,
-      "mean_update_ms": 0.0039,
+      "mean_update_ms": 0.9630,
       "rmse_vs_reference": 0.185605,
       "max_error": 0.666667
     },
@@ -24,7 +24,7 @@
       "b0_detection": "angular",
       "b1_plus_detection": "edges",
       "total_rays": 0,
-      "mean_update_ms": 0.0051,
+      "mean_update_ms": 2.0996,
       "rmse_vs_reference": 0.094281,
       "max_error": 0.666667
     },
@@ -33,7 +33,7 @@
       "b0_detection": "edges",
       "b1_plus_detection": "edges",
       "total_rays": 0,
-      "mean_update_ms": 0.0048,
+      "mean_update_ms": 0.0010,
       "rmse_vs_reference": 0.000000,
       "max_error": 0.000000
     }

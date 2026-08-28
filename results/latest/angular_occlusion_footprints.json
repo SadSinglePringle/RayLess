@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260828_001555_5b4c68efd8f6f64c577f324277c2d89ffc120206_evidence_hardened",
+  "run_uuid": "run_20260828_015627_b6e5e9e9a8136d9b22cc79184bed75de2de6e54b_evidence_hardened",
   "box_decomposition_experiments": [
     {
       "box_count": 1,
@@ -10,12 +10,12 @@
       "proxy_solid_angle": 0.42720,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.7577,
-      "update_us_median": 1.70,
-      "update_us_p95": 1.80,
-      "update_us_p99": 2.00,
-      "update_us_min": 1.70,
-      "update_us_max": 137.60,
-      "update_us": 1.70
+      "update_us_median": 1.90,
+      "update_us_p95": 2.10,
+      "update_us_p99": 4.00,
+      "update_us_min": 1.80,
+      "update_us_max": 303.90,
+      "update_us": 1.90
     },
     {
       "box_count": 2,
@@ -26,12 +26,12 @@
       "proxy_solid_angle": 0.43948,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.6807,
-      "update_us_median": 3.70,
-      "update_us_p95": 3.70,
-      "update_us_p99": 3.90,
-      "update_us_min": 3.60,
-      "update_us_max": 88.40,
-      "update_us": 3.70
+      "update_us_median": 4.00,
+      "update_us_p95": 4.20,
+      "update_us_p99": 8.10,
+      "update_us_min": 3.90,
+      "update_us_max": 134.90,
+      "update_us": 4.00
     },
     {
       "box_count": 4,
@@ -42,12 +42,12 @@
       "proxy_solid_angle": 0.56005,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.1035,
-      "update_us_median": 7.60,
-      "update_us_p95": 7.90,
-      "update_us_p99": 12.80,
-      "update_us_min": 7.40,
-      "update_us_max": 196.30,
-      "update_us": 7.60
+      "update_us_median": 8.20,
+      "update_us_p95": 8.90,
+      "update_us_p99": 19.80,
+      "update_us_min": 7.80,
+      "update_us_max": 1355.80,
+      "update_us": 8.20
     },
     {
       "box_count": 8,
@@ -58,12 +58,12 @@
       "proxy_solid_angle": 0.52003,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.2654,
-      "update_us_median": 14.50,
-      "update_us_p95": 30.00,
-      "update_us_p99": 39.10,
-      "update_us_min": 13.70,
-      "update_us_max": 251.80,
-      "update_us": 14.50
+      "update_us_median": 14.80,
+      "update_us_p95": 16.10,
+      "update_us_p99": 44.50,
+      "update_us_min": 14.20,
+      "update_us_max": 244.60,
+      "update_us": 14.80
     },
     {
       "box_count": 16,
@@ -74,12 +74,12 @@
       "proxy_solid_angle": 0.61396,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 1.9189,
-      "update_us_median": 27.50,
-      "update_us_p95": 35.10,
-      "update_us_p99": 72.60,
-      "update_us_min": 26.50,
-      "update_us_max": 347.20,
-      "update_us": 27.50
+      "update_us_median": 28.50,
+      "update_us_p95": 37.00,
+      "update_us_p99": 82.30,
+      "update_us_min": 27.50,
+      "update_us_max": 592.50,
+      "update_us": 28.50
     },
     {
       "box_count": 32,
@@ -90,12 +90,12 @@
       "proxy_solid_angle": 0.58495,
       "cell_solid_angle": 1.17810,
       "overcoverage_ratio": 2.0140,
-      "update_us_median": 54.90,
-      "update_us_p95": 75.00,
-      "update_us_p99": 121.30,
-      "update_us_min": 52.20,
-      "update_us_max": 393.40,
-      "update_us": 54.90
+      "update_us_median": 59.90,
+      "update_us_p95": 87.00,
+      "update_us_p99": 145.50,
+      "update_us_min": 53.90,
+      "update_us_max": 887.10,
+      "update_us": 59.90
     }
   ]
 }

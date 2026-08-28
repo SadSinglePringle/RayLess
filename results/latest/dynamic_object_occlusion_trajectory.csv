@@ -1,6 +1,6 @@
 frame,group_id,enabled,candidate_edges,spatial_cells_touched,spatial_edge_references,spatial_duplicates_removed,gpu_generation_rejected,gpu_angular_rejected,gpu_aabb_rejected,gpu_rayquery_required,gpu_visibility_state_transitions,gpu_changed_result_readback_bytes,fine_tested_edges,blocked_edges,newly_blocked,newly_unblocked,update_ms
-1,1,1,16,8,36,0,0,0,0,0,0,0,16,0,0,0,0.0339
-2,2,1,8,4,18,0,0,0,0,0,0,0,8,1,0,0,0.0342
-3,3,1,16,8,36,0,0,0,0,0,0,0,16,8,0,0,0.0375
-4,4,1,16,8,36,0,0,0,0,0,0,0,16,5,0,0,0.0352
-5,5,1,8,4,18,0,0,0,0,0,0,0,8,0,0,0,0.0325
+1,1,1,16,8,36,0,0,0,0,0,0,0,16,0,0,0,0.0025
+2,2,1,8,4,18,0,0,0,0,0,0,0,8,1,0,0,0.0011
+3,3,1,16,8,36,0,0,0,0,0,0,0,16,8,0,0,0.0022
+4,4,1,16,8,36,0,0,0,0,0,0,0,16,5,0,0,0.0020
+5,5,1,8,4,18,0,0,0,0,0,0,0,8,0,0,0,0.0013

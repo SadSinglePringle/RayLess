@@ -1,11 +1,11 @@
 {
-  "run_uuid": "e2e_run_17878942064749464",
-  "build_commit": "5b4c68efd8f6f64c577f324277c2d89ffc120206",
+  "run_uuid": "e2e_run_17879002160825012",
+  "build_commit": "b6e5e9e9a8136d9b22cc79184bed75de2de6e54b",
   "gpu_name": "NVIDIA GeForce RTX 4070 Laptop GPU",
   "total_tests": 101,
   "passed_tests": 101,
   "failed_tests": 0,
-  "total_duration_ms": 24.3579,
+  "total_duration_ms": 14.0759,
   "status": "PASS",
   "results": [
     {
@@ -36,7 +36,7 @@
       "expected": "50 modified elements, 950 clean elements",
       "actual": "Exact dirty range isolated",
       "passed": true,
-      "duration_us": 22.10
+      "duration_us": 24.30
     },
     {
       "tier": "Tier 1",
@@ -46,7 +46,7 @@
       "expected": "Capacity growth >= 200 with element integrity",
       "actual": "Cap=216, Size=200",
       "passed": true,
-      "duration_us": 7.00
+      "duration_us": 4.40
     },
     {
       "tier": "Tier 1",
@@ -86,7 +86,7 @@
       "expected": "edge_id=1042",
       "actual": "edge_id=1042",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -116,7 +116,7 @@
       "expected": "(10, 20, 30)",
       "actual": "(10, 20, 30)",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -126,7 +126,7 @@
       "expected": "len=1.00000, dir=(0.6, 0.8, 0.0)",
       "actual": "len=1.000000",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -136,7 +136,7 @@
       "expected": "TMin in [0.0001, 0.01]",
       "actual": "TMin=0.001000",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -166,7 +166,7 @@
       "expected": "HIT (true)",
       "actual": "HIT (true)",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.20
     },
     {
       "tier": "Tier 1",
@@ -176,7 +176,7 @@
       "expected": "MISS (false)",
       "actual": "MISS (false)",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -236,7 +236,7 @@
       "expected": "culled=true",
       "actual": "culled=true",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -256,7 +256,7 @@
       "expected": "inactive bin culled",
       "actual": "culled",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -286,7 +286,7 @@
       "expected": "mismatch detected",
       "actual": "mismatch detected",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -296,7 +296,7 @@
       "expected": "generation=11",
       "actual": "generation=11",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -316,7 +316,7 @@
       "expected": "count=16",
       "actual": "count=16",
       "passed": true,
-      "duration_us": 0.20
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -326,7 +326,7 @@
       "expected": "offsets match rank",
       "actual": "offsets match rank",
       "passed": true,
-      "duration_us": 0.60
+      "duration_us": 0.50
     },
     {
       "tier": "Tier 1",
@@ -336,7 +336,7 @@
       "expected": "base=100, next=116",
       "actual": "base=100, next=116",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -356,7 +356,7 @@
       "expected": "waves=32",
       "actual": "waves=32",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -386,7 +386,7 @@
       "expected": "10000",
       "actual": "10000",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -416,7 +416,7 @@
       "expected": "active=true",
       "actual": "active=true",
       "passed": true,
-      "duration_us": 0.30
+      "duration_us": 0.40
     },
     {
       "tier": "Tier 1",
@@ -426,7 +426,7 @@
       "expected": "hit=1, dist>0",
       "actual": "hit=1, dist=1.901953",
       "passed": true,
-      "duration_us": 732.50
+      "duration_us": 886.10
     },
     {
       "tier": "Tier 1",
@@ -436,7 +436,7 @@
       "expected": "hit=1 (BLOCKED)",
       "actual": "hit=1 (BLOCKED)",
       "passed": true,
-      "duration_us": 484.60
+      "duration_us": 554.80
     },
     {
       "tier": "Tier 1",
@@ -446,7 +446,7 @@
       "expected": "hit=0 (VISIBLE)",
       "actual": "hit=0 (VISIBLE)",
       "passed": true,
-      "duration_us": 220.10
+      "duration_us": 327.80
     },
     {
       "tier": "Tier 1",
@@ -456,7 +456,7 @@
       "expected": "128/128 completed",
       "actual": "128/128 completed",
       "passed": true,
-      "duration_us": 129.30
+      "duration_us": 140.90
     },
     {
       "tier": "Tier 1",
@@ -506,7 +506,7 @@
       "expected": "discard=true",
       "actual": "discard=true",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -536,7 +536,7 @@
       "expected": "winner=3.5",
       "actual": "winner=3.500000",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -626,7 +626,7 @@
       "expected": "hardware TLAS active",
       "actual": "hardware TLAS active",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -646,7 +646,7 @@
       "expected": "cpu_raygen_ms=0.0",
       "actual": "cpu_raygen_ms=0.000000",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -666,7 +666,7 @@
       "expected": "source=GPU_TIMESTAMP_QUERY, is_measured=true",
       "actual": "source=GPU_TIMESTAMP_QUERY",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -676,7 +676,7 @@
       "expected": "query heap functional",
       "actual": "total_gpu_ms=0.006144",
       "passed": true,
-      "duration_us": 0.20
+      "duration_us": 0.40
     },
     {
       "tier": "Tier 1",
@@ -696,7 +696,7 @@
       "expected": "total = sched + exec + readback",
       "actual": "total=1.100000",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -706,7 +706,7 @@
       "expected": "valid schema",
       "actual": "valid schema",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -726,7 +726,7 @@
       "expected": "0 false negatives",
       "actual": "0 false negatives",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -736,7 +736,7 @@
       "expected": "deterministic 64-bit path hash",
       "actual": "hash=14143379029116012282",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 1",
@@ -746,7 +746,7 @@
       "expected": "hash match (zero mutations)",
       "actual": "hash match (zero mutations)",
       "passed": true,
-      "duration_us": 54.70
+      "duration_us": 48.60
     },
     {
       "tier": "Tier 1",
@@ -756,7 +756,7 @@
       "expected": "64-character hex hash",
       "actual": "d2aa54490d26594d...",
       "passed": true,
-      "duration_us": 5.40
+      "duration_us": 4.60
     },
     {
       "tier": "Tier 1",
@@ -764,9 +764,9 @@
       "test_id": "F16.1",
       "description": "Compiler /DASTG_BUILD_COMMIT embeds valid Git commit SHA",
       "expected": "valid 40-char SHA",
-      "actual": "5b4c68efd8f6...",
+      "actual": "b6e5e9e9a813...",
       "passed": true,
-      "duration_us": 0.20
+      "duration_us": 0.50
     },
     {
       "tier": "Tier 1",
@@ -786,7 +786,7 @@
       "expected": "tmp directory created and cleaned",
       "actual": "Validated",
       "passed": true,
-      "duration_us": 513.40
+      "duration_us": 571.50
     },
     {
       "tier": "Tier 1",
@@ -796,7 +796,7 @@
       "expected": "0 build errors",
       "actual": "0 build errors",
       "passed": true,
-      "duration_us": 0.10
+      "duration_us": 0.00
     },
     {
       "tier": "Tier 1",
@@ -804,9 +804,9 @@
       "test_id": "F16.5",
       "description": "Benchmark manifest sealed with deterministic SHA-256 hash",
       "expected": "64-char hash",
-      "actual": "96c1e05fbaf7acaf...",
+      "actual": "e3b2d049544d76ee...",
       "passed": true,
-      "duration_us": 5.00
+      "duration_us": 5.40
     },
     {
       "tier": "Tier 2",
@@ -816,7 +816,7 @@
       "expected": "0 rays processed safely",
       "actual": "0 rays processed safely",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 2",
@@ -824,9 +824,9 @@
       "test_id": "BVA-02",
       "description": "Maximum batch capacity (131,072 rays) traces with 100% throughput",
       "expected": "131072 rays traced",
-      "actual": "131072 rays traced (0.787456 ms)",
+      "actual": "131072 rays traced (0.889856 ms)",
       "passed": true,
-      "duration_us": 7664.60
+      "duration_us": 7961.90
     },
     {
       "tier": "Tier 2",
@@ -836,7 +836,7 @@
       "expected": "hit recorded for 1 ray",
       "actual": "hit recorded",
       "passed": true,
-      "duration_us": 291.00
+      "duration_us": 354.10
     },
     {
       "tier": "Tier 2",
@@ -866,7 +866,7 @@
       "expected": "eps < t_min",
       "actual": "eps < t_min",
       "passed": true,
-      "duration_us": 0.00
+      "duration_us": 0.10
     },
     {
       "tier": "Tier 2",
@@ -936,7 +936,7 @@
       "expected": "hit recorded",
       "actual": "hit recorded",
       "passed": true,
-      "duration_us": 204.80
+      "duration_us": 461.50
     },
     {
       "tier": "Tier 3",
@@ -976,7 +976,7 @@
       "expected": "valid hits across Bistro geometry",
       "actual": "2 / 1000 hits",
       "passed": true,
-      "duration_us": 212.40
+      "duration_us": 572.50
     },
     {
       "tier": "Tier 4",
@@ -986,7 +986,7 @@
       "expected": "lights updated with persistent DAG",
       "actual": "Validated (>95% reuse)",
       "passed": true,
-      "duration_us": 92.10
+      "duration_us": 204.50
     },
     {
       "tier": "Tier 4",
@@ -996,7 +996,7 @@
       "expected": "instantaneous unblocking",
       "actual": "Validated",
       "passed": true,
-      "duration_us": 13710.90
+      "duration_us": 1943.90
     },
     {
       "tier": "Tier 4",
