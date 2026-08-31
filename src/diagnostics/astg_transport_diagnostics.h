@@ -9158,12 +9158,22 @@ public:
             id.test_name = "PART_J_DELETED_GROUP"; id.light_count = 512; id.probe_count = 1200;
             WorkloadDescriptor wl; wl.gpu_work_sentinel = 1;
 
+            rtx_reset_parts_jk_persistent_state();
+
             ASTGTransportEngine eng;
             eng.light_positions[0] = { 0.0f, 5.0f, 0.0f };
+            ASTGTransportNode node{};
+            node.node_id = 0;
+            node.source_light_id = 0;
+            node.bounce_depth = 0;
+            node.position = { 0.0f, 0.0f, 0.0f };
+            node.geometric_normal = { 0.0f, 1.0f, 0.0f };
+            node.is_active = true;
+            eng.bounce0_nodes = { node };
             eng.get_or_create_light_hierarchy(0);
 
-            uint32_t g1 = eng.register_dynamic_occluder_group({ ASTGAABB({ -1, 0, -1 }, { 1, 2, 1 }) }, "Blocker1", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
-            uint32_t g2 = eng.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, 0, -0.5f }, { 0.5f, 2, 0.5f }) }, "Blocker2", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
+            uint32_t g1 = eng.register_dynamic_occluder_group({ ASTGAABB({ -1, 0.5f, -1 }, { 1, 2.5f, 1 }) }, "Blocker1", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
+            uint32_t g2 = eng.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, 0.5f, -0.5f }, { 0.5f, 2.5f, 0.5f }) }, "Blocker2", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
 
             eng.update_dynamic_occlusion(g1);
             eng.update_dynamic_occlusion(g2);
@@ -9182,7 +9192,7 @@ public:
 
             uint32_t after_g2_removed = rtx_readback_part_j_persistent_blocker_count(0);
 
-            bool del_ok = (both_blocked >= 1 && after_g1_removed < both_blocked && after_g2_removed == 0);
+            bool del_ok = (both_blocked == 2 && after_g1_removed == 1 && after_g2_removed == 0);
             part_j_test_deleted_group_pass = del_ok;
 
             AssertionRecord a;
@@ -9203,8 +9213,18 @@ public:
             id.test_name = "PART_J_AGGREGATE_BLOCKER"; id.light_count = 512; id.probe_count = 1200;
             WorkloadDescriptor wl; wl.gpu_work_sentinel = 1;
 
+            rtx_reset_parts_jk_persistent_state();
+
             ASTGTransportEngine eng;
             eng.light_positions[0] = { 0.0f, 5.0f, 0.0f };
+            ASTGTransportNode node{};
+            node.node_id = 0;
+            node.source_light_id = 0;
+            node.bounce_depth = 0;
+            node.position = { 0.0f, 0.0f, 0.0f };
+            node.geometric_normal = { 0.0f, 1.0f, 0.0f };
+            node.is_active = true;
+            eng.bounce0_nodes = { node };
             eng.get_or_create_light_hierarchy(0);
 
             uint32_t c0 = rtx_readback_part_j_persistent_blocker_count(0);
@@ -9329,6 +9349,29 @@ public:
             TestIdentity id; id.run_uuid = run_uuid; id.test_uuid = "part_k_test_k5_consumes_k4";
             id.test_name = "PART_K_CONSERVATION"; id.light_count = 512; id.probe_count = 1200;
             WorkloadDescriptor wl; wl.gpu_work_sentinel = 1;
+
+            ASTGTransportEngine eng;
+            eng.light_positions[0] = { 0.0f, 10.0f, 0.0f };
+            uint32_t gid = eng.register_dynamic_occluder_group({ ASTGAABB({ -2, 0, -2 }, { 2, 4, 2 }) }, "ConservationMesh", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
+
+            std::vector<ASTGDynamicSurfaceProbe> probes(64);
+            for (uint32_t i = 0; i < 64; ++i) {
+                probes[i].probe_id = i;
+                probes[i].dynamic_group_id = gid;
+                probes[i].cluster_id = i / 16;
+                probes[i].local_position = { (float)(i % 8) * 0.4f - 1.4f, 1.0f, (float)(i / 8) * 0.4f - 1.4f };
+                probes[i].local_normal = { 0.0f, 1.0f, 0.0f };
+            }
+            std::vector<ASTGReceiverCluster> clusters(4);
+            for (uint32_t c = 0; c < 4; ++c) {
+                clusters[c].cluster_id = c;
+                clusters[c].dynamic_group_id = gid;
+                for (uint32_t i = 0; i < 64; ++i) {
+                    if (probes[i].cluster_id == c) clusters[c].member_probe_indices.push_back(i);
+                }
+            }
+            eng.register_dynamic_receiver_probes(gid, probes, clusters);
+            eng.update_dynamic_occlusion(gid);
 
             ASTGPartsJKTelemetryGPU telem = {};
             rtx_resolve_parts_jk_telemetry_async(&telem);
