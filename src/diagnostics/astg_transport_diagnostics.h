@@ -9229,12 +9229,14 @@ public:
 
             uint32_t c0 = rtx_readback_part_j_persistent_blocker_count(0);
 
-            uint32_t g1 = eng.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, 1.0f, -0.5f }, { 0.5f, 2.0f, 0.5f }) }, "Overlapping1", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
-            uint32_t g2 = eng.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, 1.0f, -0.5f }, { 0.5f, 2.0f, 0.5f }) }, "Overlapping2", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
+            uint32_t g1 = eng.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, 1.0f, -0.5f }, { 0.5f, 2.0f, 0.5f }) }, "Overlapping1", false, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
+            uint32_t g2 = eng.register_dynamic_occluder_group({ ASTGAABB({ -0.5f, 1.0f, -0.5f }, { 0.5f, 2.0f, 0.5f }) }, "Overlapping2", false, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
 
+            eng.set_dynamic_occluder_group_enabled(g1, true);
             eng.update_dynamic_occlusion(g1);
             uint32_t c1 = rtx_readback_part_j_persistent_blocker_count(0);
 
+            eng.set_dynamic_occluder_group_enabled(g2, true);
             eng.update_dynamic_occlusion(g2);
             uint32_t c2 = rtx_readback_part_j_persistent_blocker_count(0);
 
