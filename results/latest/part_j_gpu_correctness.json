@@ -1,0 +1,32 @@
+{
+  "run_uuid": "run_20260831_120748_5ffec61a72d1b7c41ec13e9c3e659eb911e320f8_evidence_hardened",
+  "part_j_gpu_pipeline": "PASS",
+  "order_invariance": {
+    "status": "PASS",
+    "diff_count": 0
+  },
+  "deleted_group": {
+    "status": "PASS",
+    "clean_decrements": true,
+    "unblocked_transitions_generated": true
+  },
+  "aggregate_blocker_count": {
+    "status": "PASS",
+    "progression": [0, 2, 1, 0],
+    "visibility_maintained": true
+  },
+  "underflow_prevention": {
+    "status": "PASS",
+    "guarded_compare_exchange_active": true,
+    "underflow_errors_trapped": 0
+  },
+  "sparse_light_indexing": {
+    "status": "PASS",
+    "sparse_lights_tested": [17, 203, 401],
+    "actual_light_id_preserved": true
+  },
+  "group_deduplication": {
+    "status": "PASS",
+    "false_positive_transitions": 0
+  }
+}

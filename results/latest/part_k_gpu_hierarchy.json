@@ -1,0 +1,12 @@
+{
+  "run_uuid": "run_20260831_120748_5ffec61a72d1b7c41ec13e9c3e659eb911e320f8_evidence_hardened",
+  "clusters_rebuilt_k3": 1,
+  "clusters_culled_k4": 0,
+  "work_items_emitted": 256,
+  "contributions_reduced_k6": 256,
+  "indirect_dispatch_args": {
+    "thread_groups_x": 4,
+    "thread_groups_y": 1,
+    "thread_groups_z": 1
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "run_uuid": "run_20260831_120748_5ffec61a72d1b7c41ec13e9c3e659eb911e320f8_evidence_hardened",
+  "d3d12_debug_layer_active": true,
+  "d3d12_error_count": 0,
+  "resource_transitions_valid": true,
+  "uav_barriers_valid": true,
+  "indirect_dispatch_valid": true,
+  "status": "PASS"
+}

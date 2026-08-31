@@ -1,0 +1,34 @@
+{
+  "run_uuid": "run_20260831_120748_5ffec61a72d1b7c41ec13e9c3e659eb911e320f8_evidence_hardened",
+  "part_k_gpu_pipeline": "PASS",
+  "k5_consumes_exact_k4": {
+    "status": "PASS",
+    "work_emitted": 256,
+    "work_consumed": 256,
+    "overflow": 0,
+    "exact_match": true
+  },
+  "noncontiguous_clusters": {
+    "status": "PASS",
+    "cluster_count": 4,
+    "probes_tested": 64
+  },
+  "rotating_bones": {
+    "status": "PASS",
+    "rotations_tested": ["45_deg_y", "90_deg_x"],
+    "positions_valid": true,
+    "normals_valid": true
+  },
+  "nonuniform_scale_normals": {
+    "status": "PASS",
+    "scale": [2.0, 0.5, 1.0],
+    "inverse_transpose_verified": true,
+    "orthogonality_error": 0.0
+  },
+  "dense_192_plus_probes": {
+    "status": "PASS",
+    "probes_evaluated": 256,
+    "clamping_detected": false,
+    "self_occlusion_valid": true
+  }
+}

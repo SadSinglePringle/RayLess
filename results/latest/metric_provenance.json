@@ -74,7 +74,7 @@
   {
     "test_uuid": "tier_scaling_32",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.044032,
+    "value": 0.040960,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -155,7 +155,7 @@
   {
     "test_uuid": "tier_scaling_128",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.039936,
+    "value": 0.036864,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -236,7 +236,7 @@
   {
     "test_uuid": "tier_scaling_512",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.035840,
+    "value": 0.037888,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -317,7 +317,7 @@
   {
     "test_uuid": "tier_scaling_1024",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.035840,
+    "value": 0.040960,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -398,7 +398,7 @@
   {
     "test_uuid": "tier_scaling_4096",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.056320,
+    "value": 0.059392,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -479,7 +479,7 @@
   {
     "test_uuid": "tier_scaling_16384",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.237568,
+    "value": 0.275456,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -641,7 +641,7 @@
   {
     "test_uuid": "tier_scaling_128000",
     "metric_name": "probe_eval_gpu_ms",
-    "value": 0.152576,
+    "value": 0.138240,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "gpu_compute_shader",
     "unit": "ms",
@@ -695,7 +695,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_intersection_gpu_ms",
-    "value": 0.014336,
+    "value": 0.012288,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_traversal",
     "unit": "ms",
@@ -704,7 +704,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_schedule_cpu_us",
-    "value": 1245.000000,
+    "value": 323.000000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "scheduler",
     "unit": "us",
@@ -713,7 +713,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_dispatch_gpu_ms",
-    "value": 0.014800,
+    "value": 0.005900,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "dxr_dispatch",
     "unit": "ms",
@@ -722,7 +722,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_process_gpu_ms",
-    "value": 0.008300,
+    "value": 0.005600,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "hit_processing",
     "unit": "ms",
@@ -740,7 +740,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_commit_cpu_us",
-    "value": 1531.000000,
+    "value": 803.000000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "host_commit",
     "unit": "us",
@@ -749,7 +749,7 @@
   {
     "test_uuid": "part_a_measurement_integrity",
     "metric_name": "repair_total_ms",
-    "value": 2.813436,
+    "value": 1.149788,
     "source": "GPU_TIMESTAMP_QUERY",
     "source_scope": "end_to_end_repair",
     "unit": "ms",
@@ -1073,7 +1073,7 @@
   {
     "test_uuid": "occ_test_p_gpu_spatial_discovery_ab",
     "metric_name": "cpu_fallback_update_ms",
-    "value": 0.121500,
+    "value": 0.132400,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_cpu_fallback_1024_edges",
     "unit": "ms",
@@ -1082,7 +1082,7 @@
   {
     "test_uuid": "occ_test_p_gpu_spatial_discovery_ab",
     "metric_name": "gpu_discovery_end_to_end_ms",
-    "value": 2.097300,
+    "value": 2.463000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_gpu_discovery_1024_edges",
     "unit": "ms",
@@ -1100,7 +1100,7 @@
   {
     "test_uuid": "rec_test_m_gpu_bistro_dynamic_receiver_trajectory",
     "metric_name": "receiver_total_evaluation_ms",
-    "value": 9.600220,
+    "value": 9.090780,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "receiver_trajectory_mean",
     "unit": "ms",
@@ -1127,7 +1127,7 @@
   {
     "test_uuid": "rec_test_m_gpu_bistro_dynamic_receiver_trajectory",
     "metric_name": "edge_spatial_lookup_ms",
-    "value": 0.000900,
+    "value": 0.000700,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "receiver_trajectory_last_frame",
     "unit": "ms",
@@ -1136,7 +1136,7 @@
   {
     "test_uuid": "rec_test_m_gpu_bistro_dynamic_receiver_trajectory",
     "metric_name": "receiver_indirect_accumulation_ms",
-    "value": 9.600220,
+    "value": 9.090780,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "receiver_trajectory_mean",
     "unit": "ms",
@@ -1145,7 +1145,7 @@
   {
     "test_uuid": "rec_test_m_gpu_bistro_dynamic_receiver_trajectory",
     "metric_name": "angular_footprint_and_receiver_selection_ms",
-    "value": 2.586100,
+    "value": 1.316100,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "receiver_trajectory_last_frame",
     "unit": "ms",
@@ -1217,7 +1217,7 @@
   {
     "test_uuid": "rec_test_t_temporal_receiver_quality",
     "metric_name": "Et_mean_temporal_error",
-    "value": 0.020740,
+    "value": 0.000099,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "59_frame_deltas",
     "unit": "unitless",
@@ -1235,7 +1235,7 @@
   {
     "test_uuid": "rec_test_t_temporal_receiver_quality",
     "metric_name": "P99_temporal_error",
-    "value": 0.069228,
+    "value": 0.000476,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "59_frame_deltas",
     "unit": "unitless",
@@ -1262,7 +1262,7 @@
   {
     "test_uuid": "rec_test_t_temporal_receiver_quality",
     "metric_name": "RMSE_temporal_error",
-    "value": 0.026068,
+    "value": 0.000144,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "59_frame_deltas",
     "unit": "unitless",
@@ -1271,7 +1271,7 @@
   {
     "test_uuid": "rec_test_t_temporal_receiver_quality",
     "metric_name": "max_transient_error",
-    "value": 0.079397,
+    "value": 0.000581,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "59_frame_deltas",
     "unit": "unitless",
@@ -1280,7 +1280,7 @@
   {
     "test_uuid": "rec_test_t_temporal_receiver_quality",
     "metric_name": "P95_temporal_error",
-    "value": 0.053844,
+    "value": 0.000333,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "59_frame_deltas",
     "unit": "unitless",
@@ -1397,7 +1397,7 @@
   {
     "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
     "metric_name": "cap_64_end_to_end_ms",
-    "value": 212.820700,
+    "value": 193.125900,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_visibility",
     "unit": "ms",
@@ -1478,7 +1478,7 @@
   {
     "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
     "metric_name": "cap_256_end_to_end_ms",
-    "value": 63.446800,
+    "value": 61.882900,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_visibility",
     "unit": "ms",
@@ -1577,7 +1577,7 @@
   {
     "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
     "metric_name": "cap_512_end_to_end_ms",
-    "value": 42.277500,
+    "value": 38.372500,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_visibility",
     "unit": "ms",
@@ -1649,7 +1649,7 @@
   {
     "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
     "metric_name": "cap_2048_end_to_end_ms",
-    "value": 24.628200,
+    "value": 21.929100,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_visibility",
     "unit": "ms",
@@ -1721,7 +1721,7 @@
   {
     "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
     "metric_name": "cap_8192_end_to_end_ms",
-    "value": 19.376100,
+    "value": 18.589200,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_visibility",
     "unit": "ms",
@@ -1748,7 +1748,7 @@
   {
     "test_uuid": "rec_test_v_batched_receiver_visibility_sweep",
     "metric_name": "cap_32768_end_to_end_ms",
-    "value": 18.487400,
+    "value": 16.951000,
     "source": "CPU_HIGH_RES_TIMER",
     "source_scope": "production_visibility",
     "unit": "ms",
