@@ -2409,6 +2409,24 @@ RTX_API bool rtx_is_hardware_active() {
 // ASTG PARTS J/K: GPU CONTINUOUS ANGULAR B0 & DYNAMIC RECEIVER RUNTIME APIS
 // ==============================================================================
 
+static ASTGPartsJKExecutionStatus g_parts_jk_status = ASTG_PARTS_JK_GPU_OK;
+static ASTGPartsJKTelemetryGPU g_latest_parts_jk_telemetry = {};
+
+RTX_API ASTGPartsJKExecutionStatus rtx_get_parts_jk_execution_status() {
+    if (!g_rtx.is_initialized) return ASTG_PARTS_JK_GPU_NOT_INITIALIZED;
+    return g_parts_jk_status;
+}
+
+RTX_API void rtx_set_parts_jk_execution_status(ASTGPartsJKExecutionStatus status) {
+    g_parts_jk_status = status;
+}
+
+RTX_API bool rtx_resolve_parts_jk_telemetry_async(ASTGPartsJKTelemetryGPU* out_telemetry) {
+    if (!out_telemetry) return false;
+    *out_telemetry = g_latest_parts_jk_telemetry;
+    return true;
+}
+
 RTX_API bool rtx_upload_parts_jk_static_data(
     const RTXSourceAngularFrame* frames,
     const ASTGLightB0RangeGPU* ranges,
@@ -2525,6 +2543,7 @@ RTX_API bool rtx_dispatch_part_j_gpu(
     ASTGPartsJKTelemetryGPU* out_telemetry
 ) {
     if (!g_rtx.is_initialized) return false;
+    if (g_parts_jk_status != ASTG_PARTS_JK_GPU_OK) return false;
 
     g_rtx.command_allocator->Reset();
     g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
@@ -2667,6 +2686,18 @@ RTX_API bool rtx_dispatch_part_j_gpu(
         out_telemetry->gpu_j4_ms = total_ms * 0.15;
         out_telemetry->gpu_j5_ms = total_ms * 0.05;
         out_telemetry->gpu_total_ms = total_ms;
+
+        g_latest_parts_jk_telemetry.gpu_j1_dispatches = out_telemetry->gpu_j1_dispatches;
+        g_latest_parts_jk_telemetry.gpu_j2_dispatches = out_telemetry->gpu_j2_dispatches;
+        g_latest_parts_jk_telemetry.gpu_j3_exact_tests = out_telemetry->gpu_j3_exact_tests;
+        g_latest_parts_jk_telemetry.gpu_j4_membership_words = out_telemetry->gpu_j4_membership_words;
+        g_latest_parts_jk_telemetry.gpu_j5_transitions = out_telemetry->gpu_j5_transitions;
+        g_latest_parts_jk_telemetry.gpu_j1_ms = out_telemetry->gpu_j1_ms;
+        g_latest_parts_jk_telemetry.gpu_j2_ms = out_telemetry->gpu_j2_ms;
+        g_latest_parts_jk_telemetry.gpu_j3_ms = out_telemetry->gpu_j3_ms;
+        g_latest_parts_jk_telemetry.gpu_j4_ms = out_telemetry->gpu_j4_ms;
+        g_latest_parts_jk_telemetry.gpu_j5_ms = out_telemetry->gpu_j5_ms;
+        g_latest_parts_jk_telemetry.gpu_total_ms = total_ms;
     }
     return true;
 }
@@ -2745,6 +2776,7 @@ RTX_API bool rtx_dispatch_part_k_gpu(
     ASTGPartsJKTelemetryGPU* out_telemetry
 ) {
     if (!g_rtx.is_initialized) return false;
+    if (g_parts_jk_status != ASTG_PARTS_JK_GPU_OK) return false;
 
     g_rtx.command_allocator->Reset();
     g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
@@ -2906,6 +2938,18 @@ RTX_API bool rtx_dispatch_part_k_gpu(
         out_telemetry->gpu_k4_ms = total_ms * 0.35;
         out_telemetry->gpu_k5_ms = total_ms * 0.15;
         out_telemetry->gpu_total_ms = total_ms;
+
+        g_latest_parts_jk_telemetry.gpu_k1_bones_tested = out_telemetry->gpu_k1_bones_tested;
+        g_latest_parts_jk_telemetry.gpu_k2_clusters_tested = out_telemetry->gpu_k2_clusters_tested;
+        g_latest_parts_jk_telemetry.gpu_k3_probes_scheduled = out_telemetry->gpu_k3_probes_scheduled;
+        g_latest_parts_jk_telemetry.gpu_k4_visibility_rays = out_telemetry->gpu_k4_visibility_rays;
+        g_latest_parts_jk_telemetry.gpu_k5_probe_light_accumulations = out_telemetry->gpu_k5_probe_light_accumulations;
+        g_latest_parts_jk_telemetry.gpu_k1_ms = out_telemetry->gpu_k1_ms;
+        g_latest_parts_jk_telemetry.gpu_k2_ms = out_telemetry->gpu_k2_ms;
+        g_latest_parts_jk_telemetry.gpu_k3_ms = out_telemetry->gpu_k3_ms;
+        g_latest_parts_jk_telemetry.gpu_k4_ms = out_telemetry->gpu_k4_ms;
+        g_latest_parts_jk_telemetry.gpu_k5_ms = out_telemetry->gpu_k5_ms;
+        g_latest_parts_jk_telemetry.gpu_total_ms += out_telemetry->gpu_total_ms;
     }
     return true;
 }

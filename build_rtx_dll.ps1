@@ -36,6 +36,11 @@ Write-Host "Compiling HLSL Part K Dynamic Receiver compute shaders..."
 & $DXC -T cs_6_5 -E CSEvaluateReceiverVisibility -Fh src/rtx/rtx_rec_eval_visibility_cso.h -Vn g_rtx_rec_eval_visibility_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
 & $DXC -T cs_6_5 -E CSAccumulateReceiverIrradiance -Fh src/rtx/rtx_rec_accum_irradiance_cso.h -Vn g_rtx_rec_accum_irradiance_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
 
+$GIT_COMMIT = (git rev-parse HEAD).Trim()
+if (-not $GIT_COMMIT) {
+    $GIT_COMMIT = "unknown_commit"
+}
+
 $cl = "$MSVC_DIR\cl.exe"
 $args = @(
     "/LD",
@@ -43,6 +48,7 @@ $args = @(
     "/std:c++17",
     "/EHsc",
     "/openmp",
+    "/DASTG_BUILD_COMMIT=`"$GIT_COMMIT`"",
     "/I$MSVC_INC",
     "/I$WIN_SDK_INC\um",
     "/I$WIN_SDK_INC\shared",

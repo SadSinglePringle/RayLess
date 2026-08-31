@@ -426,9 +426,9 @@ public:
         }
     }
 
-    // --- F5: GPU Angular-Cell Footprint Filter ---
+    // --- F5: LEGACY_64_CELL_DIAGNOSTIC (GPU Angular-Cell Footprint Filter) ---
     void run_tier1_f5_tests() {
-        std::cout << "\n▶ Running Tier 1: F5 - GPU Angular-Cell Footprint Filter...\n";
+        std::cout << "\n▶ Running Tier 1: F5 - [LEGACY_64_CELL_DIAGNOSTIC] GPU Angular-Cell Footprint Filter...\n";
 
         // F5.1 64-Bin Octahedral Mapping
         {
@@ -438,7 +438,7 @@ public:
             bool pass = (bin < 64);
             auto t1 = std::chrono::high_resolution_clock::now();
             double dur = std::chrono::duration<double, std::micro>(t1 - t0).count();
-            record("Tier 1", "F5", "F5.1", "Spherical normal maps into valid octahedral bin in [0, 63]",
+            record("Tier 1", "F5", "F5.1", "[LEGACY_64_CELL_DIAGNOSTIC] Spherical normal maps into valid octahedral bin in [0, 63]",
                    "bin in [0, 63]", "bin=" + std::to_string(bin), pass, dur);
         }
 
@@ -451,7 +451,7 @@ public:
             bool survive = (cos_theta > 0.0f);
             auto t1 = std::chrono::high_resolution_clock::now();
             double dur = std::chrono::duration<double, std::micro>(t1 - t0).count();
-            record("Tier 1", "F5", "F5.2", "Candidate ray within emission hemisphere survives filter",
+            record("Tier 1", "F5", "F5.2", "[LEGACY_64_CELL_DIAGNOSTIC] Candidate ray within emission hemisphere survives filter",
                    "survive=true", survive ? "survive=true" : "survive=false", survive, dur);
         }
 
@@ -464,7 +464,7 @@ public:
             bool culled = (cos_theta <= 0.0f);
             auto t1 = std::chrono::high_resolution_clock::now();
             double dur = std::chrono::duration<double, std::micro>(t1 - t0).count();
-            record("Tier 1", "F5", "F5.3", "Back-facing ray (>90 deg from normal) culled in angular phase",
+            record("Tier 1", "F5", "F5.3", "[LEGACY_64_CELL_DIAGNOSTIC] Back-facing ray (>90 deg from normal) culled in angular phase",
                    "culled=true", culled ? "culled=true" : "culled=false", culled, dur);
         }
 
@@ -478,7 +478,7 @@ public:
             bool pass = (bin_l < 64 && bin_r < 64);
             auto t1 = std::chrono::high_resolution_clock::now();
             double dur = std::chrono::duration<double, std::micro>(t1 - t0).count();
-            record("Tier 1", "F5", "F5.4", "Rays straddling octahedral coordinate seams encode deterministically",
+            record("Tier 1", "F5", "F5.4", "[LEGACY_64_CELL_DIAGNOSTIC] Rays straddling octahedral coordinate seams encode deterministically",
                    "valid bins for both seam sides", "bin_l=" + std::to_string(bin_l) + ", bin_r=" + std::to_string(bin_r),
                    pass, dur);
         }
@@ -492,7 +492,7 @@ public:
             bool pass = (!is_active);
             auto t1 = std::chrono::high_resolution_clock::now();
             double dur = std::chrono::duration<double, std::micro>(t1 - t0).count();
-            record("Tier 1", "F5", "F5.5", "64-bit hierarchy bitmask culls inactive angular bins in O(1)",
+            record("Tier 1", "F5", "F5.5", "[LEGACY_64_CELL_DIAGNOSTIC] 64-bit hierarchy bitmask culls inactive angular bins in O(1)",
                    "inactive bin culled", pass ? "culled" : "accepted", pass, dur);
         }
     }
@@ -1487,7 +1487,7 @@ public:
             bool pass = (b1 < 64 && b2 < 64);
             auto t1 = std::chrono::high_resolution_clock::now();
             double dur = std::chrono::duration<double, std::micro>(t1 - t0).count();
-            record("Tier 3", "COMB", "COMB-05", "Dynamic receiver motion across octahedral angular bins smoothly transitions",
+            record("Tier 3", "COMB", "COMB-05", "[LEGACY_64_CELL_DIAGNOSTIC] Dynamic receiver motion across octahedral angular bins smoothly transitions",
                    "valid bin transitions", "b1=" + std::to_string(b1) + ", b2=" + std::to_string(b2), pass, dur);
         }
 

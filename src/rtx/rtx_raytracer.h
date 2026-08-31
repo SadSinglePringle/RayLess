@@ -242,6 +242,15 @@ RTX_API bool rtx_dispatch_part_k_gpu(
     ASTGPartsJKTelemetryGPU* out_telemetry
 );
 
+// Returns the current execution status of the Parts J/K GPU runtime
+RTX_API ASTGPartsJKExecutionStatus rtx_get_parts_jk_execution_status();
+
+// Sets execution status (used for anti-fallback failure injection testing)
+RTX_API void rtx_set_parts_jk_execution_status(ASTGPartsJKExecutionStatus status);
+
+// Resolves latest telemetry asynchronously
+RTX_API bool rtx_resolve_parts_jk_telemetry_async(ASTGPartsJKTelemetryGPU* out_telemetry);
+
 #ifdef __cplusplus
 }
 #endif

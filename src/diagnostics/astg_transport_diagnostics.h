@@ -3019,6 +3019,7 @@ public:
     bool rec_test_v_batched_visibility_sweep_pass = false;
     bool rec_test_w_spatial_index_staleness_pass = false;
     bool mode_test_q_real_scene_bistro_4mode_pass = false;
+    bool mode_test_r_mandatory_anti_fallback_pass = false;
     bool gpu_test_a_regeneration_pass = false;
     bool gpu_test_b_dynamic_light_pass = false;
     bool gpu_test_c_batch_sweep_pass = false;
@@ -7207,6 +7208,90 @@ public:
             b_q.set_identity(id); b_q.set_workload(wl);
             finalized_results.push_back(b_q.build_and_seal());
         }
+
+        // ---------------------------------------------------------------------
+        // TEST R: Mandatory Anti-Fallback Verification (Handoff Section 11)
+        // ---------------------------------------------------------------------
+        {
+            ASTGTestResultBuilder b_r(run_uuid, "mode_test_r_anti_fallback_verification", "ANTI_FALLBACK_VERIFICATION", 1);
+            TestIdentity id;
+            id.run_uuid = run_uuid; id.test_uuid = "mode_test_r_anti_fallback_verification"; id.test_name = "ANTI_FALLBACK_VERIFICATION";
+            id.light_count = 1; id.probe_count = 1; id.binary_hash = runtime_binary_hash;
+            id.scene_gltf_hash = scene_gltf_hash; id.scene_bin_hash = scene_bin_hash;
+            id.source_commit_sha = runtime_build_commit; id.build_commit_sha = runtime_build_commit; id.gpu_name = runtime_gpu_name;
+
+            WorkloadDescriptor wl;
+            wl.category = "DYNAMIC_OCCLUSION_MODES"; wl.evidence_level = "SUBSYSTEM";
+            wl.geometry_authentic = true; wl.transport_authentic = true; wl.lighting_authentic = true; wl.probe_authentic = true;
+
+            // 1. Run production workload
+            ASTGTransportEngine eng_af;
+            eng_af.parts_jk_execution_mode = ASTG_PARTS_JK_GPU_PRODUCTION;
+            eng_af.light_positions[0] = { 0.0f, 5.0f, 0.0f };
+            eng_af.light_colors[0] = { 1.0f, 1.0f, 1.0f };
+            eng_af.light_intensities[0] = 10.0f;
+
+            for (uint32_t i = 0; i < 64; ++i) {
+                ASTGTransportNode pn; pn.node_id = i * 2; pn.position = { 0.0f, 0.0f, (float)i * 0.5f - 16.0f }; pn.bounce_depth = 0; pn.source_light_id = 0; pn.is_active = true;
+                ASTGTransportNode cn; cn.node_id = i * 2 + 1; cn.position = { 0.0f, 0.0f, (float)i * 0.5f - 15.5f }; cn.bounce_depth = 1; cn.source_light_id = 0; cn.is_active = true;
+                eng_af.bounce0_nodes.push_back(pn);
+                eng_af.bounce0_nodes.push_back(cn);
+                ASTGDAGEdge edge; edge.edge_id = i; edge.parent_node_id = pn.node_id; edge.child_node_id = cn.node_id; edge.source_light_id = 0; edge.is_active = true;
+                eng_af.dag_edges.push_back(edge);
+            }
+            eng_af.rebuild_edge_spatial_index();
+            eng_af.build_edge_to_path_mapping();
+
+            ASTGAABB box({ -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f });
+            uint32_t gid = eng_af.register_dynamic_occluder_group({ box }, "AntiFallbackBox", true, ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS);
+
+            // Attach dynamic receiver probes
+            std::vector<ASTGDynamicSurfaceProbe> probes(16);
+            for (size_t p = 0; p < probes.size(); ++p) {
+                probes[p].world_position = { 0.0f, 0.5f, (float)p * 0.2f - 1.5f };
+                probes[p].world_normal = { 0.0f, 1.0f, 0.0f };
+                probes[p].is_active = true;
+            }
+            eng_af.register_dynamic_receiver_probes(gid, probes);
+
+            auto norm_m = eng_af.update_dynamic_occlusion(gid);
+
+            ASTGPartsJKTelemetryGPU telem = {};
+            rtx_resolve_parts_jk_telemetry_async(&telem);
+
+            bool normal_gpu_ok = (telem.gpu_j1_dispatches > 0 &&
+                                  telem.gpu_j2_dispatches > 0 &&
+                                  telem.gpu_j4_membership_words > 0 &&
+                                  telem.gpu_k1_bones_tested > 0 &&
+                                  telem.gpu_k2_clusters_tested > 0 &&
+                                  telem.gpu_k3_probes_scheduled > 0 &&
+                                  eng_af.parts_jk_telemetry.cpu_part_j_reference_calls == 0 &&
+                                  eng_af.parts_jk_telemetry.cpu_part_k_reference_calls == 0 &&
+                                  !norm_m.gpu_dispatch_failed);
+
+            // 2. Deliberately disable GPU pipeline and verify visible failure with zero CPU fallback
+            rtx_set_parts_jk_execution_status(ASTG_PARTS_JK_GPU_SHADER_FAILURE);
+            auto failed_m = eng_af.update_dynamic_occlusion(gid);
+            bool failure_detected = failed_m.gpu_dispatch_failed &&
+                                   (eng_af.parts_jk_telemetry.cpu_part_j_reference_calls == 0) &&
+                                   (eng_af.parts_jk_telemetry.cpu_part_k_reference_calls == 0);
+
+            // Restore GPU OK status
+            rtx_set_parts_jk_execution_status(ASTG_PARTS_JK_GPU_OK);
+
+            mode_test_r_mandatory_anti_fallback_pass = normal_gpu_ok && failure_detected;
+
+            AssertionRecord a_af;
+            a_af.assertion_name = "mandatory_anti_fallback_validation";
+            a_af.expected = "GPU production executed with 0 CPU fallback; disabled GPU pipeline returns visible failure status";
+            a_af.actual = mode_test_r_mandatory_anti_fallback_pass ? "GPU production verified (all gpu counters > 0, cpu reference == 0) and failure injection verified" : "anti-fallback failure";
+            a_af.status = mode_test_r_mandatory_anti_fallback_pass ? STATUS_PASS : STATUS_FAIL;
+            b_r.add_assertion(a_af);
+
+            wl.gpu_work_sentinel = 1;
+            b_r.set_identity(id); b_r.set_workload(wl);
+            finalized_results.push_back(b_r.build_and_seal());
+        }
     }
 
     void print_dynamic_occlusion_modes_report() {
@@ -7233,7 +7318,8 @@ public:
         std::cout << "Directional identity & transform coherence:\n";
         std::cout << "Angular direction cell identity:             " << (mode_test_n_angular_direction_cell_identity_pass ? "PASS" : "FAIL") << "\n";
         std::cout << "Angular B0 targeted occluder:                " << (mode_test_o_angular_b0_targeted_occluder_pass ? "PASS" : "FAIL") << "\n";
-        std::cout << "Proxy/receiver transform coherence:          " << (mode_test_p_proxy_receiver_transform_coherence_pass ? "PASS" : "FAIL") << "\n\n";
+        std::cout << "Proxy/receiver transform coherence:          " << (mode_test_p_proxy_receiver_transform_coherence_pass ? "PASS" : "FAIL") << "\n";
+        std::cout << "Mandatory anti-fallback verification:        " << (mode_test_r_mandatory_anti_fallback_pass ? "PASS" : "FAIL") << "\n\n";
 
         std::cout << "GPU End-to-End Bistro Trajectory (4 Modes):\n";
         std::cout << "Bistro 4-mode trajectory evaluation:         " << (mode_test_m_gpu_bistro_4mode_pass ? "PASS" : "FAIL") << "\n";
@@ -7253,7 +7339,8 @@ public:
                              mode_test_m_gpu_bistro_4mode_pass &&
                              mode_test_n_angular_direction_cell_identity_pass &&
                              mode_test_o_angular_b0_targeted_occluder_pass &&
-                             mode_test_p_proxy_receiver_transform_coherence_pass);
+                             mode_test_p_proxy_receiver_transform_coherence_pass &&
+                             mode_test_r_mandatory_anti_fallback_pass);
 
         std::cout << "Overall:\n";
         std::cout << (overall_pass ? "PASS" : "FAIL") << "\n";

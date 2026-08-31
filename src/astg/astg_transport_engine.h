@@ -15,6 +15,7 @@
 #include <map>
 #include <numeric>
 #include <chrono>
+#include <cassert>
 
 // ==============================================================================
 // ASTG SAFE OPTIMIZATION INVARIANT & FORMALIZED REGENERATION DATA STRUCTURES
@@ -1378,6 +1379,7 @@ struct ASTGDAGEdge {
 struct ASTGDynamicOcclusionMetrics {
     uint32_t group_id = 0;
     bool enabled = true;
+    bool gpu_dispatch_failed = false;
     ASTGDynamicOcclusionMode mode = ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES;
     uint32_t box_count = 0;
     uint32_t total_dag_edges = 0;
@@ -3079,11 +3081,14 @@ public:
 
                     std::vector<ASTGB0TransitionRecord> gpu_transitions(65536);
                     uint32_t transition_count = 0;
-                    rtx_dispatch_part_j_gpu(
+                    bool j_ok = rtx_dispatch_part_j_gpu(
                         (uint32_t)gpu_pairs.size(), (uint32_t)gpu_bounds.size(),
                         gpu_transitions.data(), &transition_count, 65536,
                         &parts_jk_telemetry
                     );
+                    if (!j_ok) {
+                        m.gpu_dispatch_failed = true;
+                    }
 
                     parts_jk_telemetry.cpu_part_j_reference_calls = 0;
 
@@ -3220,7 +3225,7 @@ public:
                     );
 
                     std::vector<ASTGDynamicSurfaceProbeGPU> gpu_out_probes(probes.size());
-                    rtx_dispatch_part_k_gpu(
+                    bool k_ok = rtx_dispatch_part_k_gpu(
                         (uint32_t)bone_bounds.size(),
                         (uint32_t)clusters.size(),
                         (uint32_t)probes.size(),
@@ -3228,6 +3233,9 @@ public:
                         gpu_out_probes.data(),
                         &parts_jk_telemetry
                     );
+                    if (!k_ok) {
+                        m.gpu_dispatch_failed = true;
+                    }
 
                     parts_jk_telemetry.cpu_part_k_reference_calls = 0;
 
@@ -3317,6 +3325,10 @@ public:
                 // =============================================================
                 // CPU Reference Execution Path
                 // =============================================================
+                if (parts_jk_execution_mode == ASTG_PARTS_JK_GPU_PRODUCTION) {
+                    std::cerr << "❌ [FATAL] CPU reference path entered while in ASTG_PARTS_JK_GPU_PRODUCTION mode!\n";
+                    assert(false && "CPU reference path entered while in GPU production mode!");
+                }
                 parts_jk_telemetry.cpu_part_j_reference_calls++;
                 parts_jk_telemetry.cpu_part_k_reference_calls++;
 
