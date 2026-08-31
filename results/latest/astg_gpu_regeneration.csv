@@ -1,2 +1,2 @@
 event_id,affected_chunks,invalidated_nodes,invalidated_edges,repair_anchors,rays_scheduled,rays_dispatched,rays_completed,ray_hits,stitches_accepted,cached_bounces_reused,avoided_rays,cpu_schedule_ms,cpu_raygen_ms,cpu_submit_ms,gpu_traversal_ms,gpu_hit_process_ms,cpu_stitch_ms,cpu_continuation_ms,cpu_deposition_ms,gpu_total_ms,end_to_end_ms
-1,1,256,512,128,1024,1024,1024,2,1,896,896,0.0034,0.0251,0.0000,0.0154,0.0094,0.0008,0.0000,0.0001,0.0154,0.2077
+1,1,256,512,128,1024,1024,1024,2,1,896,896,0.0031,0.0206,0.0000,0.0164,0.0082,0.0008,0.0000,0.0001,0.0164,0.1969

@@ -1,24 +1,24 @@
 {
-  "run_uuid": "run_20260831_120748_5ffec61a72d1b7c41ec13e9c3e659eb911e320f8_evidence_hardened",
+  "run_uuid": "run_20260831_174955_06d104a27966373d1a1ad3ef7184f0dc0ceb8af7_evidence_hardened",
   "gpu_hardware_timestamps_valid": true,
   "fabricated_timings_detected": false,
   "hardware_timer_frequency_active": true,
   "part_j_kernels_ms": {
-    "j1_transform_projection": 0.0072,
-    "j2_b0_traversal": 0.0102,
+    "j1_transform_projection": 0.0000,
+    "j2_b0_traversal": 0.0000,
     "j3_exact_visibility": 0.0000,
     "j4_membership_update": 0.0000,
     "j5_compaction": 0.0000,
-    "total_part_j_ms": 0.0178
+    "total_part_j_ms": 0.0000
   },
   "part_k_kernels_ms": {
     "k1_bone_transforms": 0.0041,
     "k2_surface_probes": 0.0031,
-    "k3_rebuild_clusters": 0.0236,
-    "k4_cull_hierarchy": 0.0502,
-    "k5_eval_visibility": 0.0031,
-    "k6_accum_irradiance": 0.0358,
-    "total_part_k_ms": 0.1208
+    "k3_rebuild_clusters": 0.0092,
+    "k4_cull_hierarchy": 0.0614,
+    "k5_eval_visibility": 0.0102,
+    "k6_accum_irradiance": 0.0020,
+    "total_part_k_ms": 0.0917
   },
-  "gpu_total_pipeline_ms": 0.1386
+  "gpu_total_pipeline_ms": 0.0917
 }

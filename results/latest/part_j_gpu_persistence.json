@@ -1,13 +1,7 @@
 {
-  "run_uuid": "run_20260831_120748_5ffec61a72d1b7c41ec13e9c3e659eb911e320f8_evidence_hardened",
+  "run_uuid": "run_20260831_174955_06d104a27966373d1a1ad3ef7184f0dc0ceb8af7_evidence_hardened",
   "persistent_allocations_active": true,
-  "modulo_slot_recycling": true,
-  "allocation_records": [
-    { "group_id": 0, "actual_light_id": 0, "word_offset": 0, "word_count": 32, "footprint_offset": 0, "footprint_count": 64 },
-    { "group_id": 0, "actual_light_id": 17, "word_offset": 32, "word_count": 32, "footprint_offset": 64, "footprint_count": 64 },
-    { "group_id": 0, "actual_light_id": 203, "word_offset": 64, "word_count": 32, "footprint_offset": 128, "footprint_count": 64 },
-    { "group_id": 0, "actual_light_id": 401, "word_offset": 96, "word_count": 32, "footprint_offset": 192, "footprint_count": 64 }
-  ],
+  "slot_allocator_active": true,
   "invalidation_state": {
     "layout_key_tracked": true,
     "selective_invalidation_verified": true

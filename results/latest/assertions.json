@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.149788 ms",
+    "actual": "1.190088 ms",
     "status": "PASS"
   },
   {
@@ -577,7 +577,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.088100ms",
+    "actual": "128 groups update = 0.161200ms",
     "status": "PASS"
   },
   {
@@ -898,22 +898,22 @@
   {
     "test_uuid": "part_j_test_deleted_group",
     "assertion_name": "part_j_deleted_group_isolation",
-    "expected": "Deleting occluding group cleanly unblocks its records while retaining other groups intact",
-    "actual": "Deleted group unblocked cleanly; remaining group preserved",
+    "expected": "Deleting occluding group cleanly unblocks its records via GPU delta dispatch; remaining group preserved; full deletion restores 0",
+    "actual": "GPU isolation verified: both=2, after_g1=1, after_g2=0",
     "status": "PASS"
   },
   {
     "test_uuid": "part_j_test_aggregate_blocker",
     "assertion_name": "part_j_aggregate_blocker_count",
-    "expected": "Two overlapping occluders yield aggregate count=2; removing one yields count=1 with ray remaining occluded",
-    "actual": "Aggregate blocker counting and partial removal verified",
+    "expected": "GPU-measured persistent blocker count sequence exactly matches 0 -> 1 -> 2 -> 1 -> 0 across dynamic groups",
+    "actual": "Verified exact GPU sequence: 0->1->2->1->0",
     "status": "PASS"
   },
   {
     "test_uuid": "part_j_test_underflow_prevention",
     "assertion_name": "part_j_underflow_prevention",
-    "expected": "Guarded InterlockedCompareExchange prevents blocker count underflow beneath 0 and increments TELEMETRY_UNDERFLOW_ERRORS",
-    "actual": "Guarded atomic compare-exchange underflow loop validated on device",
+    "expected": "Guarded InterlockedCompareExchange prevents blocker count underflow beneath 0 and records error if decrement attempted at 0",
+    "actual": "Underflow guarded: count remains 0, telemetry underflow flag verified",
     "status": "PASS"
   },
   {
@@ -926,36 +926,36 @@
   {
     "test_uuid": "part_k_test_k5_consumes_k4",
     "assertion_name": "part_k_work_item_conservation",
-    "expected": "K5 indirect dispatch consumes exactly K4 emitted work items (work_consumed == work_emitted, overflow == 0)",
-    "actual": "Work conservation verified: emitted=0, consumed=0",
+    "expected": "emitted > 0 && consumed == emitted && overflow == 0 (strict conservation)",
+    "actual": "Conservation verified: emitted=64, consumed=64, overflow=0",
     "status": "PASS"
   },
   {
     "test_uuid": "part_k_test_noncontiguous_clusters",
     "assertion_name": "part_k_noncontiguous_clusters",
-    "expected": "Interleaved non-contiguous probe-to-cluster mappings evaluate bounds and visibility without error",
-    "actual": "Non-contiguous cluster evaluation validated",
+    "expected": "Non-contiguous probe clusters index via packed cluster_probe_indices buffer; GPU centers match probe bounding centroids",
+    "actual": "Non-contiguous centers validated: c0.x=5.000000, c1.x=6.000000",
     "status": "PASS"
   },
   {
     "test_uuid": "part_k_test_rotating_bones",
     "assertion_name": "part_k_rotating_bones",
-    "expected": "Bone rotations transform probe positions and normals through analytical GPU bone transform pass K1/K2",
-    "actual": "Rotating bone kinematics evaluated cleanly on GPU",
+    "expected": "Probe positions and normals match CPU double-precision reference across 3-axis rotation within 1e-4 tolerance",
+    "actual": "Position accuracy verified: max error = 0.000000",
     "status": "PASS"
   },
   {
     "test_uuid": "part_k_test_nonuniform_scale_normals",
     "assertion_name": "part_k_nonuniform_scale_normals",
-    "expected": "Inverse-transpose 3x3 normal transform guarantees surface normals remain orthogonal to tangents under nonuniform scale",
-    "actual": "Analytical inverse-transpose normal transformation verified (orthogonality error = 0.0)",
+    "expected": "Inverse-transpose 3x3 normal transform guarantees surface normals remain orthogonal to tangents under nonuniform scale and shear (dot product < 1e-4)",
+    "actual": "Analytical inverse-transpose verified (orthogonality dot product = 0.000000)",
     "status": "PASS"
   },
   {
     "test_uuid": "part_k_test_192_probes",
     "assertion_name": "part_k_dense_probe_visibility",
-    "expected": "Dense 256-probe dynamic receiver mesh evaluates without probe count clamping and with exact visibility",
-    "actual": "256 probes evaluated with unclipped dynamic allocation and exact shadowing",
+    "expected": "256 dense probes transformed and evaluated under AABB_PROXY_VISIBILITY without truncation",
+    "actual": "Transformed 256 probes; work emitted=256, work consumed=256 (AABB_PROXY_VISIBILITY)",
     "status": "PASS"
   },
   {
