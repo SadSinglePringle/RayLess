@@ -3111,19 +3111,7 @@ RTX_API bool rtx_dispatch_part_k_gpu(
         out_telemetry->gpu_part_k_total_ms = calc_ms(10, 11);
         out_telemetry->gpu_total_ms += out_telemetry->gpu_part_k_total_ms;
 
-        g_latest_parts_jk_telemetry.gpu_k1_bones_tested = out_telemetry->gpu_k1_bones_tested;
-        g_latest_parts_jk_telemetry.gpu_k2_clusters_tested = out_telemetry->gpu_k2_clusters_tested;
-        g_latest_parts_jk_telemetry.gpu_k3_probes_scheduled = out_telemetry->gpu_k3_probes_scheduled;
-        g_latest_parts_jk_telemetry.gpu_k4_visibility_rays = out_telemetry->gpu_k4_visibility_rays;
-        g_latest_parts_jk_telemetry.gpu_k5_probe_light_accumulations = out_telemetry->gpu_k5_probe_light_accumulations;
-        g_latest_parts_jk_telemetry.gpu_k1_ms = out_telemetry->gpu_k1_ms;
-        g_latest_parts_jk_telemetry.gpu_k2_ms = out_telemetry->gpu_k2_ms;
-        g_latest_parts_jk_telemetry.gpu_k3_ms = out_telemetry->gpu_k3_ms;
-        g_latest_parts_jk_telemetry.gpu_k4_ms = out_telemetry->gpu_k4_ms;
-        g_latest_parts_jk_telemetry.gpu_k5_ms = out_telemetry->gpu_k5_ms;
-        g_latest_parts_jk_telemetry.gpu_k6_ms = out_telemetry->gpu_k6_ms;
-        g_latest_parts_jk_telemetry.gpu_part_k_total_ms = out_telemetry->gpu_part_k_total_ms;
-        g_latest_parts_jk_telemetry.gpu_total_ms = out_telemetry->gpu_total_ms;
+        g_latest_parts_jk_telemetry = *out_telemetry;
     }
     return true;
 }
