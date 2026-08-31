@@ -103,6 +103,7 @@ ConstantBuffer<ASTGPartKConstants>              g_constants         : register(b
 StructuredBuffer<RTXSourceAngularFrame>         g_light_frames      : register(t0);
 StructuredBuffer<ASTGBoneTransformGPU>          g_bone_transforms   : register(t1);
 StructuredBuffer<ASTGLightB0RangeGPU>           g_light_ranges      : register(t2);
+StructuredBuffer<uint>                          g_cluster_probe_indices : register(t3);
 
 RWStructuredBuffer<ASTGBoneBoundGPU>            g_bone_bounds       : register(u0);
 RWStructuredBuffer<ASTGReceiverClusterGPU>      g_receiver_clusters : register(u1);
@@ -112,6 +113,20 @@ RWByteAddressBuffer                             g_work_counter      : register(u
 RWStructuredBuffer<uint>                        g_telemetry         : register(u5);
 RWStructuredBuffer<ASTGProbeLightContributionGPU> g_contributions   : register(u6);
 RWByteAddressBuffer                             g_indirect_args     : register(u7);
+RWByteAddressBuffer                             g_probe_irradiance_accum : register(u8);
+
+void InterlockedAddFloat(RWByteAddressBuffer buf, uint byte_offset, float value) {
+    if (abs(value) < 1e-7f) return;
+    uint prev = buf.Load(byte_offset);
+    [allow_uav_condition]
+    for (uint i = 0; i < 64; ++i) {
+        float next_f = asfloat(prev) + value;
+        uint orig;
+        buf.InterlockedCompareExchange(byte_offset, prev, asuint(next_f), orig);
+        if (orig == prev) break;
+        prev = orig;
+    }
+}
 
 // Helper: Matrix-vector multiply
 float3 TransformPoint(float4 row0, float4 row1, float4 row2, float4 row3, float3 p) {
@@ -204,22 +219,26 @@ void CSTransformSurfaceProbes(uint3 id : SV_DispatchThreadID) {
 
     float3 world_pos = TransformPoint(bt.row0, bt.row1, bt.row2, bt.row3, local_pos);
 
-    // Inverse-transpose normal transformation: transpose(inverse(model3x3))
-    float3x3 M = float3x3(bt.row0.xyz, bt.row1.xyz, bt.row2.xyz);
-    float3 c0 = cross(M[1], M[2]);
-    float3 c1 = cross(M[2], M[0]);
-    float3 c2 = cross(M[0], M[1]);
-    float det = dot(M[0], c0);
+    // Exact inverse-transpose normal transformation: transpose(inverse(M)) * local_norm
+    float3 r0 = bt.row0.xyz;
+    float3 r1 = bt.row1.xyz;
+    float3 r2 = bt.row2.xyz;
+
+    float3 c0 = cross(r1, r2);
+    float3 c1 = cross(r2, r0);
+    float3 c2 = cross(r0, r1);
+    float det = dot(r0, c0);
     float3 world_norm;
     if (abs(det) > 1e-6f) {
         float invDet = 1.0f / det;
         world_norm = float3(
-            dot(float3(c0.x, c1.x, c2.x), local_norm),
-            dot(float3(c0.y, c1.y, c2.y), local_norm),
-            dot(float3(c0.z, c1.z, c2.z), local_norm)
+            dot(c0, local_norm),
+            dot(c1, local_norm),
+            dot(c2, local_norm)
         ) * invDet;
     } else {
-        world_norm = TransformVector(bt.row0, bt.row1, bt.row2, local_norm);
+        // Singular matrix fallback
+        world_norm = float3(0, 1, 0);
     }
     float norm_len = length(world_norm);
     if (norm_len > 1e-5f) world_norm /= norm_len;
@@ -252,11 +271,13 @@ void CSTransformReceiverClusters(uint3 id : SV_DispatchThreadID) {
         float3 norm_sum = float3(0, 0, 0);
 
         for (uint p = 0; p < count; ++p) {
-            uint p_idx = cl.probe_offset + p;
+            uint p_idx = g_cluster_probe_indices[cl.probe_offset + p];
             if (p_idx < g_constants.total_probes) {
                 ASTGDynamicSurfaceProbeGPU pr = g_surface_probes[p_idx];
                 center += float3(pr.world_pos_x, pr.world_pos_y, pr.world_pos_z);
                 norm_sum += float3(pr.world_norm_x, pr.world_norm_y, pr.world_norm_z);
+            } else {
+                InterlockedAdd(g_telemetry[24], 1); // Invalid probe index error
             }
         }
         center /= float(count);
@@ -266,7 +287,7 @@ void CSTransformReceiverClusters(uint3 id : SV_DispatchThreadID) {
 
         float max_r = 0.1f;
         for (uint i = 0; i < count; ++i) {
-            uint p_idx = cl.probe_offset + i;
+            uint p_idx = g_cluster_probe_indices[cl.probe_offset + i];
             if (p_idx < g_constants.total_probes) {
                 ASTGDynamicSurfaceProbeGPU pr = g_surface_probes[p_idx];
                 float3 ppos = float3(pr.world_pos_x, pr.world_pos_y, pr.world_pos_z);
@@ -318,10 +339,10 @@ void CSCullReceiverHierarchy(uint3 id : SV_DispatchThreadID) {
             }
         }
 
-        // Expand member probes into compact work queue
+        // Expand member probes into compact work queue using g_cluster_probe_indices
         uint p_count = cl.probe_count;
         for (uint p = 0; p < p_count; ++p) {
-            uint p_idx = cl.probe_offset + p;
+            uint p_idx = g_cluster_probe_indices[cl.probe_offset + p];
             if (p_idx < g_constants.total_probes) {
                 uint work_idx;
                 g_work_counter.InterlockedAdd(0, 1, work_idx);
@@ -337,6 +358,8 @@ void CSCullReceiverHierarchy(uint3 id : SV_DispatchThreadID) {
                 } else {
                     InterlockedAdd(g_telemetry[18], 1); // K4 work overflow
                 }
+            } else {
+                InterlockedAdd(g_telemetry[24], 1); // Invalid probe index error
             }
         }
     }
@@ -415,6 +438,11 @@ void CSEvaluateReceiverVisibility(uint3 id : SV_DispatchThreadID) {
         contrib.irradiance_r = lr.color_r * attenuation;
         contrib.irradiance_g = lr.color_g * attenuation;
         contrib.irradiance_b = lr.color_b * attenuation;
+
+        // Scalable atomic float accumulation into probe buffer
+        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 12 + 0, contrib.irradiance_r);
+        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 12 + 4, contrib.irradiance_g);
+        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 12 + 8, contrib.irradiance_b);
     } else {
         contrib.irradiance_r = 0.0f;
         contrib.irradiance_g = 0.0f;
@@ -425,26 +453,19 @@ void CSEvaluateReceiverVisibility(uint3 id : SV_DispatchThreadID) {
     g_contributions[work_idx] = contrib;
 }
 
-// Pass K6: Reduce and Accumulate Multi-Light Irradiance per Probe
+// Pass K6: Gather and Finalize Multi-Light Irradiance per Probe (O(probes) scale)
 [numthreads(64, 1, 1)]
 void CSAccumulateReceiverIrradiance(uint3 id : SV_DispatchThreadID) {
     uint probe_idx = id.x;
     if (probe_idx >= g_constants.total_probes) return;
 
-    float3 accum = float3(0, 0, 0);
-    uint total_work = g_work_counter.Load(0);
-    if (total_work > g_constants.max_work_items) total_work = g_constants.max_work_items;
+    float r = asfloat(g_probe_irradiance_accum.Load(probe_idx * 12 + 0));
+    float g = asfloat(g_probe_irradiance_accum.Load(probe_idx * 12 + 4));
+    float b = asfloat(g_probe_irradiance_accum.Load(probe_idx * 12 + 8));
 
-    for (uint w = 0; w < total_work; ++w) {
-        ASTGProbeLightContributionGPU c = g_contributions[w];
-        if (c.probe_id == probe_idx && c.visibility == 1) {
-            accum += float3(c.irradiance_r, c.irradiance_g, c.irradiance_b);
-        }
-    }
-
-    g_surface_probes[probe_idx].irradiance_r = accum.x;
-    g_surface_probes[probe_idx].irradiance_g = accum.y;
-    g_surface_probes[probe_idx].irradiance_b = accum.z;
+    g_surface_probes[probe_idx].irradiance_r = r;
+    g_surface_probes[probe_idx].irradiance_g = g;
+    g_surface_probes[probe_idx].irradiance_b = b;
 
     InterlockedAdd(g_telemetry[22], 1); // K6 contributions reduced
 }

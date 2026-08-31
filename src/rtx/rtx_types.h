@@ -678,6 +678,9 @@ struct ASTGPartsJKTelemetryGPU {
     uint32_t gpu_k5_work_consumed;
     uint32_t gpu_k5_visible_results;
     uint32_t gpu_k6_contributions_reduced;
+    uint32_t gpu_k3_invalid_probe_indices;
+    uint32_t gpu_j4_transition_overflow;
+    uint32_t gpu_j5_compaction_overflow;
 
     uint32_t cpu_part_j_reference_calls;
     uint32_t cpu_part_k_reference_calls;
@@ -686,6 +689,7 @@ struct ASTGPartsJKTelemetryGPU {
     double gpu_j1_ms;
     double gpu_j2_ms;
     double gpu_j3_ms;
+    double gpu_j2_j3_ms;
     double gpu_j4_ms;
     double gpu_j5_ms;
     double gpu_k1_ms;
@@ -704,6 +708,14 @@ struct ASTGPartsJKTelemetryGPU {
     double cpu_record_ms;
 };
 typedef struct ASTGPartsJKTelemetryGPU ASTGPartsJKTelemetryGPU;
+
+struct ASTGD3D12DebugStatus {
+    bool is_active;
+    uint64_t error_count;
+    uint64_t warning_count;
+    uint64_t corruption_count;
+};
+typedef struct ASTGD3D12DebugStatus ASTGD3D12DebugStatus;
 
 // Comprehensive GPU Telemetry for B0 Angular & Dynamic Receivers
 struct ASTGB0AngularTelemetry {

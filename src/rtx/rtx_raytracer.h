@@ -221,7 +221,7 @@ RTX_API bool rtx_dispatch_part_j_gpu(
     ASTGPartsJKTelemetryGPU* out_telemetry
 );
 
-// Updates dynamic inputs for Part K (bone transforms, clusters, surface probes)
+// Updates dynamic inputs for Part K (bone transforms, clusters, cluster probe indices, surface probes)
 RTX_API bool rtx_update_part_k_dynamic_inputs(
     const ASTGBoneTransformGPU* bone_transforms,
     uint32_t bone_count,
@@ -229,6 +229,8 @@ RTX_API bool rtx_update_part_k_dynamic_inputs(
     uint32_t bound_count,
     const ASTGReceiverClusterGPU* clusters,
     uint32_t cluster_count,
+    const uint32_t* cluster_probe_indices,
+    uint32_t cluster_probe_indices_count,
     const ASTGDynamicSurfaceProbeGPU* probes,
     uint32_t probe_count,
     uint32_t light_count,
@@ -236,7 +238,7 @@ RTX_API bool rtx_update_part_k_dynamic_inputs(
     uint32_t is_skeletal
 );
 
-// Dispatches GPU Part K compute pipeline (Passes K1 -> K2 -> K3 -> K4 -> K5)
+// Dispatches GPU Part K compute pipeline (Passes K1 -> K2 -> K3 -> K4 -> K5 -> K6)
 RTX_API bool rtx_dispatch_part_k_gpu(
     uint32_t bone_count,
     uint32_t cluster_count,
@@ -269,6 +271,24 @@ RTX_API bool rtx_read_parts_jk_diagnostics_blocking(
 
 // Returns the count of Direct3D 12 debug layer error / corruption messages
 RTX_API uint32_t rtx_get_d3d12_debug_error_count();
+
+// Returns the truthful Direct3D 12 debug layer status and message counts
+RTX_API bool rtx_get_d3d12_debug_status(ASTGD3D12DebugStatus* out_status);
+
+// Clears stored Direct3D 12 debug layer messages for scoped workload testing
+RTX_API void rtx_clear_d3d12_debug_messages();
+
+// Reads back the GPU persistent blocker count for a specific B0 record (used in aggregate blocker validation)
+RTX_API uint32_t rtx_readback_part_j_persistent_blocker_count(uint32_t global_record_index);
+
+// Reads back transformed dynamic surface probes from the persistent GPU buffer
+RTX_API bool rtx_readback_part_k_transformed_probes(ASTGDynamicSurfaceProbeGPU* out_probes, uint32_t count);
+
+// Reads back transformed receiver clusters from the persistent GPU buffer
+RTX_API bool rtx_readback_part_k_transformed_clusters(ASTGReceiverClusterGPU* out_clusters, uint32_t count);
+
+// Reads back transformed bone bounds from the persistent GPU buffer
+RTX_API bool rtx_readback_part_k_transformed_bounds(ASTGBoneBoundGPU* out_bounds, uint32_t count);
 
 // Returns the current execution status of the Parts J/K GPU runtime
 RTX_API ASTGPartsJKExecutionStatus rtx_get_parts_jk_execution_status();

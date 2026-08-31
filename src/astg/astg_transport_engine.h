@@ -2026,14 +2026,194 @@ public:
     std::unordered_map<uint64_t, bool> group_b0_record_blocked; // ((group_id << 40) | (light_id << 20) | record_id) -> bool
     std::unordered_map<uint32_t, std::unordered_set<uint32_t>> group_previously_lit_probes;
     std::map<ASTGGroupLightKey, ASTGGroupLightMembershipAllocation> group_light_allocations;
+    struct MemoryBlock {
+        uint32_t offset;
+        uint32_t count;
+    };
+    static constexpr uint32_t MAX_MEMBERSHIP_WORDS = 65536;
+    static constexpr uint32_t MAX_FOOTPRINTS = 65536;
+
+    std::vector<MemoryBlock> free_membership_word_blocks;
+    std::vector<MemoryBlock> free_footprint_blocks;
     uint32_t next_membership_word_pool_offset = 0;
     uint32_t next_footprint_pool_offset = 0;
+
+    uint32_t total_words_allocated = 0;
+    uint32_t total_words_reclaimed = 0;
+    uint32_t high_water_mark_words = 0;
+    uint32_t allocation_failures = 0;
+
+    bool allocate_membership_words(uint32_t count, uint32_t& out_offset) {
+        for (size_t i = 0; i < free_membership_word_blocks.size(); ++i) {
+            if (free_membership_word_blocks[i].count >= count) {
+                out_offset = free_membership_word_blocks[i].offset;
+                if (free_membership_word_blocks[i].count > count) {
+                    free_membership_word_blocks[i].offset += count;
+                    free_membership_word_blocks[i].count -= count;
+                } else {
+                    free_membership_word_blocks.erase(free_membership_word_blocks.begin() + i);
+                }
+                total_words_allocated += count;
+                return true;
+            }
+        }
+        if (next_membership_word_pool_offset + count <= MAX_MEMBERSHIP_WORDS) {
+            out_offset = next_membership_word_pool_offset;
+            next_membership_word_pool_offset += count;
+            total_words_allocated += count;
+            if (next_membership_word_pool_offset > high_water_mark_words) {
+                high_water_mark_words = next_membership_word_pool_offset;
+            }
+            return true;
+        }
+        allocation_failures++;
+        return false;
+    }
+
+    void free_membership_words(uint32_t offset, uint32_t count) {
+        if (count == 0) return;
+        free_membership_word_blocks.push_back({ offset, count });
+        total_words_reclaimed += count;
+    }
+
+    bool allocate_footprints(uint32_t count, uint32_t& out_offset) {
+        for (size_t i = 0; i < free_footprint_blocks.size(); ++i) {
+            if (free_footprint_blocks[i].count >= count) {
+                out_offset = free_footprint_blocks[i].offset;
+                if (free_footprint_blocks[i].count > count) {
+                    free_footprint_blocks[i].offset += count;
+                    free_footprint_blocks[i].count -= count;
+                } else {
+                    free_footprint_blocks.erase(free_footprint_blocks.begin() + i);
+                }
+                return true;
+            }
+        }
+        if (next_footprint_pool_offset + count <= MAX_FOOTPRINTS) {
+            out_offset = next_footprint_pool_offset;
+            next_footprint_pool_offset += count;
+            return true;
+        }
+        allocation_failures++;
+        return false;
+    }
+
+    void free_footprints(uint32_t offset, uint32_t count) {
+        if (count == 0) return;
+        free_footprint_blocks.push_back({ offset, count });
+    }
+
+    void apply_b0_transitions(const std::vector<ASTGB0TransitionRecord>& transitions, uint32_t group_id) {
+        for (const auto& tr : transitions) {
+            uint32_t nid = tr.transport_node_id;
+            if (nid < bounce0_nodes.size()) {
+                bounce0_nodes[nid].is_active = (tr.new_visibility_state == 0);
+                uint64_t key = ((uint64_t)tr.light_id << 32) | tr.b0_record_id;
+                if (tr.new_visibility_state == 1) {
+                    b0_record_blocker_counts[key]++;
+                } else {
+                    auto it_cnt = b0_record_blocker_counts.find(key);
+                    if (it_cnt != b0_record_blocker_counts.end()) {
+                        if (it_cnt->second > 0 && --(it_cnt->second) == 0) {
+                            b0_record_blocker_counts.erase(it_cnt);
+                        }
+                    }
+                }
+                dynamic_edge_timeline.push_back({
+                    dynamic_timeline_frame, nid,
+                    (tr.new_visibility_state == 1) ? "BLOCKED" : "UNBLOCKED",
+                    group_id, tr.new_blocker_count
+                });
+                b0_telemetry.visibility_transitions++;
+            }
+        }
+    }
+
+    void remove_group_dynamic_occlusion_gpu(uint32_t group_id) {
+        std::vector<ASTGGroupLightKey> keys_to_remove;
+        for (const auto& kv : group_light_allocations) {
+            if (kv.first.group_id == group_id) {
+                keys_to_remove.push_back(kv.first);
+            }
+        }
+        if (keys_to_remove.empty()) return;
+
+        std::vector<ASTGChangedGroupLightPairGPU> removal_pairs;
+        std::vector<ASTGMembershipWordWorkGPU> removal_work_items;
+
+        for (const auto& key : keys_to_remove) {
+            const auto& alloc = group_light_allocations[key];
+            ASTGChangedGroupLightPairGPU p{};
+            p.group_id = alloc.group_id;
+            p.actual_light_id = alloc.actual_light_id;
+            p.packed_light_index = alloc.packed_light_index;
+            p.first_bound = 0;
+            p.bound_count = 0; // Empty bounds force current membership to 0
+            p.record_offset = alloc.record_offset;
+            p.record_count = alloc.record_count;
+            p.bvh_root_index = 0;
+            p.generation = (uint32_t)++transport_generation;
+            p.membership_word_offset = alloc.membership_word_offset;
+            p.membership_word_count = alloc.membership_word_count;
+            p.footprint_offset = alloc.footprint_offset;
+
+            uint32_t p_idx = (uint32_t)removal_pairs.size();
+            removal_pairs.push_back(p);
+
+            for (uint32_t w = 0; w < alloc.membership_word_count; ++w) {
+                ASTGMembershipWordWorkGPU work{};
+                work.pair_index = p_idx;
+                work.local_word_index = w;
+                work.global_word_offset = alloc.membership_word_offset + w;
+                removal_work_items.push_back(work);
+            }
+        }
+
+        if (!removal_pairs.empty()) {
+            rtx_update_part_j_dynamic_inputs(
+                removal_pairs.data(), (uint32_t)removal_pairs.size(),
+                nullptr, 0,
+                removal_work_items.data(), (uint32_t)removal_work_items.size(),
+                (uint32_t)transport_generation,
+                0,
+                MAX_FOOTPRINTS
+            );
+
+            std::vector<ASTGB0TransitionRecord> gpu_transitions(65536);
+            uint32_t trans_count = 0;
+            ASTGPartsJKTelemetryGPU telem{};
+            bool j_ok = rtx_dispatch_part_j_gpu(
+                (uint32_t)removal_pairs.size(),
+                0,
+                (uint32_t)removal_work_items.size(),
+                gpu_transitions.data(),
+                &trans_count,
+                65536,
+                &telem
+            );
+
+            if (j_ok && trans_count > 0) {
+                gpu_transitions.resize(trans_count);
+                apply_b0_transitions(gpu_transitions, group_id);
+            }
+        }
+
+        for (const auto& key : keys_to_remove) {
+            const auto& alloc = group_light_allocations[key];
+            free_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
+            free_footprints(alloc.footprint_offset, alloc.footprint_count);
+            group_light_allocations.erase(key);
+        }
+    }
+
     ASTGB0AngularTelemetry b0_telemetry{};
 
     void invalidate_light_hierarchy(uint32_t light_id) {
         light_b0_hierarchies.erase(light_id);
         for (auto it = group_light_allocations.begin(); it != group_light_allocations.end(); ) {
             if (it->first.light_id == light_id) {
+                free_membership_words(it->second.membership_word_offset, it->second.membership_word_count);
+                free_footprints(it->second.footprint_offset, it->second.footprint_count);
                 it = group_light_allocations.erase(it);
             } else {
                 ++it;
@@ -2487,6 +2667,9 @@ public:
                 ++it_b;
             }
         }
+
+        // 5. GPU-level delta removal and allocation reclamation
+        remove_group_dynamic_occlusion_gpu(group_id);
     }
 
     uint32_t register_dynamic_receiver_probes(
@@ -3072,6 +3255,10 @@ public:
                         auto it_alloc = group_light_allocations.find(key);
                         uint32_t needed_words = (r.record_count + 31) / 32;
                         if (it_alloc == group_light_allocations.end() || it_alloc->second.membership_word_count != needed_words) {
+                            if (it_alloc != group_light_allocations.end()) {
+                                free_membership_words(it_alloc->second.membership_word_offset, it_alloc->second.membership_word_count);
+                                free_footprints(it_alloc->second.footprint_offset, it_alloc->second.footprint_count);
+                            }
                             ASTGGroupLightMembershipAllocation alloc{};
                             alloc.group_id = group_id;
                             alloc.actual_light_id = actual_lid;
@@ -3079,11 +3266,9 @@ public:
                             alloc.record_offset = r.record_offset;
                             alloc.record_count = r.record_count;
                             alloc.membership_word_count = needed_words;
-                            alloc.membership_word_offset = next_membership_word_pool_offset;
-                            next_membership_word_pool_offset += needed_words;
+                            allocate_membership_words(needed_words, alloc.membership_word_offset);
                             alloc.footprint_count = (uint32_t)gpu_bounds.size();
-                            alloc.footprint_offset = next_footprint_pool_offset;
-                            next_footprint_pool_offset += alloc.footprint_count;
+                            allocate_footprints(alloc.footprint_count, alloc.footprint_offset);
                             alloc.light_layout_generation = (uint32_t)transport_generation;
                             alloc.allocation_generation = (uint32_t)transport_generation;
                             group_light_allocations[key] = alloc;
@@ -3239,14 +3424,14 @@ public:
                         for (size_t b_idx = 0; b_idx < blk_kv.second.bounds.size(); ++b_idx) {
                             const auto& ob = blk_kv.second.bounds[b_idx];
                             ASTGBoneBoundGPU bb{};
-                            bb.bone_id = base_tx + (blk_kv.second.is_skeletal ? (uint32_t)b_idx : 0);
+                            bb.bone_id = base_tx + (blk_kv.second.is_skeletal ? (ob.bone_id < blk_kv.second.bone_matrices.size() ? ob.bone_id : 0) : 0);
                             bb.group_id = blk_kv.first;
-                            bb.local_min_x = ob.world_bounds.min_bounds.x;
-                            bb.local_min_y = ob.world_bounds.min_bounds.y;
-                            bb.local_min_z = ob.world_bounds.min_bounds.z;
-                            bb.local_max_x = ob.world_bounds.max_bounds.x;
-                            bb.local_max_y = ob.world_bounds.max_bounds.y;
-                            bb.local_max_z = ob.world_bounds.max_bounds.z;
+                            bb.local_min_x = ob.local_bounds.min_bounds.x;
+                            bb.local_min_y = ob.local_bounds.min_bounds.y;
+                            bb.local_min_z = ob.local_bounds.min_bounds.z;
+                            bb.local_max_x = ob.local_bounds.max_bounds.x;
+                            bb.local_max_y = ob.local_bounds.max_bounds.y;
+                            bb.local_max_z = ob.local_bounds.max_bounds.z;
                             bb.world_min_x = ob.world_bounds.min_bounds.x;
                             bb.world_min_y = ob.world_bounds.min_bounds.y;
                             bb.world_min_z = ob.world_bounds.min_bounds.z;
@@ -3257,14 +3442,18 @@ public:
                         }
                     }
 
+                    std::vector<uint32_t> cluster_probe_indices;
                     for (const auto& cl : r_group.receiver_clusters) {
                         ASTGReceiverClusterGPU c{};
                         c.world_center_x = cl.world_centroid.x; c.world_center_y = cl.world_centroid.y; c.world_center_z = cl.world_centroid.z;
                         c.radius = cl.cluster_radius;
                         c.normal_axis_x = cl.world_normal.x; c.normal_axis_y = cl.world_normal.y; c.normal_axis_z = cl.world_normal.z;
                         c.cos_normal_half_angle = 0.5f;
-                        c.probe_offset = cl.member_probe_indices.empty() ? 0 : cl.member_probe_indices[0];
+                        c.probe_offset = (uint32_t)cluster_probe_indices.size();
                         c.probe_count = (uint32_t)cl.member_probe_indices.size();
+                        for (uint32_t p_idx : cl.member_probe_indices) {
+                            cluster_probe_indices.push_back(p_idx);
+                        }
                         c.bone_id = group_transform_offsets[r_kv.first] + (r_group.is_skeletal ? cl.bone_id : 0);
                         c.generation = (uint32_t)transport_generation;
                         clusters.push_back(c);
@@ -3288,6 +3477,7 @@ public:
                         bone_transforms.data(), (uint32_t)bone_transforms.size(),
                         bone_bounds.data(), (uint32_t)bone_bounds.size(),
                         clusters.data(), (uint32_t)clusters.size(),
+                        cluster_probe_indices.data(), (uint32_t)cluster_probe_indices.size(),
                         probes.data(), (uint32_t)probes.size(),
                         (uint32_t)lights_to_test.size(),
                         (uint32_t)transport_generation,

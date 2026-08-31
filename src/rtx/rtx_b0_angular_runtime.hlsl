@@ -138,6 +138,7 @@ RWStructuredBuffer<ASTGB0TransitionRecord>      g_transitions       : register(u
 RWByteAddressBuffer                             g_transition_counter: register(u5);
 RWStructuredBuffer<uint>                        g_telemetry         : register(u6);
 RWStructuredBuffer<ASTGB0TransitionRecord>      g_compact_transitions:register(u7);
+RWByteAddressBuffer                             g_compact_counter   : register(u8);
 
 // Helper: Segment intersects AABB exact slab test
 bool SegmentIntersectsAABB(float3 p0, float3 p1, float3 boxMin, float3 boxMax) {
@@ -379,6 +380,8 @@ void CSApplyB0MembershipDeltas(uint3 id : SV_DispatchThreadID) {
                     tr.generation = pair.generation;
                     tr.pad[0] = 0; tr.pad[1] = 0;
                     g_transitions[trans_idx] = tr;
+                } else {
+                    InterlockedAdd(g_telemetry[25], 1); // J4 transition overflow
                 }
                 InterlockedAdd(g_telemetry[11], 1); // J4 transitions
             }
@@ -422,6 +425,8 @@ void CSApplyB0MembershipDeltas(uint3 id : SV_DispatchThreadID) {
                             tr.generation = pair.generation;
                             tr.pad[0] = 0; tr.pad[1] = 0;
                             g_transitions[trans_idx] = tr;
+                        } else {
+                            InterlockedAdd(g_telemetry[25], 1); // J4 transition overflow
                         }
                         InterlockedAdd(g_telemetry[11], 1); // J4 transitions
                     }
@@ -447,7 +452,13 @@ void CSCompactB0Transitions(uint3 id : SV_DispatchThreadID) {
 
     ASTGB0TransitionRecord tr = g_transitions[tr_idx];
     if (tr.generation == g_constants.current_generation) {
-        g_compact_transitions[tr_idx] = tr;
-        InterlockedAdd(g_telemetry[12], 1); // J5 compacted transitions
+        uint compact_idx;
+        g_compact_counter.InterlockedAdd(0, 1, compact_idx);
+        if (compact_idx < 65536) {
+            g_compact_transitions[compact_idx] = tr;
+            InterlockedAdd(g_telemetry[12], 1); // J5 compacted transitions
+        } else {
+            InterlockedAdd(g_telemetry[26], 1); // J5 compaction overflow
+        }
     }
 }
