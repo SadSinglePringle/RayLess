@@ -33,6 +33,7 @@ Write-Host "Compiling HLSL Part K Dynamic Receiver compute shaders..."
 & $DXC -T cs_6_5 -E CSTransformReceiverClusters -Fh src/rtx/rtx_rec_transform_clusters_cso.h -Vn g_rtx_rec_transform_clusters_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
 & $DXC -T cs_6_5 -E CSTransformSurfaceProbes -Fh src/rtx/rtx_rec_transform_probes_cso.h -Vn g_rtx_rec_transform_probes_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
 & $DXC -T cs_6_5 -E CSCullReceiverHierarchy -Fh src/rtx/rtx_rec_cull_hierarchy_cso.h -Vn g_rtx_rec_cull_hierarchy_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
+& $DXC -T cs_6_5 -E CSBuildReceiverDispatchArgs -Fh src/rtx/rtx_rec_build_args_cso.h -Vn g_rtx_rec_build_args_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
 & $DXC -T cs_6_5 -E CSEvaluateReceiverVisibility -Fh src/rtx/rtx_rec_eval_visibility_cso.h -Vn g_rtx_rec_eval_visibility_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
 & $DXC -T cs_6_5 -E CSAccumulateReceiverIrradiance -Fh src/rtx/rtx_rec_accum_irradiance_cso.h -Vn g_rtx_rec_accum_irradiance_bytecode src/rtx/rtx_dynamic_receiver_runtime.hlsl
 

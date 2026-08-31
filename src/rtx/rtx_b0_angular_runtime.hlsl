@@ -59,16 +59,26 @@ struct ASTGLightB0RangeGPU {
 
 struct ASTGChangedGroupLightPairGPU {
     uint group_id;
-    uint light_id;
+    uint actual_light_id;
+    uint packed_light_index;
     uint first_bound;
+
     uint bound_count;
     uint record_offset;
     uint record_count;
     uint bvh_root_index;
+
     uint generation;
-    uint pair_index;
     uint membership_word_offset;
-    uint pad[2];
+    uint membership_word_count;
+    uint footprint_offset;
+};
+
+struct ASTGMembershipWordWorkGPU {
+    uint pair_index;
+    uint local_word_index;
+    uint global_word_offset;
+    uint pad;
 };
 
 struct ASTGBoneBoundGPU {
@@ -104,12 +114,12 @@ struct ASTGPartJConstants {
     uint total_bvh_nodes;
     uint current_generation;
     uint dynamic_occlusion_mode;
-    uint use_dxr_geometry;
-    uint flags;
+    uint total_membership_words;
+    uint footprint_capacity;
 };
 
 // Global Bindings
-ConstantBuffer<ASTGPartJConstants> g_constants : register(b0);
+ConstantBuffer<ASTGPartJConstants>              g_constants         : register(b0);
 
 StructuredBuffer<RTXSourceAngularFrame>         g_light_frames      : register(t0);
 StructuredBuffer<ASTGLightB0RangeGPU>           g_light_ranges      : register(t1);
@@ -118,6 +128,7 @@ StructuredBuffer<ASTGB0AngularBVHNode>          g_b0_bvh_nodes      : register(t
 StructuredBuffer<float3>                        g_b0_hit_positions  : register(t4);
 StructuredBuffer<ASTGChangedGroupLightPairGPU>  g_changed_pairs     : register(t5);
 StructuredBuffer<ASTGBoneBoundGPU>              g_bone_bounds       : register(t6);
+StructuredBuffer<ASTGMembershipWordWorkGPU>     g_word_work_items   : register(t7);
 
 RWStructuredBuffer<ASTGB0AngularFootprint>      g_footprints        : register(u0);
 RWStructuredBuffer<uint>                        g_current_membership: register(u1);
@@ -126,6 +137,7 @@ RWStructuredBuffer<ASTGB0PersistentState>       g_persistent_states : register(u
 RWStructuredBuffer<ASTGB0TransitionRecord>      g_transitions       : register(u4);
 RWByteAddressBuffer                             g_transition_counter: register(u5);
 RWStructuredBuffer<uint>                        g_telemetry         : register(u6);
+RWStructuredBuffer<ASTGB0TransitionRecord>      g_compact_transitions:register(u7);
 
 // Helper: Segment intersects AABB exact slab test
 bool SegmentIntersectsAABB(float3 p0, float3 p1, float3 boxMin, float3 boxMax) {
@@ -161,6 +173,8 @@ void CSProjectDynamicBounds(uint3 id : SV_DispatchThreadID) {
     uint bound_index = id.x;
     if (bound_index >= g_constants.total_bounds) return;
 
+    InterlockedAdd(g_telemetry[0], 1); // J1 threads processed
+
     ASTGBoneBoundGPU b = g_bone_bounds[bound_index];
     float3 bmin = float3(b.world_min_x, b.world_min_y, b.world_min_z);
     float3 bmax = float3(b.world_max_x, b.world_max_y, b.world_max_z);
@@ -169,16 +183,13 @@ void CSProjectDynamicBounds(uint3 id : SV_DispatchThreadID) {
     float3 ext = (bmax - bmin) * 0.5f;
     float radius = length(ext);
 
-    // Telemetry: bounds projected
-    InterlockedAdd(g_telemetry[0], 1);
-
     // Project against each changed group/light pair that references this bound
     for (uint p = 0; p < g_constants.pair_count; ++p) {
         ASTGChangedGroupLightPairGPU pair = g_changed_pairs[p];
         if (b.group_id != pair.group_id) continue;
         if (bound_index < pair.first_bound || bound_index >= pair.first_bound + pair.bound_count) continue;
 
-        RTXSourceAngularFrame frame = g_light_frames[pair.light_id];
+        RTXSourceAngularFrame frame = g_light_frames[pair.packed_light_index];
         float3 light_pos = float3(frame.origin_x, frame.origin_y, frame.origin_z);
         float3 to_center = center - light_pos;
         float dist = length(to_center);
@@ -220,8 +231,12 @@ void CSProjectDynamicBounds(uint3 id : SV_DispatchThreadID) {
             fp.flags = 0x0;
         }
 
-        uint fp_index = pair.pair_index * 64 + (bound_index - pair.first_bound);
-        g_footprints[fp_index] = fp;
+        uint bound_rel = bound_index - pair.first_bound;
+        uint fp_index = pair.footprint_offset + bound_rel;
+        if (fp_index < g_constants.footprint_capacity) {
+            g_footprints[fp_index] = fp;
+            InterlockedAdd(g_telemetry[1], 1); // J1 footprints written
+        }
     }
 }
 
@@ -231,8 +246,10 @@ void CSTraverseB0AngularBVH(uint3 id : SV_DispatchThreadID) {
     uint pair_idx = id.x;
     if (pair_idx >= g_constants.pair_count) return;
 
+    InterlockedAdd(g_telemetry[2], 1); // J2 pairs processed
+
     ASTGChangedGroupLightPairGPU pair = g_changed_pairs[pair_idx];
-    RTXSourceAngularFrame frame = g_light_frames[pair.light_id];
+    RTXSourceAngularFrame frame = g_light_frames[pair.packed_light_index];
     float3 light_pos = float3(frame.origin_x, frame.origin_y, frame.origin_z);
 
     // Traverse BVH for each bound in this group/light pair
@@ -242,7 +259,8 @@ void CSTraverseB0AngularBVH(uint3 id : SV_DispatchThreadID) {
         float3 bmin = float3(b.world_min_x, b.world_min_y, b.world_min_z);
         float3 bmax = float3(b.world_max_x, b.world_max_y, b.world_max_z);
 
-        uint fp_index = pair.pair_index * 64 + b_rel;
+        uint fp_index = pair.footprint_offset + b_rel;
+        if (fp_index >= g_constants.footprint_capacity) continue;
         ASTGB0AngularFootprint fp = g_footprints[fp_index];
 
         float3 fp_axis = float3(fp.cone_axis_x, fp.cone_axis_y, fp.cone_axis_z);
@@ -258,7 +276,7 @@ void CSTraverseB0AngularBVH(uint3 id : SV_DispatchThreadID) {
             if (node_idx >= g_constants.total_bvh_nodes) continue;
 
             ASTGB0AngularBVHNode node = g_b0_bvh_nodes[node_idx];
-            InterlockedAdd(g_telemetry[1], 1); // Nodes visited
+            InterlockedAdd(g_telemetry[3], 1); // J2 nodes visited
 
             // Check cone overlap
             bool overlap = (fp.flags & 0x1) != 0; // Full sphere always overlaps
@@ -271,10 +289,7 @@ void CSTraverseB0AngularBVH(uint3 id : SV_DispatchThreadID) {
                 overlap = (cos_gamma >= cos_sum) || (cos_gamma + fp.sin_half_angle * sin_node >= fp_cos * node.cos_half_angle);
             }
 
-            if (!overlap) {
-                InterlockedAdd(g_telemetry[2], 1); // Node culled
-                continue;
-            }
+            if (!overlap) continue;
 
             if (node.record_count > 0) {
                 // Leaf: test member records
@@ -288,14 +303,14 @@ void CSTraverseB0AngularBVH(uint3 id : SV_DispatchThreadID) {
                     // Angular containment
                     bool in_footprint = ((fp.flags & 0x1) != 0) || (dot(rec_dir, fp_axis) >= fp_cos);
                     if (in_footprint) {
-                        InterlockedAdd(g_telemetry[3], 1); // Exact tests
+                        InterlockedAdd(g_telemetry[5], 1); // J3 exact tests
 
                         // Pass J3: Exact candidate visibility
                         float3 hit_pos = g_b0_hit_positions[record_idx];
                         bool blocked = SegmentIntersectsAABB(light_pos, hit_pos, bmin, bmax);
 
                         if (blocked) {
-                            InterlockedAdd(g_telemetry[4], 1); // Exact hits
+                            InterlockedAdd(g_telemetry[6], 1); // J3 exact blockers
                             // Set bit in current membership bitset
                             uint local_rec = record_idx - pair.record_offset;
                             uint word_idx = pair.membership_word_offset + (local_rec / 32);
@@ -311,108 +326,128 @@ void CSTraverseB0AngularBVH(uint3 id : SV_DispatchThreadID) {
                     if (node.left_child != 0) stack[stack_ptr++] = node.left_child;
                 } else {
                     // Stack overflow flag
-                    InterlockedOr(g_telemetry[5], 0x1);
+                    InterlockedAdd(g_telemetry[4], 1); // J2 stack overflows
                 }
             }
         }
     }
 }
 
-// Pass J4: Apply Membership Deltas & Update Blocker Counts
+// Pass J4: Parallel Membership-Word Processing & Guarded Blocker Delta Updates
 [numthreads(64, 1, 1)]
 void CSApplyB0MembershipDeltas(uint3 id : SV_DispatchThreadID) {
-    uint pair_idx = id.x;
-    if (pair_idx >= g_constants.pair_count) return;
+    uint work_idx = id.x;
+    if (work_idx >= g_constants.total_membership_words) return;
 
-    ASTGChangedGroupLightPairGPU pair = g_changed_pairs[pair_idx];
-    uint word_count = (pair.record_count + 31) / 32;
+    InterlockedAdd(g_telemetry[7], 1); // J4 words processed
 
-    for (uint w = 0; w < word_count; ++w) {
-        uint word_idx = pair.membership_word_offset + w;
-        uint curr = g_current_membership[word_idx];
-        uint prev = g_previous_membership[word_idx];
+    ASTGMembershipWordWorkGPU work = g_word_work_items[work_idx];
+    ASTGChangedGroupLightPairGPU pair = g_changed_pairs[work.pair_index];
+    uint global_word = work.global_word_offset;
 
-        uint added = curr & ~prev;
-        uint removed = prev & ~curr;
+    uint curr = g_current_membership[global_word];
+    uint prev = g_previous_membership[global_word];
 
-        // Process additions
-        uint temp_add = added;
-        while (temp_add != 0) {
-            uint bit = firstbitlow(temp_add);
-            temp_add &= ~(1u << bit);
+    uint added = curr & ~prev;
+    uint removed = prev & ~curr;
 
-            uint local_rec = w * 32 + bit;
-            if (local_rec < pair.record_count) {
-                uint global_rec = pair.record_offset + local_rec;
-                uint old_count = 0;
-                InterlockedAdd(g_persistent_states[global_rec].blocker_count, 1, old_count);
+    // Process additions
+    uint temp_add = added;
+    while (temp_add != 0) {
+        uint bit = firstbitlow(temp_add);
+        temp_add &= ~(1u << bit);
 
-                if (old_count == 0) {
-                    // State transitioned to BLOCKED (0 -> 1)
-                    uint trans_idx;
-                    g_transition_counter.InterlockedAdd(0, 1, trans_idx);
+        uint local_rec = work.local_word_index * 32 + bit;
+        if (local_rec < pair.record_count) {
+            uint global_rec = pair.record_offset + local_rec;
+            uint old_count = 0;
+            InterlockedAdd(g_persistent_states[global_rec].blocker_count, 1, old_count);
+            InterlockedAdd(g_telemetry[8], 1); // J4 additions
 
-                    if (trans_idx < 65536) {
-                        ASTGB0TransitionRecord tr;
-                        tr.light_id = pair.light_id;
-                        tr.b0_record_id = global_rec;
-                        tr.transport_node_id = g_b0_records[global_rec].transport_node_id;
-                        tr.new_visibility_state = 1;
-                        tr.new_blocker_count = 1;
-                        tr.generation = g_constants.current_generation;
-                        tr.pad[0] = 0; tr.pad[1] = 0;
-                        g_transitions[trans_idx] = tr;
-                    }
-                    InterlockedAdd(g_telemetry[6], 1); // Transitions
+            if (old_count == 0) {
+                // State transitioned to BLOCKED (0 -> 1)
+                uint trans_idx;
+                g_transition_counter.InterlockedAdd(0, 1, trans_idx);
+
+                if (trans_idx < 65536) {
+                    ASTGB0TransitionRecord tr;
+                    tr.light_id = pair.actual_light_id;
+                    tr.b0_record_id = local_rec;
+                    tr.transport_node_id = g_b0_records[global_rec].transport_node_id;
+                    tr.new_visibility_state = 1;
+                    tr.new_blocker_count = 1;
+                    tr.generation = pair.generation;
+                    tr.pad[0] = 0; tr.pad[1] = 0;
+                    g_transitions[trans_idx] = tr;
                 }
+                InterlockedAdd(g_telemetry[11], 1); // J4 transitions
             }
         }
-
-        // Process removals
-        uint temp_rem = removed;
-        while (temp_rem != 0) {
-            uint bit = firstbitlow(temp_rem);
-            temp_rem &= ~(1u << bit);
-
-            uint local_rec = w * 32 + bit;
-            if (local_rec < pair.record_count) {
-                uint global_rec = pair.record_offset + local_rec;
-                uint old_count = 0;
-                InterlockedAdd(g_persistent_states[global_rec].blocker_count, 0xFFFFFFFF, old_count);
-
-                if (old_count == 1) {
-                    // State transitioned to UNBLOCKED (1 -> 0)
-                    uint trans_idx;
-                    g_transition_counter.InterlockedAdd(0, 1, trans_idx);
-
-                    if (trans_idx < 65536) {
-                        ASTGB0TransitionRecord tr;
-                        tr.light_id = pair.light_id;
-                        tr.b0_record_id = global_rec;
-                        tr.transport_node_id = g_b0_records[global_rec].transport_node_id;
-                        tr.new_visibility_state = 0;
-                        tr.new_blocker_count = 0;
-                        tr.generation = g_constants.current_generation;
-                        tr.pad[0] = 0; tr.pad[1] = 0;
-                        g_transitions[trans_idx] = tr;
-                    }
-                    InterlockedAdd(g_telemetry[6], 1); // Transitions
-                } else if (old_count == 0) {
-                    // Underflow error flag
-                    InterlockedOr(g_telemetry[5], 0x2);
-                }
-            }
-        }
-
-        // Copy current to previous for temporal persistence
-        g_previous_membership[word_idx] = curr;
-        // Clear current membership for next frame
-        g_current_membership[word_idx] = 0;
     }
+
+    // Process removals with guarded compare-exchange to prevent underflow
+    uint temp_rem = removed;
+    while (temp_rem != 0) {
+        uint bit = firstbitlow(temp_rem);
+        temp_rem &= ~(1u << bit);
+
+        uint local_rec = work.local_word_index * 32 + bit;
+        if (local_rec < pair.record_count) {
+            uint global_rec = pair.record_offset + local_rec;
+            InterlockedAdd(g_telemetry[9], 1); // J4 removals
+
+            uint observed = g_persistent_states[global_rec].blocker_count;
+            while (true) {
+                if (observed == 0) {
+                    InterlockedAdd(g_telemetry[10], 1); // J4 underflow errors
+                    break;
+                }
+
+                uint desired = observed - 1;
+                uint original;
+                InterlockedCompareExchange(g_persistent_states[global_rec].blocker_count, observed, desired, original);
+                if (original == observed) {
+                    if (observed == 1) {
+                        // State transitioned to UNBLOCKED (1 -> 0)
+                        uint trans_idx;
+                        g_transition_counter.InterlockedAdd(0, 1, trans_idx);
+
+                        if (trans_idx < 65536) {
+                            ASTGB0TransitionRecord tr;
+                            tr.light_id = pair.actual_light_id;
+                            tr.b0_record_id = local_rec;
+                            tr.transport_node_id = g_b0_records[global_rec].transport_node_id;
+                            tr.new_visibility_state = 0;
+                            tr.new_blocker_count = 0;
+                            tr.generation = pair.generation;
+                            tr.pad[0] = 0; tr.pad[1] = 0;
+                            g_transitions[trans_idx] = tr;
+                        }
+                        InterlockedAdd(g_telemetry[11], 1); // J4 transitions
+                    }
+                    break;
+                }
+                observed = original;
+            }
+        }
+    }
+
+    // Copy current to previous for temporal persistence
+    g_previous_membership[global_word] = curr;
+    // Clear current membership for next frame
+    g_current_membership[global_word] = 0;
 }
 
-// Pass J5: Compact Transitions (Optional format pass)
+// Pass J5: Compact & Validate Transitions for Downstream Consumption
 [numthreads(64, 1, 1)]
 void CSCompactB0Transitions(uint3 id : SV_DispatchThreadID) {
-    // Identity compaction pass for downstream consumers
+    uint tr_idx = id.x;
+    uint total_trans = g_transition_counter.Load(0);
+    if (tr_idx >= total_trans || tr_idx >= 65536) return;
+
+    ASTGB0TransitionRecord tr = g_transitions[tr_idx];
+    if (tr.generation == g_constants.current_generation) {
+        g_compact_transitions[tr_idx] = tr;
+        InterlockedAdd(g_telemetry[12], 1); // J5 compacted transitions
+    }
 }

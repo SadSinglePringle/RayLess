@@ -59,9 +59,20 @@ struct ASTGDynamicSurfaceProbeGPU {
 
 struct ASTGProbeLightWorkGPU {
     uint probe_id;
-    uint light_id;
-    uint group_id;
+    uint actual_light_id;
+    uint packed_light_index;
     uint dependency_generation;
+};
+
+struct ASTGProbeLightContributionGPU {
+    uint probe_id;
+    uint actual_light_id;
+    uint visibility;
+    uint dependency_generation;
+    float irradiance_r;
+    float irradiance_g;
+    float irradiance_b;
+    float pad;
 };
 
 struct ASTGPartKConstants {
@@ -72,7 +83,7 @@ struct ASTGPartKConstants {
     uint current_generation;
     uint is_skeletal;
     uint dynamic_occlusion_mode;
-    uint pad;
+    uint max_work_items;
 };
 
 struct ASTGLightB0RangeGPU {
@@ -99,6 +110,8 @@ RWStructuredBuffer<ASTGDynamicSurfaceProbeGPU>  g_surface_probes    : register(u
 RWStructuredBuffer<ASTGProbeLightWorkGPU>       g_probe_work_items  : register(u3);
 RWByteAddressBuffer                             g_work_counter      : register(u4);
 RWStructuredBuffer<uint>                        g_telemetry         : register(u5);
+RWStructuredBuffer<ASTGProbeLightContributionGPU> g_contributions   : register(u6);
+RWByteAddressBuffer                             g_indirect_args     : register(u7);
 
 // Helper: Matrix-vector multiply
 float3 TransformPoint(float4 row0, float4 row1, float4 row2, float4 row3, float3 p) {
@@ -115,6 +128,33 @@ float3 TransformVector(float4 row0, float4 row1, float4 row2, float3 v) {
         row1.x * v.x + row1.y * v.y + row1.z * v.z,
         row2.x * v.x + row2.y * v.y + row2.z * v.z
     );
+}
+
+bool SegmentIntersectsAABB(float3 p0, float3 p1, float3 boxMin, float3 boxMax) {
+    float3 d = p1 - p0;
+    float tmin = 0.0f;
+    float tmax = 1.0f;
+
+    [unroll]
+    for (int i = 0; i < 3; ++i) {
+        float org = (i == 0) ? p0.x : ((i == 1) ? p0.y : p0.z);
+        float dir = (i == 0) ? d.x : ((i == 1) ? d.y : d.z);
+        float bm = (i == 0) ? boxMin.x : ((i == 1) ? boxMin.y : boxMin.z);
+        float bx = (i == 0) ? boxMax.x : ((i == 1) ? boxMax.y : boxMax.z);
+
+        if (abs(dir) < 1e-7f) {
+            if (org < bm || org > bx) return false;
+        } else {
+            float ood = 1.0f / dir;
+            float t1 = (bm - org) * ood;
+            float t2 = (bx - org) * ood;
+            if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
+            tmin = max(tmin, t1);
+            tmax = min(tmax, t2);
+            if (tmin > tmax) return false;
+        }
+    }
+    return tmin <= tmax && tmax >= 0.0f && tmin <= 1.0f;
 }
 
 // Pass K1: Transform Bone Bounds using Absolute Matrix Extents
@@ -147,24 +187,70 @@ void CSTransformBoneBounds(uint3 id : SV_DispatchThreadID) {
     bb.world_max_x = world_max.x; bb.world_max_y = world_max.y; bb.world_max_z = world_max.z;
 
     g_bone_bounds[bone_idx] = bb;
-    InterlockedAdd(g_telemetry[0], 1); // Bones transformed
+    InterlockedAdd(g_telemetry[13], 1); // K1 Bones transformed
 }
 
-// Pass K2: Transform Receiver Clusters
+// Pass K2: Transform Surface Probes with Inverse-Transpose Normal Matrix
+[numthreads(64, 1, 1)]
+void CSTransformSurfaceProbes(uint3 id : SV_DispatchThreadID) {
+    uint probe_idx = id.x;
+    if (probe_idx >= g_constants.total_probes) return;
+
+    ASTGDynamicSurfaceProbeGPU pr = g_surface_probes[probe_idx];
+    ASTGBoneTransformGPU bt = g_bone_transforms[pr.bone_id];
+
+    float3 local_pos = float3(pr.local_pos_x, pr.local_pos_y, pr.local_pos_z);
+    float3 local_norm = float3(pr.local_norm_x, pr.local_norm_y, pr.local_norm_z);
+
+    float3 world_pos = TransformPoint(bt.row0, bt.row1, bt.row2, bt.row3, local_pos);
+
+    // Inverse-transpose normal transformation: transpose(inverse(model3x3))
+    float3x3 M = float3x3(bt.row0.xyz, bt.row1.xyz, bt.row2.xyz);
+    float3 c0 = cross(M[1], M[2]);
+    float3 c1 = cross(M[2], M[0]);
+    float3 c2 = cross(M[0], M[1]);
+    float det = dot(M[0], c0);
+    float3 world_norm;
+    if (abs(det) > 1e-6f) {
+        float invDet = 1.0f / det;
+        world_norm = float3(
+            dot(float3(c0.x, c1.x, c2.x), local_norm),
+            dot(float3(c0.y, c1.y, c2.y), local_norm),
+            dot(float3(c0.z, c1.z, c2.z), local_norm)
+        ) * invDet;
+    } else {
+        world_norm = TransformVector(bt.row0, bt.row1, bt.row2, local_norm);
+    }
+    float norm_len = length(world_norm);
+    if (norm_len > 1e-5f) world_norm /= norm_len;
+    else world_norm = float3(0, 1, 0);
+
+    pr.world_pos_x = world_pos.x; pr.world_pos_y = world_pos.y; pr.world_pos_z = world_pos.z;
+    pr.world_norm_x = world_norm.x; pr.world_norm_y = world_norm.y; pr.world_norm_z = world_norm.z;
+    pr.generation = g_constants.current_generation;
+
+    // Reset direct irradiance accumulator for fresh lighting evaluation
+    pr.irradiance_r = 0.0f;
+    pr.irradiance_g = 0.0f;
+    pr.irradiance_b = 0.0f;
+
+    g_surface_probes[probe_idx] = pr;
+    InterlockedAdd(g_telemetry[14], 1); // K2 Probes transformed
+}
+
+// Pass K3: Reduce & Rebuild Receiver Clusters from Current Transformed Probes
 [numthreads(64, 1, 1)]
 void CSTransformReceiverClusters(uint3 id : SV_DispatchThreadID) {
     uint cluster_idx = id.x;
     if (cluster_idx >= g_constants.total_clusters) return;
 
     ASTGReceiverClusterGPU cl = g_receiver_clusters[cluster_idx];
-    ASTGBoneTransformGPU bt = g_bone_transforms[cl.bone_id];
-
-    // Compute cluster center from member surface probes
-    float3 center = float3(0, 0, 0);
-    float3 norm_sum = float3(0, 0, 0);
     uint count = cl.probe_count;
 
     if (count > 0) {
+        float3 center = float3(0, 0, 0);
+        float3 norm_sum = float3(0, 0, 0);
+
         for (uint p = 0; p < count; ++p) {
             uint p_idx = cl.probe_offset + p;
             if (p_idx < g_constants.total_probes) {
@@ -191,46 +277,15 @@ void CSTransformReceiverClusters(uint3 id : SV_DispatchThreadID) {
         cl.world_center_x = center.x; cl.world_center_y = center.y; cl.world_center_z = center.z;
         cl.radius = max_r;
         cl.normal_axis_x = norm_sum.x; cl.normal_axis_y = norm_sum.y; cl.normal_axis_z = norm_sum.z;
-        cl.cos_normal_half_angle = 0.5f; // ~60 deg coverage
+        cl.cos_normal_half_angle = 0.5f; // ~60 deg cone
         cl.generation = g_constants.current_generation;
     }
 
     g_receiver_clusters[cluster_idx] = cl;
-    InterlockedAdd(g_telemetry[1], 1); // Clusters transformed
+    InterlockedAdd(g_telemetry[15], 1); // K3 Clusters rebuilt
 }
 
-// Pass K3: Transform Surface Probes
-[numthreads(64, 1, 1)]
-void CSTransformSurfaceProbes(uint3 id : SV_DispatchThreadID) {
-    uint probe_idx = id.x;
-    if (probe_idx >= g_constants.total_probes) return;
-
-    ASTGDynamicSurfaceProbeGPU pr = g_surface_probes[probe_idx];
-    ASTGBoneTransformGPU bt = g_bone_transforms[pr.bone_id];
-
-    float3 local_pos = float3(pr.local_pos_x, pr.local_pos_y, pr.local_pos_z);
-    float3 local_norm = float3(pr.local_norm_x, pr.local_norm_y, pr.local_norm_z);
-
-    float3 world_pos = TransformPoint(bt.row0, bt.row1, bt.row2, bt.row3, local_pos);
-    float3 world_norm = TransformVector(bt.row0, bt.row1, bt.row2, local_norm);
-    float norm_len = length(world_norm);
-    if (norm_len > 1e-4f) world_norm /= norm_len;
-    else world_norm = float3(0, 1, 0);
-
-    pr.world_pos_x = world_pos.x; pr.world_pos_y = world_pos.y; pr.world_pos_z = world_pos.z;
-    pr.world_norm_x = world_norm.x; pr.world_norm_y = world_norm.y; pr.world_norm_z = world_norm.z;
-    pr.generation = g_constants.current_generation;
-
-    // Reset direct irradiance accumulator for fresh lighting evaluation
-    pr.irradiance_r = 0.0f;
-    pr.irradiance_g = 0.0f;
-    pr.irradiance_b = 0.0f;
-
-    g_surface_probes[probe_idx] = pr;
-    InterlockedAdd(g_telemetry[2], 1); // Probes transformed
-}
-
-// Pass K4: Cull Receiver Hierarchy (Bone & Cluster Culling) & Expand Probe Work Items
+// Pass K4: Cull Receiver Hierarchy & Emit Compact Probe-Light Work Queue
 [numthreads(64, 1, 1)]
 void CSCullReceiverHierarchy(uint3 id : SV_DispatchThreadID) {
     uint cluster_idx = id.x;
@@ -248,63 +303,86 @@ void CSCullReceiverHierarchy(uint3 id : SV_DispatchThreadID) {
         float dist = length(to_light);
 
         // Light range test
-        if (dist > lf.range && lf.range > 0.0f) continue;
+        if (dist > lf.range && lf.range > 0.0f) {
+            InterlockedAdd(g_telemetry[16], 1); // K4 culled
+            continue;
+        }
 
         // Normal cone backface test
         if (dist > 1e-4f) {
             float3 to_l_dir = to_light / dist;
             float cos_angle = dot(cluster_norm, to_l_dir);
-            if (cos_angle < -0.2f) continue; // Behind cluster
+            if (cos_angle < -0.2f) {
+                InterlockedAdd(g_telemetry[16], 1); // K4 culled
+                continue;
+            }
         }
 
-        // Expand member probes into work queue
-        for (uint p = 0; p < cl.probe_count; ++p) {
+        // Expand member probes into compact work queue
+        uint p_count = cl.probe_count;
+        for (uint p = 0; p < p_count; ++p) {
             uint p_idx = cl.probe_offset + p;
             if (p_idx < g_constants.total_probes) {
                 uint work_idx;
                 g_work_counter.InterlockedAdd(0, 1, work_idx);
 
-                if (work_idx < 131072) {
+                if (work_idx < g_constants.max_work_items) {
                     ASTGProbeLightWorkGPU item;
                     item.probe_id = p_idx;
-                    item.light_id = lid;
-                    item.group_id = g_surface_probes[p_idx].group_id;
+                    item.actual_light_id = lf.light_id;
+                    item.packed_light_index = lid;
                     item.dependency_generation = g_constants.current_generation;
                     g_probe_work_items[work_idx] = item;
+                    InterlockedAdd(g_telemetry[17], 1); // K4 work emitted
+                } else {
+                    InterlockedAdd(g_telemetry[18], 1); // K4 work overflow
                 }
-                InterlockedAdd(g_telemetry[3], 1); // Probe work items scheduled
             }
         }
     }
 }
 
-// Pass K5: Evaluate Receiver Visibility & Accumulate Irradiance per probe
+// Pass K4.5: Build Indirect Dispatch Arguments for K5
+[numthreads(1, 1, 1)]
+void CSBuildReceiverDispatchArgs(uint3 id : SV_DispatchThreadID) {
+    uint workCount = g_work_counter.Load(0);
+    if (workCount > g_constants.max_work_items) workCount = g_constants.max_work_items;
+    uint threadGroupsX = (workCount + 63) / 64;
+    g_indirect_args.Store(0, threadGroupsX);
+    g_indirect_args.Store(4, 1);
+    g_indirect_args.Store(8, 1);
+}
+
+// Pass K5: Evaluate Receiver Visibility from Compact Work Queue
 [numthreads(64, 1, 1)]
 void CSEvaluateReceiverVisibility(uint3 id : SV_DispatchThreadID) {
-    uint probe_idx = id.x;
-    if (probe_idx >= g_constants.total_probes) return;
+    uint work_idx = id.x;
+    uint total_work = g_work_counter.Load(0);
+    if (work_idx >= total_work || work_idx >= g_constants.max_work_items) return;
 
-    ASTGDynamicSurfaceProbeGPU pr = g_surface_probes[probe_idx];
+    InterlockedAdd(g_telemetry[19], 1); // K5 work consumed
+
+    ASTGProbeLightWorkGPU work = g_probe_work_items[work_idx];
+    ASTGDynamicSurfaceProbeGPU pr = g_surface_probes[work.probe_id];
+    RTXSourceAngularFrame lf = g_light_frames[work.packed_light_index];
+    ASTGLightB0RangeGPU lr = g_light_ranges[work.packed_light_index];
+
     float3 probe_pos = float3(pr.world_pos_x, pr.world_pos_y, pr.world_pos_z);
     float3 probe_norm = float3(pr.world_norm_x, pr.world_norm_y, pr.world_norm_z);
+    float3 light_pos = float3(lf.origin_x, lf.origin_y, lf.origin_z);
 
-    float3 ray_origin = probe_pos + probe_norm * 0.01f;
-    float3 accum_irradiance = float3(0.0f, 0.0f, 0.0f);
-    uint vis_mask = 0;
+    float3 to_light = light_pos - probe_pos;
+    float dist = length(to_light);
+    float3 to_l_dir = (dist > 1e-5f) ? (to_light / dist) : float3(0, 1, 0);
 
-    for (uint lid = 0; lid < g_constants.total_lights; ++lid) {
-        RTXSourceAngularFrame lf = g_light_frames[lid];
-        float3 light_pos = float3(lf.origin_x, lf.origin_y, lf.origin_z);
-        float3 to_light = light_pos - ray_origin;
-        float dist = length(to_light);
+    float n_dot_l = max(0.0f, dot(probe_norm, to_l_dir));
+    bool visible = false;
 
-        if (dist <= 1e-4f) continue;
-        if (dist > lf.range && lf.range > 0.0f) continue;
+    if (dist > 1e-4f && (lf.range <= 0.0f || dist <= lf.range) && n_dot_l > 0.001f) {
+        InterlockedAdd(g_telemetry[20], 1); // K5 visibility tests
+        float3 ray_origin = probe_pos + probe_norm * 0.01f;
 
-        float3 to_l_dir = to_light / dist;
-        float n_dot_l = max(0.0f, dot(probe_norm, to_l_dir));
-        if (n_dot_l <= 0.001f) continue;
-
+        // AABB proxy mode occlusion
         bool is_occluded = false;
         for (uint b = 0; b < g_constants.total_bones; ++b) {
             ASTGBoneBoundGPU bb = g_bone_bounds[b];
@@ -316,85 +394,57 @@ void CSEvaluateReceiverVisibility(uint3 id : SV_DispatchThreadID) {
 
             float3 bmin = float3(bb.world_min_x, bb.world_min_y, bb.world_min_z);
             float3 bmax = float3(bb.world_max_x, bb.world_max_y, bb.world_max_z);
-
-            float3 d = light_pos - ray_origin;
-            float tmin = 0.0f;
-            float tmax = 1.0f;
-            bool hit_box = true;
-
-            [unroll]
-            for (int i = 0; i < 3; ++i) {
-                float org = (i == 0) ? ray_origin.x : ((i == 1) ? ray_origin.y : ray_origin.z);
-                float dir = (i == 0) ? d.x : ((i == 1) ? d.y : d.z);
-                float bm = (i == 0) ? bmin.x : ((i == 1) ? bmin.y : bmin.z);
-                float bx = (i == 0) ? bmax.x : ((i == 1) ? bmax.y : bmax.z);
-
-                if (abs(dir) < 1e-7f) {
-                    if (org < bm || org > bx) { hit_box = false; break; }
-                } else {
-                    float ood = 1.0f / dir;
-                    float t1 = (bm - org) * ood;
-                    float t2 = (bx - org) * ood;
-                    if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
-                    tmin = max(tmin, t1);
-                    tmax = min(tmax, t2);
-                    if (tmin > tmax) { hit_box = false; break; }
-                }
-            }
-
-            if (hit_box && tmin <= tmax && tmax >= 0.0f && tmin <= 1.0f) {
+            if (SegmentIntersectsAABB(ray_origin, light_pos, bmin, bmax)) {
                 is_occluded = true;
                 break;
             }
         }
+        visible = !is_occluded;
+    }
 
-        if (!is_occluded && g_constants.total_probes <= 64) {
-            for (uint q = 0; q < g_constants.total_probes; ++q) {
-                if (q == probe_idx) continue;
-                ASTGDynamicSurfaceProbeGPU q_pr = g_surface_probes[q];
-                if (q_pr.group_id != pr.group_id) continue;
-                float3 q_pos = float3(q_pr.world_pos_x, q_pr.world_pos_y, q_pr.world_pos_z);
-                float3 q_to_light = light_pos - q_pos;
-                float q_dist = length(q_to_light);
-                if (q_dist < dist - 0.4f) {
-                    float3 ab = light_pos - probe_pos;
-                    float3 ap = q_pos - probe_pos;
-                    float t = dot(ap, ab) / (dist * dist);
-                    if (t > 0.05f && t < 0.95f) {
-                        float3 proj = probe_pos + ab * t;
-                        float d_perp = length(q_pos - proj);
-                        if (d_perp < 0.25f) {
-                            is_occluded = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+    ASTGProbeLightContributionGPU contrib;
+    contrib.probe_id = work.probe_id;
+    contrib.actual_light_id = work.actual_light_id;
+    contrib.visibility = visible ? 1 : 0;
+    contrib.dependency_generation = work.dependency_generation;
 
-        InterlockedAdd(g_telemetry[4], 1); // Visibility rays evaluated
+    if (visible) {
+        InterlockedAdd(g_telemetry[21], 1); // K5 visible results
+        float light_int = lr.intensity;
+        float attenuation = light_int * n_dot_l / (dist * dist + 0.1f);
+        contrib.irradiance_r = lr.color_r * attenuation;
+        contrib.irradiance_g = lr.color_g * attenuation;
+        contrib.irradiance_b = lr.color_b * attenuation;
+    } else {
+        contrib.irradiance_r = 0.0f;
+        contrib.irradiance_g = 0.0f;
+        contrib.irradiance_b = 0.0f;
+    }
+    contrib.pad = 0.0f;
 
-        if (!is_occluded) {
-            ASTGLightB0RangeGPU lr = g_light_ranges[lid];
-            float3 light_col = float3(lr.color_r, lr.color_g, lr.color_b);
-            float light_int = lr.intensity;
-            float attenuation = light_int * n_dot_l / (dist * dist + 0.1f);
+    g_contributions[work_idx] = contrib;
+}
 
-            accum_irradiance += light_col * attenuation;
-            vis_mask |= (1u << (lid % 32));
+// Pass K6: Reduce and Accumulate Multi-Light Irradiance per Probe
+[numthreads(64, 1, 1)]
+void CSAccumulateReceiverIrradiance(uint3 id : SV_DispatchThreadID) {
+    uint probe_idx = id.x;
+    if (probe_idx >= g_constants.total_probes) return;
 
-            InterlockedAdd(g_telemetry[5], 1); // Irradiance accumulated
+    float3 accum = float3(0, 0, 0);
+    uint total_work = g_work_counter.Load(0);
+    if (total_work > g_constants.max_work_items) total_work = g_constants.max_work_items;
+
+    for (uint w = 0; w < total_work; ++w) {
+        ASTGProbeLightContributionGPU c = g_contributions[w];
+        if (c.probe_id == probe_idx && c.visibility == 1) {
+            accum += float3(c.irradiance_r, c.irradiance_g, c.irradiance_b);
         }
     }
 
-    g_surface_probes[probe_idx].irradiance_r = accum_irradiance.x;
-    g_surface_probes[probe_idx].irradiance_g = accum_irradiance.y;
-    g_surface_probes[probe_idx].irradiance_b = accum_irradiance.z;
-    g_surface_probes[probe_idx].last_visibility_mask = vis_mask;
-}
+    g_surface_probes[probe_idx].irradiance_r = accum.x;
+    g_surface_probes[probe_idx].irradiance_g = accum.y;
+    g_surface_probes[probe_idx].irradiance_b = accum.z;
 
-// Pass K6: Accumulate Irradiance / Indirect Deposition Pass
-[numthreads(64, 1, 1)]
-void CSAccumulateReceiverIrradiance(uint3 id : SV_DispatchThreadID) {
-    // Clustered irradiance reduction / temporal EMA smoothing
+    InterlockedAdd(g_telemetry[22], 1); // K6 contributions reduced
 }

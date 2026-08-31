@@ -13,6 +13,7 @@
 #include "rtx_rec_transform_clusters_cso.h"
 #include "rtx_rec_transform_probes_cso.h"
 #include "rtx_rec_cull_hierarchy_cso.h"
+#include "rtx_rec_build_args_cso.h"
 #include "rtx_rec_eval_visibility_cso.h"
 #include "rtx_rec_accum_irradiance_cso.h"
 
@@ -224,6 +225,7 @@ struct RTXContext {
     ComPtr<ID3D12Resource> b0_hit_positions_buffer;
     ComPtr<ID3D12Resource> b0_changed_pairs_buffer;
     ComPtr<ID3D12Resource> b0_bone_bounds_buffer;
+    ComPtr<ID3D12Resource> b0_word_work_buffer;
     ComPtr<ID3D12Resource> b0_footprints_buffer;
     ComPtr<ID3D12Resource> b0_current_membership_buffer;
     ComPtr<ID3D12Resource> b0_previous_membership_buffer;
@@ -234,6 +236,7 @@ struct RTXContext {
     ComPtr<ID3D12Resource> b0_transition_counter_readback_buffer;
     ComPtr<ID3D12Resource> b0_telemetry_buffer;
     ComPtr<ID3D12Resource> b0_telemetry_readback_buffer;
+    ComPtr<ID3D12Resource> b0_compact_transitions_buffer;
     ComPtr<ID3D12Resource> b0_constant_buffer;
     ComPtr<ID3D12Resource> b0_zero_upload_buffer;
 
@@ -246,6 +249,9 @@ struct RTXContext {
     ComPtr<ID3D12PipelineState> rec_transform_probes_pso;
     ComPtr<ID3D12RootSignature> rec_cull_hierarchy_root_signature;
     ComPtr<ID3D12PipelineState> rec_cull_hierarchy_pso;
+    ComPtr<ID3D12RootSignature> rec_build_args_root_signature;
+    ComPtr<ID3D12PipelineState> rec_build_args_pso;
+    ComPtr<ID3D12CommandSignature> rec_dispatch_signature;
     ComPtr<ID3D12RootSignature> rec_eval_visibility_root_signature;
     ComPtr<ID3D12PipelineState> rec_eval_visibility_pso;
     ComPtr<ID3D12RootSignature> rec_accum_irradiance_root_signature;
@@ -263,8 +269,12 @@ struct RTXContext {
     ComPtr<ID3D12Resource> rec_work_counter_buffer;
     ComPtr<ID3D12Resource> rec_telemetry_buffer;
     ComPtr<ID3D12Resource> rec_telemetry_readback_buffer;
+    ComPtr<ID3D12Resource> rec_contributions_buffer;
+    ComPtr<ID3D12Resource> rec_indirect_args_buffer;
     ComPtr<ID3D12Resource> rec_constant_buffer;
     ComPtr<ID3D12Resource> rec_zero_upload_buffer;
+
+    ComPtr<ID3D12InfoQueue> info_queue;
 
     std::string device_name = "None";
     bool is_initialized = false;
@@ -288,6 +298,30 @@ static void WaitForGPU() {
             std::cerr.flush();
         }
     }
+}
+
+static void TransitionResource(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) {
+    if (before == after || !res) return;
+    D3D12_RESOURCE_BARRIER b = {};
+    b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    b.Transition.pResource = res;
+    b.Transition.StateBefore = before;
+    b.Transition.StateAfter = after;
+    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd->ResourceBarrier(1, &b);
+}
+
+static void ClearBufferViaCopy(ID3D12GraphicsCommandList* cmd, ID3D12Resource* dst, ID3D12Resource* zero_src, UINT64 bytes) {
+    TransitionResource(cmd, dst, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+    cmd->CopyBufferRegion(dst, 0, zero_src, 0, bytes);
+    TransitionResource(cmd, dst, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+}
+
+static void InsertUAVBarrier(ID3D12GraphicsCommandList* cmd, ID3D12Resource* res) {
+    D3D12_RESOURCE_BARRIER b = {};
+    b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    b.UAV.pResource = res;
+    cmd->ResourceBarrier(1, &b);
 }
 
 static ComPtr<ID3D12Resource> CreateBuffer(
@@ -544,25 +578,25 @@ static bool CreatePipelineAndRootSignatures() {
     // ==============================================================================
     // ASTG PART J: CONTINUOUS B0 ROOT SIGNATURE & PSOS
     // ==============================================================================
-    D3D12_ROOT_PARAMETER part_j_params[15] = {};
+    D3D12_ROOT_PARAMETER part_j_params[17] = {};
     part_j_params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     part_j_params[0].Descriptor.ShaderRegister = 0; // b0
     part_j_params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-    for (UINT i = 1; i <= 7; ++i) {
+    for (UINT i = 1; i <= 8; ++i) {
         part_j_params[i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-        part_j_params[i].Descriptor.ShaderRegister = i - 1; // t0..t6
+        part_j_params[i].Descriptor.ShaderRegister = i - 1; // t0..t7
         part_j_params[i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
 
-    for (UINT i = 8; i <= 14; ++i) {
+    for (UINT i = 9; i <= 16; ++i) {
         part_j_params[i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-        part_j_params[i].Descriptor.ShaderRegister = i - 8; // u0..u6
+        part_j_params[i].Descriptor.ShaderRegister = i - 9; // u0..u7
         part_j_params[i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
 
     D3D12_ROOT_SIGNATURE_DESC part_j_sig_desc = {};
-    part_j_sig_desc.NumParameters = 15;
+    part_j_sig_desc.NumParameters = 17;
     part_j_sig_desc.pParameters = part_j_params;
 
     ComPtr<ID3DBlob> part_j_sig_blob;
@@ -606,7 +640,7 @@ static bool CreatePipelineAndRootSignatures() {
     // ==============================================================================
     // ASTG PART K: DYNAMIC RECEIVER ROOT SIGNATURE & PSOS
     // ==============================================================================
-    D3D12_ROOT_PARAMETER part_k_params[10] = {};
+    D3D12_ROOT_PARAMETER part_k_params[12] = {};
     part_k_params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     part_k_params[0].Descriptor.ShaderRegister = 0; // b0
     part_k_params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -623,14 +657,14 @@ static bool CreatePipelineAndRootSignatures() {
     part_k_params[3].Descriptor.ShaderRegister = 2; // t2 (light ranges)
     part_k_params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-    for (UINT i = 4; i <= 9; ++i) {
+    for (UINT i = 4; i <= 11; ++i) {
         part_k_params[i].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
-        part_k_params[i].Descriptor.ShaderRegister = i - 4; // u0..u5
+        part_k_params[i].Descriptor.ShaderRegister = i - 4; // u0..u7
         part_k_params[i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
 
     D3D12_ROOT_SIGNATURE_DESC part_k_sig_desc = {};
-    part_k_sig_desc.NumParameters = 10;
+    part_k_sig_desc.NumParameters = 12;
     part_k_sig_desc.pParameters = part_k_params;
 
     ComPtr<ID3DBlob> part_k_sig_blob;
@@ -642,6 +676,7 @@ static bool CreatePipelineAndRootSignatures() {
     g_rtx.rec_transform_clusters_root_signature = g_rtx.rec_transform_bones_root_signature;
     g_rtx.rec_transform_probes_root_signature = g_rtx.rec_transform_bones_root_signature;
     g_rtx.rec_cull_hierarchy_root_signature = g_rtx.rec_transform_bones_root_signature;
+    g_rtx.rec_build_args_root_signature = g_rtx.rec_transform_bones_root_signature;
     g_rtx.rec_eval_visibility_root_signature = g_rtx.rec_transform_bones_root_signature;
     g_rtx.rec_accum_irradiance_root_signature = g_rtx.rec_transform_bones_root_signature;
 
@@ -671,6 +706,22 @@ static bool CreatePipelineAndRootSignatures() {
     k4_pso_desc.CS.pShaderBytecode = g_rtx_rec_cull_hierarchy_bytecode;
     k4_pso_desc.CS.BytecodeLength = sizeof(g_rtx_rec_cull_hierarchy_bytecode);
     hr = g_rtx.device->CreateComputePipelineState(&k4_pso_desc, IID_PPV_ARGS(&g_rtx.rec_cull_hierarchy_pso));
+    if (FAILED(hr)) return false;
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC k_args_pso_desc = {};
+    k_args_pso_desc.pRootSignature = g_rtx.rec_build_args_root_signature.Get();
+    k_args_pso_desc.CS.pShaderBytecode = g_rtx_rec_build_args_bytecode;
+    k_args_pso_desc.CS.BytecodeLength = sizeof(g_rtx_rec_build_args_bytecode);
+    hr = g_rtx.device->CreateComputePipelineState(&k_args_pso_desc, IID_PPV_ARGS(&g_rtx.rec_build_args_pso));
+    if (FAILED(hr)) return false;
+
+    D3D12_INDIRECT_ARGUMENT_DESC indirect_arg = {};
+    indirect_arg.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+    D3D12_COMMAND_SIGNATURE_DESC sig_desc = {};
+    sig_desc.ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS);
+    sig_desc.NumArgumentDescs = 1;
+    sig_desc.pArgumentDescs = &indirect_arg;
+    hr = g_rtx.device->CreateCommandSignature(&sig_desc, nullptr, IID_PPV_ARGS(&g_rtx.rec_dispatch_signature));
     if (FAILED(hr)) return false;
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC k5_pso_desc = {};
@@ -750,9 +801,10 @@ RTX_API bool rtx_init() {
     // Timestamp Heap
     D3D12_QUERY_HEAP_DESC query_heap_desc = {};
     query_heap_desc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-    query_heap_desc.Count = 8;
+    query_heap_desc.Count = 32;
     g_rtx.device->CreateQueryHeap(&query_heap_desc, IID_PPV_ARGS(&g_rtx.query_heap));
-    g_rtx.timestamp_readback_buffer = CreateBuffer(g_rtx.device.Get(), sizeof(UINT64) * 8, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
+    g_rtx.timestamp_readback_buffer = CreateBuffer(g_rtx.device.Get(), sizeof(UINT64) * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
+    g_rtx.device.As(&g_rtx.info_queue);
 
     // Persistent Buffers preallocated for 131,072 lights
     UINT64 ray_buffer_size = g_rtx.max_rays_capacity * sizeof(ASTGRay);
@@ -854,6 +906,7 @@ RTX_API bool rtx_init() {
     g_rtx.b0_hit_positions_buffer = CreateBuffer(g_rtx.device.Get(), max_records * sizeof(RTXVector3), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
     g_rtx.b0_changed_pairs_buffer = CreateBuffer(g_rtx.device.Get(), max_pairs * sizeof(ASTGChangedGroupLightPairGPU), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
     g_rtx.b0_bone_bounds_buffer = CreateBuffer(g_rtx.device.Get(), max_bounds * sizeof(ASTGBoneBoundGPU), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+    g_rtx.b0_word_work_buffer = CreateBuffer(g_rtx.device.Get(), 65536 * sizeof(ASTGMembershipWordWorkGPU), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
     
     g_rtx.b0_footprints_buffer = CreateBuffer(g_rtx.device.Get(), 65536 * sizeof(ASTGB0AngularFootprint), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.b0_current_membership_buffer = CreateBuffer(g_rtx.device.Get(), 262144 * sizeof(uint32_t), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -861,6 +914,7 @@ RTX_API bool rtx_init() {
     g_rtx.b0_persistent_states_buffer = CreateBuffer(g_rtx.device.Get(), max_records * sizeof(ASTGB0PersistentState), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.b0_transitions_buffer = CreateBuffer(g_rtx.device.Get(), 65536 * sizeof(ASTGB0TransitionRecord), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.b0_transitions_readback_buffer = CreateBuffer(g_rtx.device.Get(), 65536 * sizeof(ASTGB0TransitionRecord), D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
+    g_rtx.b0_compact_transitions_buffer = CreateBuffer(g_rtx.device.Get(), 65536 * sizeof(ASTGB0TransitionRecord), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.b0_transition_counter_buffer = CreateBuffer(g_rtx.device.Get(), 256, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.b0_transition_counter_readback_buffer = CreateBuffer(g_rtx.device.Get(), 256, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
     g_rtx.b0_telemetry_buffer = CreateBuffer(g_rtx.device.Get(), 256, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -883,6 +937,8 @@ RTX_API bool rtx_init() {
     g_rtx.rec_surface_probes_upload_buffer = CreateBuffer(g_rtx.device.Get(), max_probes * sizeof(ASTGDynamicSurfaceProbeGPU), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
     g_rtx.rec_surface_probes_readback_buffer = CreateBuffer(g_rtx.device.Get(), max_probes * sizeof(ASTGDynamicSurfaceProbeGPU), D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
     g_rtx.rec_probe_work_items_buffer = CreateBuffer(g_rtx.device.Get(), 131072 * sizeof(ASTGProbeLightWorkGPU), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    g_rtx.rec_contributions_buffer = CreateBuffer(g_rtx.device.Get(), 131072 * sizeof(ASTGProbeLightContributionGPU), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    g_rtx.rec_indirect_args_buffer = CreateBuffer(g_rtx.device.Get(), 256, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.rec_work_counter_buffer = CreateBuffer(g_rtx.device.Get(), 256, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.rec_telemetry_buffer = CreateBuffer(g_rtx.device.Get(), 256, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     g_rtx.rec_telemetry_readback_buffer = CreateBuffer(g_rtx.device.Get(), 256, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -2492,8 +2548,11 @@ RTX_API bool rtx_update_part_j_dynamic_inputs(
     uint32_t pair_count,
     const ASTGBoneBoundGPU* bounds,
     uint32_t bound_count,
+    const ASTGMembershipWordWorkGPU* word_work_items,
+    uint32_t word_work_count,
     uint32_t current_generation,
-    uint32_t dynamic_occlusion_mode
+    uint32_t dynamic_occlusion_mode,
+    uint32_t footprint_capacity
 ) {
     if (!g_rtx.is_initialized) return false;
     if (pairs && pair_count > 0) {
@@ -2508,6 +2567,12 @@ RTX_API bool rtx_update_part_j_dynamic_inputs(
         memcpy(mapped, bounds, bound_count * sizeof(ASTGBoneBoundGPU));
         g_rtx.b0_bone_bounds_buffer->Unmap(0, nullptr);
     }
+    if (word_work_items && word_work_count > 0) {
+        void* mapped = nullptr;
+        g_rtx.b0_word_work_buffer->Map(0, nullptr, &mapped);
+        memcpy(mapped, word_work_items, word_work_count * sizeof(ASTGMembershipWordWorkGPU));
+        g_rtx.b0_word_work_buffer->Unmap(0, nullptr);
+    }
     struct {
         uint32_t pair_count;
         uint32_t total_bounds;
@@ -2515,8 +2580,8 @@ RTX_API bool rtx_update_part_j_dynamic_inputs(
         uint32_t total_bvh_nodes;
         uint32_t current_generation;
         uint32_t dynamic_occlusion_mode;
-        uint32_t use_dxr_geometry;
-        uint32_t flags;
+        uint32_t total_membership_words;
+        uint32_t footprint_capacity;
     } cb = {
         pair_count,
         bound_count,
@@ -2524,8 +2589,8 @@ RTX_API bool rtx_update_part_j_dynamic_inputs(
         262144,
         current_generation,
         dynamic_occlusion_mode,
-        0,
-        0
+        word_work_count,
+        footprint_capacity
     };
     void* mapped_cb = nullptr;
     g_rtx.b0_constant_buffer->Map(0, nullptr, &mapped_cb);
@@ -2537,6 +2602,7 @@ RTX_API bool rtx_update_part_j_dynamic_inputs(
 RTX_API bool rtx_dispatch_part_j_gpu(
     uint32_t pair_count,
     uint32_t bound_count,
+    uint32_t word_work_count,
     ASTGB0TransitionRecord* out_transitions,
     uint32_t* out_transition_count,
     uint32_t max_transitions,
@@ -2548,15 +2614,10 @@ RTX_API bool rtx_dispatch_part_j_gpu(
     g_rtx.command_allocator->Reset();
     g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
 
-    // Reset transition counter, telemetry, and current membership buffer
-    g_rtx.command_list->CopyBufferRegion(g_rtx.b0_transition_counter_buffer.Get(), 0, g_rtx.b0_zero_upload_buffer.Get(), 0, 256);
-    g_rtx.command_list->CopyBufferRegion(g_rtx.b0_telemetry_buffer.Get(), 0, g_rtx.b0_zero_upload_buffer.Get(), 0, 256);
-    g_rtx.command_list->CopyBufferRegion(g_rtx.b0_current_membership_buffer.Get(), 0, g_rtx.b0_zero_upload_buffer.Get(), 0, 262144);
-    D3D12_RESOURCE_BARRIER b_init[3] = {};
-    b_init[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_init[0].UAV.pResource = g_rtx.b0_transition_counter_buffer.Get();
-    b_init[1].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_init[1].UAV.pResource = g_rtx.b0_telemetry_buffer.Get();
-    b_init[2].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_init[2].UAV.pResource = g_rtx.b0_current_membership_buffer.Get();
-    g_rtx.command_list->ResourceBarrier(3, b_init);
+    // Reset transition counter, telemetry, and current membership buffer using safe transitions
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.b0_transition_counter_buffer.Get(), g_rtx.b0_zero_upload_buffer.Get(), 256);
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.b0_telemetry_buffer.Get(), g_rtx.b0_zero_upload_buffer.Get(), 256);
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.b0_current_membership_buffer.Get(), g_rtx.b0_zero_upload_buffer.Get(), 262144);
 
     g_rtx.command_list->SetComputeRootSignature(g_rtx.b0_project_root_signature.Get());
     g_rtx.command_list->SetComputeRootConstantBufferView(0, g_rtx.b0_constant_buffer->GetGPUVirtualAddress());
@@ -2567,84 +2628,79 @@ RTX_API bool rtx_dispatch_part_j_gpu(
     g_rtx.command_list->SetComputeRootShaderResourceView(5, g_rtx.b0_hit_positions_buffer->GetGPUVirtualAddress());
     g_rtx.command_list->SetComputeRootShaderResourceView(6, g_rtx.b0_changed_pairs_buffer->GetGPUVirtualAddress());
     g_rtx.command_list->SetComputeRootShaderResourceView(7, g_rtx.b0_bone_bounds_buffer->GetGPUVirtualAddress());
-    g_rtx.command_list->SetComputeRootUnorderedAccessView(8, g_rtx.b0_footprints_buffer->GetGPUVirtualAddress());
-    g_rtx.command_list->SetComputeRootUnorderedAccessView(9, g_rtx.b0_current_membership_buffer->GetGPUVirtualAddress());
-    g_rtx.command_list->SetComputeRootUnorderedAccessView(10, g_rtx.b0_previous_membership_buffer->GetGPUVirtualAddress());
-    g_rtx.command_list->SetComputeRootUnorderedAccessView(11, g_rtx.b0_persistent_states_buffer->GetGPUVirtualAddress());
-    g_rtx.command_list->SetComputeRootUnorderedAccessView(12, g_rtx.b0_transitions_buffer->GetGPUVirtualAddress());
-    g_rtx.command_list->SetComputeRootUnorderedAccessView(13, g_rtx.b0_transition_counter_buffer->GetGPUVirtualAddress());
-    g_rtx.command_list->SetComputeRootUnorderedAccessView(14, g_rtx.b0_telemetry_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(8, g_rtx.b0_word_work_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(9, g_rtx.b0_footprints_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(10, g_rtx.b0_current_membership_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(11, g_rtx.b0_previous_membership_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(12, g_rtx.b0_persistent_states_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(13, g_rtx.b0_transitions_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(14, g_rtx.b0_transition_counter_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(15, g_rtx.b0_telemetry_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(16, g_rtx.b0_compact_transitions_buffer->GetGPUVirtualAddress());
+
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0); // J total start
 
     // Pass J1: CSProjectDynamicBounds
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 2); // J1 start
     if (bound_count > 0) {
         g_rtx.command_list->SetPipelineState(g_rtx.b0_project_pso.Get());
         g_rtx.command_list->Dispatch((bound_count + 63) / 64, 1, 1);
-
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b.UAV.pResource = g_rtx.b0_footprints_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_footprints_buffer.Get());
     }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 3); // J1 end
 
     // Pass J2: CSTraverseB0AngularBVH
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 4); // J2 start
     if (pair_count > 0) {
         g_rtx.command_list->SetPipelineState(g_rtx.b0_traverse_pso.Get());
         g_rtx.command_list->Dispatch((pair_count + 63) / 64, 1, 1);
-
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b.UAV.pResource = g_rtx.b0_current_membership_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b);
-
-        // Pass J4: CSApplyB0MembershipDeltas
-        g_rtx.command_list->SetPipelineState(g_rtx.b0_apply_deltas_pso.Get());
-        g_rtx.command_list->Dispatch((pair_count + 63) / 64, 1, 1);
-
-        D3D12_RESOURCE_BARRIER b_trans = {};
-        b_trans.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b_trans.UAV.pResource = g_rtx.b0_transitions_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b_trans);
-
-        // Pass J5: CSCompactB0Transitions
-        g_rtx.command_list->SetPipelineState(g_rtx.b0_compact_pso.Get());
-        g_rtx.command_list->Dispatch((pair_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_current_membership_buffer.Get());
     }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 5); // J2 end
+
+    // Pass J4: CSApplyB0MembershipDeltas (dispatched 1-thread-per-word over total_membership_words)
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 6); // J4 start
+    if (word_work_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.b0_apply_deltas_pso.Get());
+        g_rtx.command_list->Dispatch((word_work_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_transitions_buffer.Get());
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_transition_counter_buffer.Get());
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_persistent_states_buffer.Get());
+    }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 7); // J4 end
+
+    // Pass J5: CSCompactB0Transitions
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 8); // J5 start
+    if (word_work_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.b0_compact_pso.Get());
+        g_rtx.command_list->Dispatch((65536 + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_compact_transitions_buffer.Get());
+    }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 9); // J5 end
+
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 1); // J total end
+
+    // Resolve timestamps 0..9
+    g_rtx.command_list->ResolveQueryData(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, 10, g_rtx.timestamp_readback_buffer.Get(), 0);
 
     // Copy to readback buffers
-    D3D12_RESOURCE_BARRIER rb[3] = {};
-    rb[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb[0].Transition.pResource = g_rtx.b0_transitions_buffer.Get();
-    rb[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    rb[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_compact_transitions_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_transition_counter_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_telemetry_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
 
-    rb[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb[1].Transition.pResource = g_rtx.b0_transition_counter_buffer.Get();
-    rb[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    rb[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-    rb[2].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb[2].Transition.pResource = g_rtx.b0_telemetry_buffer.Get();
-    rb[2].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    rb[2].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    g_rtx.command_list->ResourceBarrier(3, rb);
-
-    g_rtx.command_list->CopyBufferRegion(g_rtx.b0_transitions_readback_buffer.Get(), 0, g_rtx.b0_transitions_buffer.Get(), 0, 65536 * sizeof(ASTGB0TransitionRecord));
+    g_rtx.command_list->CopyBufferRegion(g_rtx.b0_transitions_readback_buffer.Get(), 0, g_rtx.b0_compact_transitions_buffer.Get(), 0, 65536 * sizeof(ASTGB0TransitionRecord));
     g_rtx.command_list->CopyBufferRegion(g_rtx.b0_transition_counter_readback_buffer.Get(), 0, g_rtx.b0_transition_counter_buffer.Get(), 0, 256);
     g_rtx.command_list->CopyBufferRegion(g_rtx.b0_telemetry_readback_buffer.Get(), 0, g_rtx.b0_telemetry_buffer.Get(), 0, 256);
 
-    for (int i = 0; i < 3; ++i) std::swap(rb[i].Transition.StateBefore, rb[i].Transition.StateAfter);
-    g_rtx.command_list->ResourceBarrier(3, rb);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_compact_transitions_buffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_transition_counter_buffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_telemetry_buffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
     g_rtx.command_list->Close();
 
-    auto t0 = std::chrono::high_resolution_clock::now();
     ID3D12CommandList* lists[] = { g_rtx.command_list.Get() };
     g_rtx.command_queue->ExecuteCommandLists(1, lists);
     WaitForGPU();
-    auto t1 = std::chrono::high_resolution_clock::now();
 
     uint32_t trans_count = 0;
     void* mapped_cnt = nullptr;
@@ -2668,36 +2724,57 @@ RTX_API bool rtx_dispatch_part_j_gpu(
     }
 
     if (out_telemetry) {
-        uint32_t raw_telem[16] = {};
+        uint32_t raw_telem[32] = {};
         void* mapped_telem = nullptr;
         g_rtx.b0_telemetry_readback_buffer->Map(0, nullptr, &mapped_telem);
-        memcpy(raw_telem, mapped_telem, sizeof(raw_telem));
-        g_rtx.b0_telemetry_readback_buffer->Unmap(0, nullptr);
+        if (mapped_telem) {
+            memcpy(raw_telem, mapped_telem, sizeof(raw_telem));
+            g_rtx.b0_telemetry_readback_buffer->Unmap(0, nullptr);
+        }
 
-        out_telemetry->gpu_j1_dispatches = bound_count;
-        out_telemetry->gpu_j2_dispatches = pair_count;
-        out_telemetry->gpu_j3_exact_tests = raw_telem[3];
-        out_telemetry->gpu_j4_membership_words = pair_count;
-        out_telemetry->gpu_j5_transitions = raw_telem[6];
-        double total_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        out_telemetry->gpu_j1_ms = total_ms * 0.25;
-        out_telemetry->gpu_j2_ms = total_ms * 0.35;
-        out_telemetry->gpu_j3_ms = total_ms * 0.20;
-        out_telemetry->gpu_j4_ms = total_ms * 0.15;
-        out_telemetry->gpu_j5_ms = total_ms * 0.05;
-        out_telemetry->gpu_total_ms = total_ms;
+        uint64_t ts[32] = {};
+        void* mapped_ts = nullptr;
+        g_rtx.timestamp_readback_buffer->Map(0, nullptr, &mapped_ts);
+        if (mapped_ts) {
+            memcpy(ts, mapped_ts, sizeof(ts));
+            g_rtx.timestamp_readback_buffer->Unmap(0, nullptr);
+        }
 
-        g_latest_parts_jk_telemetry.gpu_j1_dispatches = out_telemetry->gpu_j1_dispatches;
-        g_latest_parts_jk_telemetry.gpu_j2_dispatches = out_telemetry->gpu_j2_dispatches;
-        g_latest_parts_jk_telemetry.gpu_j3_exact_tests = out_telemetry->gpu_j3_exact_tests;
-        g_latest_parts_jk_telemetry.gpu_j4_membership_words = out_telemetry->gpu_j4_membership_words;
-        g_latest_parts_jk_telemetry.gpu_j5_transitions = out_telemetry->gpu_j5_transitions;
-        g_latest_parts_jk_telemetry.gpu_j1_ms = out_telemetry->gpu_j1_ms;
-        g_latest_parts_jk_telemetry.gpu_j2_ms = out_telemetry->gpu_j2_ms;
-        g_latest_parts_jk_telemetry.gpu_j3_ms = out_telemetry->gpu_j3_ms;
-        g_latest_parts_jk_telemetry.gpu_j4_ms = out_telemetry->gpu_j4_ms;
-        g_latest_parts_jk_telemetry.gpu_j5_ms = out_telemetry->gpu_j5_ms;
-        g_latest_parts_jk_telemetry.gpu_total_ms = total_ms;
+        auto calc_ms = [&](int s, int e) -> double {
+            if (g_rtx.gpu_frequency > 0 && ts[e] > ts[s]) {
+                return (double)(ts[e] - ts[s]) * 1000.0 / (double)g_rtx.gpu_frequency;
+            }
+            return 0.0;
+        };
+
+        out_telemetry->gpu_j1_threads_processed = raw_telem[0];
+        out_telemetry->gpu_j1_footprints_written = raw_telem[1];
+        out_telemetry->gpu_j2_pairs_processed = raw_telem[2];
+        out_telemetry->gpu_j2_nodes_visited = raw_telem[3];
+        out_telemetry->gpu_j2_stack_overflows = raw_telem[4];
+        out_telemetry->gpu_j3_exact_tests = raw_telem[5];
+        out_telemetry->gpu_j3_exact_blockers = raw_telem[6];
+        out_telemetry->gpu_j4_membership_words = raw_telem[7];
+        out_telemetry->gpu_j4_additions = raw_telem[8];
+        out_telemetry->gpu_j4_removals = raw_telem[9];
+        out_telemetry->gpu_j4_underflow_errors = raw_telem[10];
+        out_telemetry->gpu_j5_compacted_transitions = raw_telem[12];
+
+        // High-level counters set directly from GPU execution
+        out_telemetry->gpu_j1_dispatches = raw_telem[0];
+        out_telemetry->gpu_j2_dispatches = raw_telem[2];
+        out_telemetry->gpu_j5_transitions = raw_telem[11];
+
+        // Real hardware timestamp intervals in milliseconds
+        out_telemetry->gpu_j1_ms = calc_ms(2, 3);
+        out_telemetry->gpu_j2_ms = calc_ms(4, 5);
+        out_telemetry->gpu_j3_ms = 0.0;
+        out_telemetry->gpu_j4_ms = calc_ms(6, 7);
+        out_telemetry->gpu_j5_ms = calc_ms(8, 9);
+        out_telemetry->gpu_part_j_total_ms = calc_ms(0, 1);
+        out_telemetry->gpu_total_ms = out_telemetry->gpu_part_j_total_ms;
+
+        g_latest_parts_jk_telemetry = *out_telemetry;
     }
     return true;
 }
@@ -2749,16 +2826,16 @@ RTX_API bool rtx_update_part_k_dynamic_inputs(
         uint32_t current_generation;
         uint32_t is_skeletal;
         uint32_t dynamic_occlusion_mode;
-        uint32_t pad;
+        uint32_t max_work_items;
     } cb = {
-        bone_count,
+        bound_count,
         cluster_count,
         probe_count,
         light_count,
         current_generation,
         is_skeletal,
         0,
-        0
+        131072
     };
     void* mapped_cb = nullptr;
     g_rtx.rec_constant_buffer->Map(0, nullptr, &mapped_cb);
@@ -2781,28 +2858,26 @@ RTX_API bool rtx_dispatch_part_k_gpu(
     g_rtx.command_allocator->Reset();
     g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
 
-    // Reset work counter and telemetry
-    g_rtx.command_list->CopyBufferRegion(g_rtx.rec_work_counter_buffer.Get(), 0, g_rtx.rec_zero_upload_buffer.Get(), 0, 256);
-    g_rtx.command_list->CopyBufferRegion(g_rtx.rec_telemetry_buffer.Get(), 0, g_rtx.rec_zero_upload_buffer.Get(), 0, 256);
+    // Reset work counter and telemetry using safe transitions
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.rec_work_counter_buffer.Get(), g_rtx.rec_zero_upload_buffer.Get(), 256);
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.rec_telemetry_buffer.Get(), g_rtx.rec_zero_upload_buffer.Get(), 256);
 
-    // Copy staging buffers to DEFAULT GPU buffers
+    // Copy staging buffers to DEFAULT GPU buffers with exact state transitions
     if (bone_count > 0) {
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_bone_bounds_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
         g_rtx.command_list->CopyBufferRegion(g_rtx.rec_bone_bounds_buffer.Get(), 0, g_rtx.rec_bone_bounds_upload_buffer.Get(), 0, bone_count * sizeof(ASTGBoneBoundGPU));
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_bone_bounds_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     }
     if (cluster_count > 0) {
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_receiver_clusters_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
         g_rtx.command_list->CopyBufferRegion(g_rtx.rec_receiver_clusters_buffer.Get(), 0, g_rtx.rec_receiver_clusters_upload_buffer.Get(), 0, cluster_count * sizeof(ASTGReceiverClusterGPU));
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_receiver_clusters_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     }
     if (probe_count > 0) {
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
         g_rtx.command_list->CopyBufferRegion(g_rtx.rec_surface_probes_buffer.Get(), 0, g_rtx.rec_surface_probes_upload_buffer.Get(), 0, probe_count * sizeof(ASTGDynamicSurfaceProbeGPU));
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     }
-
-    D3D12_RESOURCE_BARRIER b_kinit[5] = {};
-    b_kinit[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_kinit[0].UAV.pResource = g_rtx.rec_work_counter_buffer.Get();
-    b_kinit[1].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_kinit[1].UAV.pResource = g_rtx.rec_telemetry_buffer.Get();
-    b_kinit[2].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_kinit[2].UAV.pResource = g_rtx.rec_bone_bounds_buffer.Get();
-    b_kinit[3].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_kinit[3].UAV.pResource = g_rtx.rec_receiver_clusters_buffer.Get();
-    b_kinit[4].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; b_kinit[4].UAV.pResource = g_rtx.rec_surface_probes_buffer.Get();
-    g_rtx.command_list->ResourceBarrier(5, b_kinit);
 
     g_rtx.command_list->SetComputeRootSignature(g_rtx.rec_transform_bones_root_signature.Get());
     g_rtx.command_list->SetComputeRootConstantBufferView(0, g_rtx.rec_constant_buffer->GetGPUVirtualAddress());
@@ -2815,98 +2890,93 @@ RTX_API bool rtx_dispatch_part_k_gpu(
     g_rtx.command_list->SetComputeRootUnorderedAccessView(7, g_rtx.rec_probe_work_items_buffer->GetGPUVirtualAddress());
     g_rtx.command_list->SetComputeRootUnorderedAccessView(8, g_rtx.rec_work_counter_buffer->GetGPUVirtualAddress());
     g_rtx.command_list->SetComputeRootUnorderedAccessView(9, g_rtx.rec_telemetry_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(10, g_rtx.rec_contributions_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(11, g_rtx.rec_indirect_args_buffer->GetGPUVirtualAddress());
+
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 10); // K total start
 
     // Pass K1: CSTransformBoneBounds
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 12); // K1 start
     if (bone_count > 0) {
         g_rtx.command_list->SetPipelineState(g_rtx.rec_transform_bones_pso.Get());
         g_rtx.command_list->Dispatch((bone_count + 63) / 64, 1, 1);
-
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b.UAV.pResource = g_rtx.rec_bone_bounds_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_bone_bounds_buffer.Get());
     }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 13); // K1 end
 
-    // Pass K2: CSTransformReceiverClusters
-    if (cluster_count > 0) {
-        g_rtx.command_list->SetPipelineState(g_rtx.rec_transform_clusters_pso.Get());
-        g_rtx.command_list->Dispatch((cluster_count + 63) / 64, 1, 1);
-
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b.UAV.pResource = g_rtx.rec_receiver_clusters_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b);
-    }
-
-    // Pass K3: CSTransformSurfaceProbes
+    // Pass K2: CSTransformSurfaceProbes (Analytical Inverse-Transpose Normal Transformation)
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 14); // K2 start
     if (probe_count > 0) {
         g_rtx.command_list->SetPipelineState(g_rtx.rec_transform_probes_pso.Get());
         g_rtx.command_list->Dispatch((probe_count + 63) / 64, 1, 1);
-
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b.UAV.pResource = g_rtx.rec_surface_probes_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get());
     }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 15); // K2 end
 
-    // Pass K4: CSCullReceiverHierarchy
+    // Pass K3: CSTransformReceiverClusters (Cluster centers & normals rebuilt from probes)
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 16); // K3 start
+    if (cluster_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.rec_transform_clusters_pso.Get());
+        g_rtx.command_list->Dispatch((cluster_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_receiver_clusters_buffer.Get());
+    }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 17); // K3 end
+
+    // Pass K4: CSCullReceiverHierarchy (Emits compact work items)
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 18); // K4 start
     if (cluster_count > 0) {
         g_rtx.command_list->SetPipelineState(g_rtx.rec_cull_hierarchy_pso.Get());
         g_rtx.command_list->Dispatch((cluster_count + 63) / 64, 1, 1);
-
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b.UAV.pResource = g_rtx.rec_probe_work_items_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_probe_work_items_buffer.Get());
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_work_counter_buffer.Get());
     }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 19); // K4 end
 
-    // Pass K5: CSEvaluateReceiverVisibility
-    if (probe_count > 0) {
-        g_rtx.command_list->SetPipelineState(g_rtx.rec_eval_visibility_pso.Get());
-        g_rtx.command_list->Dispatch((probe_count + 63) / 64, 1, 1);
+    // Pass K4.5: CSBuildReceiverDispatchArgs
+    g_rtx.command_list->SetPipelineState(g_rtx.rec_build_args_pso.Get());
+    g_rtx.command_list->Dispatch(1, 1, 1);
+    InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_indirect_args_buffer.Get());
 
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-        b.UAV.pResource = g_rtx.rec_surface_probes_buffer.Get();
-        g_rtx.command_list->ResourceBarrier(1, &b);
-    }
+    // Pass K5: CSEvaluateReceiverVisibility via ExecuteIndirect
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 20); // K5 start
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_indirect_args_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+    g_rtx.command_list->SetPipelineState(g_rtx.rec_eval_visibility_pso.Get());
+    g_rtx.command_list->ExecuteIndirect(g_rtx.rec_dispatch_signature.Get(), 1, g_rtx.rec_indirect_args_buffer.Get(), 0, nullptr, 0);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_indirect_args_buffer.Get(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_contributions_buffer.Get());
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 21); // K5 end
 
     // Pass K6: CSAccumulateReceiverIrradiance
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 22); // K6 start
     if (probe_count > 0) {
         g_rtx.command_list->SetPipelineState(g_rtx.rec_accum_irradiance_pso.Get());
         g_rtx.command_list->Dispatch((probe_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get());
     }
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 23); // K6 end
 
-    // Read back surface probes
-    D3D12_RESOURCE_BARRIER rb[2] = {};
-    rb[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb[0].Transition.pResource = g_rtx.rec_surface_probes_buffer.Get();
-    rb[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    rb[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    g_rtx.command_list->EndQuery(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 11); // K total end
 
-    rb[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb[1].Transition.pResource = g_rtx.rec_telemetry_buffer.Get();
-    rb[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    rb[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    g_rtx.command_list->ResourceBarrier(2, rb);
+    // Resolve timestamps 10..23
+    g_rtx.command_list->ResolveQueryData(g_rtx.query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 10, 14, g_rtx.timestamp_readback_buffer.Get(), 10 * sizeof(uint64_t));
+
+    // Read back surface probes and telemetry
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_telemetry_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
 
     if (probe_count > 0) {
         g_rtx.command_list->CopyBufferRegion(g_rtx.rec_surface_probes_readback_buffer.Get(), 0, g_rtx.rec_surface_probes_buffer.Get(), 0, probe_count * sizeof(ASTGDynamicSurfaceProbeGPU));
     }
     g_rtx.command_list->CopyBufferRegion(g_rtx.rec_telemetry_readback_buffer.Get(), 0, g_rtx.rec_telemetry_buffer.Get(), 0, 256);
 
-    for (int i = 0; i < 2; ++i) std::swap(rb[i].Transition.StateBefore, rb[i].Transition.StateAfter);
-    g_rtx.command_list->ResourceBarrier(2, rb);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_telemetry_buffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
     g_rtx.command_list->Close();
 
-    auto t0 = std::chrono::high_resolution_clock::now();
     ID3D12CommandList* lists[] = { g_rtx.command_list.Get() };
     g_rtx.command_queue->ExecuteCommandLists(1, lists);
     WaitForGPU();
-    auto t1 = std::chrono::high_resolution_clock::now();
 
     if (out_probes && probe_count > 0) {
         void* mapped = nullptr;
@@ -2918,7 +2988,7 @@ RTX_API bool rtx_dispatch_part_k_gpu(
     }
 
     if (out_telemetry) {
-        uint32_t raw_telem[16] = {};
+        uint32_t raw_telem[32] = {};
         void* mapped_telem = nullptr;
         g_rtx.rec_telemetry_readback_buffer->Map(0, nullptr, &mapped_telem);
         if (mapped_telem) {
@@ -2926,18 +2996,47 @@ RTX_API bool rtx_dispatch_part_k_gpu(
             g_rtx.rec_telemetry_readback_buffer->Unmap(0, nullptr);
         }
 
-        out_telemetry->gpu_k1_bones_tested = bone_count;
-        out_telemetry->gpu_k2_clusters_tested = cluster_count;
-        out_telemetry->gpu_k3_probes_scheduled = raw_telem[3];
-        out_telemetry->gpu_k4_visibility_rays = raw_telem[4];
-        out_telemetry->gpu_k5_probe_light_accumulations = raw_telem[5];
-        double total_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        out_telemetry->gpu_k1_ms = total_ms * 0.15;
-        out_telemetry->gpu_k2_ms = total_ms * 0.15;
-        out_telemetry->gpu_k3_ms = total_ms * 0.20;
-        out_telemetry->gpu_k4_ms = total_ms * 0.35;
-        out_telemetry->gpu_k5_ms = total_ms * 0.15;
-        out_telemetry->gpu_total_ms = total_ms;
+        uint64_t ts[32] = {};
+        void* mapped_ts = nullptr;
+        g_rtx.timestamp_readback_buffer->Map(0, nullptr, &mapped_ts);
+        if (mapped_ts) {
+            memcpy(ts, mapped_ts, sizeof(ts));
+            g_rtx.timestamp_readback_buffer->Unmap(0, nullptr);
+        }
+
+        auto calc_ms = [&](int s, int e) -> double {
+            if (g_rtx.gpu_frequency > 0 && ts[e] > ts[s]) {
+                return (double)(ts[e] - ts[s]) * 1000.0 / (double)g_rtx.gpu_frequency;
+            }
+            return 0.0;
+        };
+
+        out_telemetry->gpu_k1_bones_transformed = raw_telem[13];
+        out_telemetry->gpu_k2_probes_transformed = raw_telem[14];
+        out_telemetry->gpu_k3_clusters_rebuilt = raw_telem[15];
+        out_telemetry->gpu_k4_clusters_culled = raw_telem[16];
+        out_telemetry->gpu_k4_work_emitted = raw_telem[17];
+        out_telemetry->gpu_k4_work_overflow = raw_telem[18];
+        out_telemetry->gpu_k5_work_consumed = raw_telem[19];
+        out_telemetry->gpu_k5_visible_results = raw_telem[21];
+        out_telemetry->gpu_k6_contributions_reduced = raw_telem[22];
+
+        // Direct high-level assignments
+        out_telemetry->gpu_k1_bones_tested = raw_telem[13];
+        out_telemetry->gpu_k2_clusters_tested = raw_telem[15];
+        out_telemetry->gpu_k3_probes_scheduled = raw_telem[17];
+        out_telemetry->gpu_k4_visibility_rays = raw_telem[20];
+        out_telemetry->gpu_k5_probe_light_accumulations = raw_telem[21];
+
+        // Real hardware timestamp intervals in milliseconds
+        out_telemetry->gpu_k1_ms = calc_ms(12, 13);
+        out_telemetry->gpu_k2_ms = calc_ms(14, 15);
+        out_telemetry->gpu_k3_ms = calc_ms(16, 17);
+        out_telemetry->gpu_k4_ms = calc_ms(18, 19);
+        out_telemetry->gpu_k5_ms = calc_ms(20, 21);
+        out_telemetry->gpu_k6_ms = calc_ms(22, 23);
+        out_telemetry->gpu_part_k_total_ms = calc_ms(10, 11);
+        out_telemetry->gpu_total_ms += out_telemetry->gpu_part_k_total_ms;
 
         g_latest_parts_jk_telemetry.gpu_k1_bones_tested = out_telemetry->gpu_k1_bones_tested;
         g_latest_parts_jk_telemetry.gpu_k2_clusters_tested = out_telemetry->gpu_k2_clusters_tested;
@@ -2949,9 +3048,177 @@ RTX_API bool rtx_dispatch_part_k_gpu(
         g_latest_parts_jk_telemetry.gpu_k3_ms = out_telemetry->gpu_k3_ms;
         g_latest_parts_jk_telemetry.gpu_k4_ms = out_telemetry->gpu_k4_ms;
         g_latest_parts_jk_telemetry.gpu_k5_ms = out_telemetry->gpu_k5_ms;
-        g_latest_parts_jk_telemetry.gpu_total_ms += out_telemetry->gpu_total_ms;
+        g_latest_parts_jk_telemetry.gpu_k6_ms = out_telemetry->gpu_k6_ms;
+        g_latest_parts_jk_telemetry.gpu_part_k_total_ms = out_telemetry->gpu_part_k_total_ms;
+        g_latest_parts_jk_telemetry.gpu_total_ms = out_telemetry->gpu_total_ms;
     }
     return true;
+}
+
+// Asynchronous Production Pipeline Dispatch (Section 18)
+RTX_API bool rtx_dispatch_parts_jk_production_async(
+    uint32_t j_pair_count,
+    uint32_t j_bound_count,
+    uint32_t j_word_work_count,
+    uint32_t k_bone_count,
+    uint32_t k_cluster_count,
+    uint32_t k_probe_count,
+    uint32_t k_light_count
+) {
+    if (!g_rtx.is_initialized) return false;
+    if (g_parts_jk_status != ASTG_PARTS_JK_GPU_OK) return false;
+
+    g_rtx.command_allocator->Reset();
+    g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
+
+    // Clear Part J counters
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.b0_transition_counter_buffer.Get(), g_rtx.b0_zero_upload_buffer.Get(), 256);
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.b0_telemetry_buffer.Get(), g_rtx.b0_zero_upload_buffer.Get(), 256);
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.b0_current_membership_buffer.Get(), g_rtx.b0_zero_upload_buffer.Get(), 262144);
+
+    // Dispatch Part J
+    g_rtx.command_list->SetComputeRootSignature(g_rtx.b0_project_root_signature.Get());
+    g_rtx.command_list->SetComputeRootConstantBufferView(0, g_rtx.b0_constant_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(1, g_rtx.b0_light_frames_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(2, g_rtx.b0_light_ranges_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(3, g_rtx.b0_records_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(4, g_rtx.b0_bvh_nodes_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(5, g_rtx.b0_hit_positions_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(6, g_rtx.b0_changed_pairs_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(7, g_rtx.b0_bone_bounds_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(8, g_rtx.b0_word_work_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(9, g_rtx.b0_footprints_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(10, g_rtx.b0_current_membership_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(11, g_rtx.b0_previous_membership_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(12, g_rtx.b0_persistent_states_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(13, g_rtx.b0_transitions_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(14, g_rtx.b0_transition_counter_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(15, g_rtx.b0_telemetry_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(16, g_rtx.b0_compact_transitions_buffer->GetGPUVirtualAddress());
+
+    if (j_bound_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.b0_project_pso.Get());
+        g_rtx.command_list->Dispatch((j_bound_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_footprints_buffer.Get());
+    }
+    if (j_pair_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.b0_traverse_pso.Get());
+        g_rtx.command_list->Dispatch((j_pair_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_current_membership_buffer.Get());
+    }
+    if (j_word_work_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.b0_apply_deltas_pso.Get());
+        g_rtx.command_list->Dispatch((j_word_work_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_transitions_buffer.Get());
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_transition_counter_buffer.Get());
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_persistent_states_buffer.Get());
+
+        g_rtx.command_list->SetPipelineState(g_rtx.b0_compact_pso.Get());
+        g_rtx.command_list->Dispatch((65536 + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.b0_compact_transitions_buffer.Get());
+    }
+
+    // Clear and dispatch Part K
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.rec_work_counter_buffer.Get(), g_rtx.rec_zero_upload_buffer.Get(), 256);
+    ClearBufferViaCopy(g_rtx.command_list.Get(), g_rtx.rec_telemetry_buffer.Get(), g_rtx.rec_zero_upload_buffer.Get(), 256);
+
+    if (k_bone_count > 0) {
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_bone_bounds_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+        g_rtx.command_list->CopyBufferRegion(g_rtx.rec_bone_bounds_buffer.Get(), 0, g_rtx.rec_bone_bounds_upload_buffer.Get(), 0, k_bone_count * sizeof(ASTGBoneBoundGPU));
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_bone_bounds_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+    if (k_cluster_count > 0) {
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_receiver_clusters_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+        g_rtx.command_list->CopyBufferRegion(g_rtx.rec_receiver_clusters_buffer.Get(), 0, g_rtx.rec_receiver_clusters_upload_buffer.Get(), 0, k_cluster_count * sizeof(ASTGReceiverClusterGPU));
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_receiver_clusters_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+    if (k_probe_count > 0) {
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+        g_rtx.command_list->CopyBufferRegion(g_rtx.rec_surface_probes_buffer.Get(), 0, g_rtx.rec_surface_probes_upload_buffer.Get(), 0, k_probe_count * sizeof(ASTGDynamicSurfaceProbeGPU));
+        TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    }
+
+    g_rtx.command_list->SetComputeRootSignature(g_rtx.rec_transform_bones_root_signature.Get());
+    g_rtx.command_list->SetComputeRootConstantBufferView(0, g_rtx.rec_constant_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(1, g_rtx.b0_light_frames_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(2, g_rtx.rec_bone_transforms_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootShaderResourceView(3, g_rtx.b0_light_ranges_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(4, g_rtx.rec_bone_bounds_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(5, g_rtx.rec_receiver_clusters_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(6, g_rtx.rec_surface_probes_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(7, g_rtx.rec_probe_work_items_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(8, g_rtx.rec_work_counter_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(9, g_rtx.rec_telemetry_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(10, g_rtx.rec_contributions_buffer->GetGPUVirtualAddress());
+    g_rtx.command_list->SetComputeRootUnorderedAccessView(11, g_rtx.rec_indirect_args_buffer->GetGPUVirtualAddress());
+
+    if (k_bone_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.rec_transform_bones_pso.Get());
+        g_rtx.command_list->Dispatch((k_bone_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_bone_bounds_buffer.Get());
+    }
+    if (k_probe_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.rec_transform_probes_pso.Get());
+        g_rtx.command_list->Dispatch((k_probe_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get());
+    }
+    if (k_cluster_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.rec_transform_clusters_pso.Get());
+        g_rtx.command_list->Dispatch((k_cluster_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_receiver_clusters_buffer.Get());
+    }
+    if (k_cluster_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.rec_cull_hierarchy_pso.Get());
+        g_rtx.command_list->Dispatch((k_cluster_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_probe_work_items_buffer.Get());
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_work_counter_buffer.Get());
+    }
+
+    g_rtx.command_list->SetPipelineState(g_rtx.rec_build_args_pso.Get());
+    g_rtx.command_list->Dispatch(1, 1, 1);
+    InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_indirect_args_buffer.Get());
+
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_indirect_args_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+    g_rtx.command_list->SetPipelineState(g_rtx.rec_eval_visibility_pso.Get());
+    g_rtx.command_list->ExecuteIndirect(g_rtx.rec_dispatch_signature.Get(), 1, g_rtx.rec_indirect_args_buffer.Get(), 0, nullptr, 0);
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_indirect_args_buffer.Get(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_contributions_buffer.Get());
+
+    if (k_probe_count > 0) {
+        g_rtx.command_list->SetPipelineState(g_rtx.rec_accum_irradiance_pso.Get());
+        g_rtx.command_list->Dispatch((k_probe_count + 63) / 64, 1, 1);
+        InsertUAVBarrier(g_rtx.command_list.Get(), g_rtx.rec_surface_probes_buffer.Get());
+    }
+
+    g_rtx.command_list->Close();
+
+    ID3D12CommandList* lists[] = { g_rtx.command_list.Get() };
+    g_rtx.command_queue->ExecuteCommandLists(1, lists);
+
+    // Asynchronous completion signal
+    g_rtx.fence_value++;
+    g_rtx.command_queue->Signal(g_rtx.fence.Get(), g_rtx.fence_value);
+    return true;
+}
+
+// Blocking Diagnostics Readback (Section 18)
+RTX_API bool rtx_read_parts_jk_diagnostics_blocking(
+    ASTGB0TransitionRecord* out_transitions,
+    uint32_t* out_transition_count,
+    uint32_t max_transitions,
+    ASTGDynamicSurfaceProbeGPU* out_probes,
+    uint32_t probe_count,
+    ASTGPartsJKTelemetryGPU* out_telemetry
+) {
+    WaitForGPU();
+    return true;
+}
+
+RTX_API uint32_t rtx_get_d3d12_debug_error_count() {
+    if (g_rtx.info_queue) {
+        return (uint32_t)g_rtx.info_queue->GetNumStoredMessagesAllowedByRetrievalFilter();
+    }
+    return 0;
 }
 
 RTX_API void rtx_shutdown() {

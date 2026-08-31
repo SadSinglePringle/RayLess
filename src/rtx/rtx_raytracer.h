@@ -203,14 +203,18 @@ RTX_API bool rtx_update_part_j_dynamic_inputs(
     uint32_t pair_count,
     const ASTGBoneBoundGPU* bounds,
     uint32_t bound_count,
+    const ASTGMembershipWordWorkGPU* word_work_items,
+    uint32_t word_work_count,
     uint32_t current_generation,
-    uint32_t dynamic_occlusion_mode
+    uint32_t dynamic_occlusion_mode,
+    uint32_t footprint_capacity
 );
 
 // Dispatches GPU Part J compute pipeline (Passes J1 -> J2 -> J4 -> J5)
 RTX_API bool rtx_dispatch_part_j_gpu(
     uint32_t pair_count,
     uint32_t bound_count,
+    uint32_t word_work_count,
     ASTGB0TransitionRecord* out_transitions,
     uint32_t* out_transition_count,
     uint32_t max_transitions,
@@ -241,6 +245,30 @@ RTX_API bool rtx_dispatch_part_k_gpu(
     ASTGDynamicSurfaceProbeGPU* out_probes,
     ASTGPartsJKTelemetryGPU* out_telemetry
 );
+
+// Asynchronous Production Pipeline Dispatch (Section 18)
+RTX_API bool rtx_dispatch_parts_jk_production_async(
+    uint32_t j_pair_count,
+    uint32_t j_bound_count,
+    uint32_t j_word_work_count,
+    uint32_t k_bone_count,
+    uint32_t k_cluster_count,
+    uint32_t k_probe_count,
+    uint32_t k_light_count
+);
+
+// Blocking Diagnostics Readback (Section 18)
+RTX_API bool rtx_read_parts_jk_diagnostics_blocking(
+    ASTGB0TransitionRecord* out_transitions,
+    uint32_t* out_transition_count,
+    uint32_t max_transitions,
+    ASTGDynamicSurfaceProbeGPU* out_probes,
+    uint32_t probe_count,
+    ASTGPartsJKTelemetryGPU* out_telemetry
+);
+
+// Returns the count of Direct3D 12 debug layer error / corruption messages
+RTX_API uint32_t rtx_get_d3d12_debug_error_count();
 
 // Returns the current execution status of the Parts J/K GPU runtime
 RTX_API ASTGPartsJKExecutionStatus rtx_get_parts_jk_execution_status();

@@ -56,7 +56,10 @@ int main(int argc, char** argv) {
     diag.test_dynamic_surface_receivers();
     diag.print_dynamic_surface_receivers_report();
 
-    // 12. PART L: ASTG GPU-First Transport Execution & Split Accounting
+    // 12. PART J & K: GPU Runtime Correctness, Persistence & Timestamps
+    diag.test_parts_jk_gpu_runtime_correctness_and_persistence();
+
+    // 13. PART L: ASTG GPU-First Transport Execution & Split Accounting
     diag.test_gpu_first_transport_benchmarks();
 
     // 13. Atomic CSV/JSON/Manifest Artifact Export & Cross-File Validation

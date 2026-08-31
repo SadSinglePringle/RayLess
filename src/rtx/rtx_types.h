@@ -476,6 +476,42 @@ typedef struct ASTGLightB0RangeGPU {
 };
 typedef struct ASTGLightB0RangeGPU ASTGLightB0RangeGPU;
 
+// Persistent (Group, Light) Key for Stable Allocation
+struct ASTGGroupLightKey {
+    uint32_t group_id;
+    uint32_t light_id;
+#ifdef __cplusplus
+    bool operator==(const ASTGGroupLightKey& o) const {
+        return group_id == o.group_id && light_id == o.light_id;
+    }
+    bool operator<(const ASTGGroupLightKey& o) const {
+        if (group_id != o.group_id) return group_id < o.group_id;
+        return light_id < o.light_id;
+    }
+#endif
+};
+typedef struct ASTGGroupLightKey ASTGGroupLightKey;
+
+// Stable Persistent Membership & Footprint Allocation Record
+struct ASTGGroupLightMembershipAllocation {
+    uint32_t group_id;
+    uint32_t actual_light_id;
+    uint32_t packed_light_index;
+
+    uint32_t record_offset;
+    uint32_t record_count;
+
+    uint32_t membership_word_offset;
+    uint32_t membership_word_count;
+
+    uint32_t footprint_offset;
+    uint32_t footprint_count;
+
+    uint32_t light_layout_generation;
+    uint32_t allocation_generation;
+};
+typedef struct ASTGGroupLightMembershipAllocation ASTGGroupLightMembershipAllocation;
+
 // 48-byte Changed Group/Light Pair Descriptor (16-byte aligned)
 #ifdef __cplusplus
 struct alignas(16) ASTGChangedGroupLightPairGPU {
@@ -483,20 +519,39 @@ struct alignas(16) ASTGChangedGroupLightPairGPU {
 typedef struct ASTGChangedGroupLightPairGPU {
 #endif
     uint32_t group_id;
-    uint32_t light_id;
+    uint32_t actual_light_id;
+    uint32_t packed_light_index;
     uint32_t first_bound;
+
     uint32_t bound_count;
     uint32_t record_offset;
     uint32_t record_count;
     uint32_t bvh_root_index;
+
     uint32_t generation;
-    uint32_t pair_index;
     uint32_t membership_word_offset;
-    uint32_t pad[2];
+    uint32_t membership_word_count;
+    uint32_t footprint_offset;
 #ifdef __cplusplus
 };
 #else
 } ASTGChangedGroupLightPairGPU;
+#endif
+
+// 16-byte Membership Word Work Item for Pass J4
+#ifdef __cplusplus
+struct alignas(16) ASTGMembershipWordWorkGPU {
+#else
+typedef struct ASTGMembershipWordWorkGPU {
+#endif
+    uint32_t pair_index;
+    uint32_t local_word_index;
+    uint32_t global_word_offset;
+    uint32_t pad;
+#ifdef __cplusplus
+};
+#else
+} ASTGMembershipWordWorkGPU;
 #endif
 
 // 64-byte Bone Transform Matrix (16-byte aligned)
@@ -515,14 +570,64 @@ typedef struct ASTGBoneTransformGPU {
 } ASTGBoneTransformGPU;
 #endif
 
-// 16-byte Compact Probe-Light Work Item
-struct ASTGProbeLightWorkGPU {
+// 16-byte Compact Probe-Light Work Item (Pass K4 -> K5)
+#ifdef __cplusplus
+struct alignas(16) ASTGProbeLightWorkGPU {
+#else
+typedef struct ASTGProbeLightWorkGPU {
+#endif
     uint32_t probe_id;
-    uint32_t light_id;
-    uint32_t group_id;
+    uint32_t actual_light_id;
+    uint32_t packed_light_index;
     uint32_t dependency_generation;
+#ifdef __cplusplus
 };
-typedef struct ASTGProbeLightWorkGPU ASTGProbeLightWorkGPU;
+#else
+} ASTGProbeLightWorkGPU;
+#endif
+
+// 32-byte Compact Probe-Light Contribution (Pass K5 -> K6)
+#ifdef __cplusplus
+struct alignas(16) ASTGProbeLightContributionGPU {
+#else
+typedef struct ASTGProbeLightContributionGPU {
+#endif
+    uint32_t probe_id;
+    uint32_t actual_light_id;
+    uint32_t visibility;
+    uint32_t dependency_generation;
+    float irradiance_r;
+    float irradiance_g;
+    float irradiance_b;
+    float pad;
+#ifdef __cplusplus
+};
+#else
+} ASTGProbeLightContributionGPU;
+#endif
+
+// 8-byte B0 Downstream Dependency Range
+struct ASTGB0DependencyRangeGPU {
+    uint32_t dependency_offset;
+    uint32_t dependency_count;
+};
+typedef struct ASTGB0DependencyRangeGPU ASTGB0DependencyRangeGPU;
+
+// 16-byte Group Bone Range Descriptor
+struct ASTGGroupBoneRangeGPU {
+    uint32_t group_id;
+    uint32_t transform_offset;
+    uint32_t transform_count;
+    uint32_t generation;
+};
+typedef struct ASTGGroupBoneRangeGPU ASTGGroupBoneRangeGPU;
+
+// Receiver Visibility Provenance Mode
+enum ASTGReceiverVisibilityMode {
+    ASTG_RECEIVER_VISIBILITY_AABB_PROXY = 0,
+    ASTG_RECEIVER_VISIBILITY_DXR_DYNAMIC_GEOMETRY = 1
+};
+typedef enum ASTGReceiverVisibilityMode ASTGReceiverVisibilityMode;
 
 // Execution Mode and Status Enums
 enum ASTGPartsJKExecutionMode {
@@ -552,8 +657,32 @@ struct ASTGPartsJKTelemetryGPU {
     uint32_t gpu_k3_probes_scheduled;
     uint32_t gpu_k4_visibility_rays;
     uint32_t gpu_k5_probe_light_accumulations;
+
+    // Detailed GPU-originated telemetry counters
+    uint32_t gpu_j1_threads_processed;
+    uint32_t gpu_j1_footprints_written;
+    uint32_t gpu_j2_pairs_processed;
+    uint32_t gpu_j2_nodes_visited;
+    uint32_t gpu_j2_stack_overflows;
+    uint32_t gpu_j3_exact_blockers;
+    uint32_t gpu_j4_additions;
+    uint32_t gpu_j4_removals;
+    uint32_t gpu_j4_underflow_errors;
+    uint32_t gpu_j5_compacted_transitions;
+    uint32_t gpu_k1_bones_transformed;
+    uint32_t gpu_k2_probes_transformed;
+    uint32_t gpu_k3_clusters_rebuilt;
+    uint32_t gpu_k4_clusters_culled;
+    uint32_t gpu_k4_work_emitted;
+    uint32_t gpu_k4_work_overflow;
+    uint32_t gpu_k5_work_consumed;
+    uint32_t gpu_k5_visible_results;
+    uint32_t gpu_k6_contributions_reduced;
+
     uint32_t cpu_part_j_reference_calls;
     uint32_t cpu_part_k_reference_calls;
+
+    // Real measured GPU timestamp query intervals (in ms, -1.0 if not measured)
     double gpu_j1_ms;
     double gpu_j2_ms;
     double gpu_j3_ms;
@@ -564,7 +693,15 @@ struct ASTGPartsJKTelemetryGPU {
     double gpu_k3_ms;
     double gpu_k4_ms;
     double gpu_k5_ms;
+    double gpu_k6_ms;
+    double gpu_part_j_total_ms;
+    double gpu_part_k_total_ms;
     double gpu_total_ms;
+
+    // Measured CPU phase durations (in ms)
+    double cpu_prep_ms;
+    double cpu_upload_ms;
+    double cpu_record_ms;
 };
 typedef struct ASTGPartsJKTelemetryGPU ASTGPartsJKTelemetryGPU;
 
@@ -762,15 +899,23 @@ static_assert(offsetof(ASTGLightB0RangeGPU, intensity) == 28, "ASTGLightB0RangeG
 static_assert(sizeof(ASTGChangedGroupLightPairGPU) == 48, "ASTGChangedGroupLightPairGPU size must be exactly 48 bytes");
 static_assert(alignof(ASTGChangedGroupLightPairGPU) == 16, "ASTGChangedGroupLightPairGPU alignment must be 16 bytes");
 static_assert(offsetof(ASTGChangedGroupLightPairGPU, group_id) == 0, "ASTGChangedGroupLightPairGPU::group_id offset != 0");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, light_id) == 4, "ASTGChangedGroupLightPairGPU::light_id offset != 4");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, first_bound) == 8, "ASTGChangedGroupLightPairGPU::first_bound offset != 8");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, bound_count) == 12, "ASTGChangedGroupLightPairGPU::bound_count offset != 12");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, record_offset) == 16, "ASTGChangedGroupLightPairGPU::record_offset offset != 16");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, record_count) == 20, "ASTGChangedGroupLightPairGPU::record_count offset != 20");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, bvh_root_index) == 24, "ASTGChangedGroupLightPairGPU::bvh_root_index offset != 24");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, generation) == 28, "ASTGChangedGroupLightPairGPU::generation offset != 28");
-static_assert(offsetof(ASTGChangedGroupLightPairGPU, pair_index) == 32, "ASTGChangedGroupLightPairGPU::pair_index offset != 32");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, actual_light_id) == 4, "ASTGChangedGroupLightPairGPU::actual_light_id offset != 4");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, packed_light_index) == 8, "ASTGChangedGroupLightPairGPU::packed_light_index offset != 8");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, first_bound) == 12, "ASTGChangedGroupLightPairGPU::first_bound offset != 12");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, bound_count) == 16, "ASTGChangedGroupLightPairGPU::bound_count offset != 16");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, record_offset) == 20, "ASTGChangedGroupLightPairGPU::record_offset offset != 20");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, record_count) == 24, "ASTGChangedGroupLightPairGPU::record_count offset != 24");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, bvh_root_index) == 28, "ASTGChangedGroupLightPairGPU::bvh_root_index offset != 28");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, generation) == 32, "ASTGChangedGroupLightPairGPU::generation offset != 32");
 static_assert(offsetof(ASTGChangedGroupLightPairGPU, membership_word_offset) == 36, "ASTGChangedGroupLightPairGPU::membership_word_offset offset != 36");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, membership_word_count) == 40, "ASTGChangedGroupLightPairGPU::membership_word_count offset != 40");
+static_assert(offsetof(ASTGChangedGroupLightPairGPU, footprint_offset) == 44, "ASTGChangedGroupLightPairGPU::footprint_offset offset != 44");
+
+static_assert(sizeof(ASTGMembershipWordWorkGPU) == 16, "ASTGMembershipWordWorkGPU size must be exactly 16 bytes");
+static_assert(alignof(ASTGMembershipWordWorkGPU) == 16, "ASTGMembershipWordWorkGPU alignment must be 16 bytes");
+static_assert(offsetof(ASTGMembershipWordWorkGPU, pair_index) == 0, "ASTGMembershipWordWorkGPU::pair_index offset != 0");
+static_assert(offsetof(ASTGMembershipWordWorkGPU, local_word_index) == 4, "ASTGMembershipWordWorkGPU::local_word_index offset != 4");
+static_assert(offsetof(ASTGMembershipWordWorkGPU, global_word_offset) == 8, "ASTGMembershipWordWorkGPU::global_word_offset offset != 8");
 
 static_assert(sizeof(ASTGBoneTransformGPU) == 64, "ASTGBoneTransformGPU size must be exactly 64 bytes");
 static_assert(alignof(ASTGBoneTransformGPU) == 16, "ASTGBoneTransformGPU alignment must be 16 bytes");
@@ -781,9 +926,19 @@ static_assert(offsetof(ASTGBoneTransformGPU, row3_x) == 48, "ASTGBoneTransformGP
 
 static_assert(sizeof(ASTGProbeLightWorkGPU) == 16, "ASTGProbeLightWorkGPU size must be exactly 16 bytes");
 static_assert(offsetof(ASTGProbeLightWorkGPU, probe_id) == 0, "ASTGProbeLightWorkGPU::probe_id offset != 0");
-static_assert(offsetof(ASTGProbeLightWorkGPU, light_id) == 4, "ASTGProbeLightWorkGPU::light_id offset != 4");
-static_assert(offsetof(ASTGProbeLightWorkGPU, group_id) == 8, "ASTGProbeLightWorkGPU::group_id offset != 8");
+static_assert(offsetof(ASTGProbeLightWorkGPU, actual_light_id) == 4, "ASTGProbeLightWorkGPU::actual_light_id offset != 4");
+static_assert(offsetof(ASTGProbeLightWorkGPU, packed_light_index) == 8, "ASTGProbeLightWorkGPU::packed_light_index offset != 8");
 static_assert(offsetof(ASTGProbeLightWorkGPU, dependency_generation) == 12, "ASTGProbeLightWorkGPU::dependency_generation offset != 12");
+
+static_assert(sizeof(ASTGProbeLightContributionGPU) == 32, "ASTGProbeLightContributionGPU size must be exactly 32 bytes");
+static_assert(alignof(ASTGProbeLightContributionGPU) == 16, "ASTGProbeLightContributionGPU alignment must be 16 bytes");
+static_assert(offsetof(ASTGProbeLightContributionGPU, probe_id) == 0, "ASTGProbeLightContributionGPU::probe_id offset != 0");
+static_assert(offsetof(ASTGProbeLightContributionGPU, actual_light_id) == 4, "ASTGProbeLightContributionGPU::actual_light_id offset != 4");
+static_assert(offsetof(ASTGProbeLightContributionGPU, visibility) == 8, "ASTGProbeLightContributionGPU::visibility offset != 8");
+static_assert(offsetof(ASTGProbeLightContributionGPU, dependency_generation) == 12, "ASTGProbeLightContributionGPU::dependency_generation offset != 12");
+static_assert(offsetof(ASTGProbeLightContributionGPU, irradiance_r) == 16, "ASTGProbeLightContributionGPU::irradiance_r offset != 16");
+static_assert(offsetof(ASTGProbeLightContributionGPU, irradiance_g) == 20, "ASTGProbeLightContributionGPU::irradiance_g offset != 20");
+static_assert(offsetof(ASTGProbeLightContributionGPU, irradiance_b) == 24, "ASTGProbeLightContributionGPU::irradiance_b offset != 24");
 
 // Static Assertions for ASTGVisibilityCounters (32 bytes) and the extended
 // spatial-discovery TransportConstants block (48 bytes).
