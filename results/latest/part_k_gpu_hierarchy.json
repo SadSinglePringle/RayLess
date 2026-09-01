@@ -1,11 +1,11 @@
 {
-  "run_uuid": "run_20260831_174955_06d104a27966373d1a1ad3ef7184f0dc0ceb8af7_evidence_hardened",
+  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
   "clusters_rebuilt_k3": 128,
-  "clusters_culled_k4": 452,
-  "work_items_emitted": 25536,
+  "clusters_culled_k4": 339,
+  "work_items_emitted": 27344,
   "contributions_reduced_k6": 2048,
   "indirect_dispatch_args": {
-    "thread_groups_x": 399,
+    "thread_groups_x": 428,
     "thread_groups_y": 1,
     "thread_groups_z": 1
   }

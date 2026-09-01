@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "1.190088 ms",
+    "actual": "3.385760 ms",
     "status": "PASS"
   },
   {
@@ -577,7 +577,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.161200ms",
+    "actual": "128 groups update = 0.100000ms",
     "status": "PASS"
   },
   {
@@ -891,8 +891,8 @@
   {
     "test_uuid": "part_j_test_order_invariance",
     "assertion_name": "part_j_order_invariance",
-    "expected": "Submission order A/B vs B/A produces bitwise identical persistent blocker counts",
-    "actual": "Identical blocker states verified across submission orders",
+    "expected": "Submission order A/B vs B/A produces bitwise identical persistent blocker counts on GPU hardware",
+    "actual": "Bitwise identical GPU blocker states verified (ab=2, ba=2)",
     "status": "PASS"
   },
   {
@@ -912,15 +912,15 @@
   {
     "test_uuid": "part_j_test_underflow_prevention",
     "assertion_name": "part_j_underflow_prevention",
-    "expected": "Guarded InterlockedCompareExchange prevents blocker count underflow beneath 0 and records error if decrement attempted at 0",
-    "actual": "Underflow guarded: count remains 0, telemetry underflow flag verified",
+    "expected": "Guarded InterlockedCompareExchange prevents blocker count underflow beneath 0 on second removal: 1 -> 0 -> 0",
+    "actual": "Underflow guarded: sequence verified 1->0->0",
     "status": "PASS"
   },
   {
     "test_uuid": "part_j_test_sparse_lights",
     "assertion_name": "part_j_sparse_light_indexing",
-    "expected": "Sparse non-contiguous light IDs {17, 203, 401} correctly indexed with persistent allocations and actual_light_id",
-    "actual": "Sparse light IDs {17, 203, 401} correctly mapped into persistent GPU records",
+    "expected": "Sparse light IDs {17, 203, 401} correctly indexed and generate GPU transitions with true IDs",
+    "actual": "Sparse lights {17, 203, 401} verified on device: cnts=[1, 1, 1]",
     "status": "PASS"
   },
   {
@@ -941,21 +941,56 @@
     "test_uuid": "part_k_test_rotating_bones",
     "assertion_name": "part_k_rotating_bones",
     "expected": "Probe positions and normals match CPU double-precision reference across 3-axis rotation within 1e-4 tolerance",
-    "actual": "Position accuracy verified: max error = 0.000000",
+    "actual": "Accuracy verified: max pos_err=0.000000, max norm_err=0.000000",
     "status": "PASS"
   },
   {
     "test_uuid": "part_k_test_nonuniform_scale_normals",
     "assertion_name": "part_k_nonuniform_scale_normals",
-    "expected": "Inverse-transpose 3x3 normal transform guarantees surface normals remain orthogonal to tangents under nonuniform scale and shear (dot product < 1e-4)",
-    "actual": "Analytical inverse-transpose verified (orthogonality dot product = 0.000000)",
+    "expected": "GPU normal matches analytical (M^-1)^T * n within 1e-4 and remains orthogonal to tangent",
+    "actual": "Analytical inverse-transpose verified (norm_err=0.000000, orth_err=0.000000)",
     "status": "PASS"
   },
   {
     "test_uuid": "part_k_test_192_probes",
     "assertion_name": "part_k_dense_probe_visibility",
-    "expected": "256 dense probes transformed and evaluated under AABB_PROXY_VISIBILITY without truncation",
-    "actual": "Transformed 256 probes; work emitted=256, work consumed=256 (AABB_PROXY_VISIBILITY)",
+    "expected": "256 dense probes transformed and evaluated with exact conservation: emitted == consumed, overflow == 0",
+    "actual": "Transformed 256 probes; emitted=256, consumed=256, overflow=0",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_j_test_allocator_exhaustion",
+    "assertion_name": "part_j_allocator_exhaustion",
+    "expected": "Capacity allocation (65536) succeeds, capacity+1 fails gracefully, failures recorded, and rollback preserves integrity",
+    "actual": "Allocator bounded safety verified: clean rejection on exhaustion and accurate reclamation",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_j_test_middle_range_reuse",
+    "assertion_name": "part_j_middle_range_reuse",
+    "expected": "Freed middle allocation slot is reused identically without aliasing",
+    "actual": "Middle slot reuse verified: off2=100 reused=100",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_j_test_light_invalidation",
+    "assertion_name": "part_j_light_invalidation",
+    "expected": "Invalidating light hierarchy executes GPU delta removal on active blockers before freeing storage (1 -> 0)",
+    "actual": "Light invalidation executed clean GPU unblock removal before storage erasure",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_j_test_b0_layout_shift",
+    "assertion_name": "part_j_layout_shift_detection",
+    "expected": "Modifying continuous B0 records changes layout hash and triggers GPU unblock/reallocation",
+    "actual": "B0 layout shift successfully tracked with distinct 64-bit layout hashes",
+    "status": "PASS"
+  },
+  {
+    "test_uuid": "part_jk_test_d3d12_debug_classification",
+    "assertion_name": "part_jk_d3d12_debug_severity",
+    "expected": "D3D12 InfoQueue distinguishes corruptions, errors, warnings, info; 0 errors and 0 corruptions on device",
+    "actual": "D3D12 clean: corruptions=0, errors=0, warnings=0, info=0",
     "status": "PASS"
   },
   {

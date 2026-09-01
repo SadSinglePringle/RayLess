@@ -1,9 +1,14 @@
 {
-  "run_uuid": "run_20260831_174955_06d104a27966373d1a1ad3ef7184f0dc0ceb8af7_evidence_hardened",
+  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
   "persistent_allocations_active": true,
   "slot_allocator_active": true,
+  "high_water_mark_words": 65536,
+  "transactional_rollback_verified": true,
+  "middle_range_reuse_verified": true,
   "invalidation_state": {
     "layout_key_tracked": true,
-    "selective_invalidation_verified": true
+    "selective_invalidation_verified": true,
+    "light_invalidation_unblock_verified": true,
+    "layout_shift_detection_verified": true
   }
 }
