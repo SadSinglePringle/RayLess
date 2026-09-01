@@ -648,6 +648,21 @@ public:
         _build_bvh_recursive(0, (uint32_t)b0_records.size());
     }
 
+    uint64_t compute_b0_layout_hash() const {
+        uint64_t h = 14695981039346656037ULL;
+        h ^= (uint64_t)source_frame.light_id; h *= 1099511628211ULL;
+        h ^= (uint64_t)source_frame.generation; h *= 1099511628211ULL;
+        h ^= (uint64_t)b0_records.size(); h *= 1099511628211ULL;
+        h ^= (uint64_t)b0_bvh_nodes.size(); h *= 1099511628211ULL;
+        for (const auto& rec : b0_records) {
+            h ^= (uint64_t)rec.transport_node_id; h *= 1099511628211ULL;
+            uint32_t hd_bits = 0;
+            std::memcpy(&hd_bits, &rec.hit_dist, sizeof(float));
+            h ^= (uint64_t)hd_bits; h *= 1099511628211ULL;
+        }
+        return h;
+    }
+
     uint32_t _build_bvh_recursive(uint32_t start, uint32_t end) {
         uint32_t count = end - start;
         uint32_t node_idx = (uint32_t)b0_bvh_nodes.size();
@@ -2026,6 +2041,7 @@ public:
     std::unordered_map<uint64_t, bool> group_b0_record_blocked; // ((group_id << 40) | (light_id << 20) | record_id) -> bool
     std::unordered_map<uint32_t, std::unordered_set<uint32_t>> group_previously_lit_probes;
     std::map<ASTGGroupLightKey, ASTGGroupLightMembershipAllocation> group_light_allocations;
+    uint64_t last_uploaded_static_b0_hash = 0;
     struct MemoryBlock {
         uint32_t offset;
         uint32_t count;
@@ -2041,9 +2057,29 @@ public:
     uint32_t total_words_allocated = 0;
     uint32_t total_words_reclaimed = 0;
     uint32_t high_water_mark_words = 0;
+
+    uint32_t total_footprints_allocated = 0;
+    uint32_t total_footprints_reclaimed = 0;
+    uint32_t high_water_mark_footprints = 0;
+
     uint32_t allocation_failures = 0;
 
+    uint32_t get_live_membership_words() const {
+        return (total_words_allocated >= total_words_reclaimed) ? (total_words_allocated - total_words_reclaimed) : 0;
+    }
+    uint32_t get_live_footprints() const {
+        return (total_footprints_allocated >= total_footprints_reclaimed) ? (total_footprints_allocated - total_footprints_reclaimed) : 0;
+    }
+
     bool allocate_membership_words(uint32_t count, uint32_t& out_offset) {
+        if (count == 0) {
+            out_offset = 0;
+            return true;
+        }
+        if (count > MAX_MEMBERSHIP_WORDS) {
+            allocation_failures++;
+            return false;
+        }
         for (size_t i = 0; i < free_membership_word_blocks.size(); ++i) {
             if (free_membership_word_blocks[i].count >= count) {
                 out_offset = free_membership_word_blocks[i].offset;
@@ -2054,6 +2090,8 @@ public:
                     free_membership_word_blocks.erase(free_membership_word_blocks.begin() + i);
                 }
                 total_words_allocated += count;
+                uint32_t live = get_live_membership_words();
+                if (live > high_water_mark_words) high_water_mark_words = live;
                 return true;
             }
         }
@@ -2077,6 +2115,14 @@ public:
     }
 
     bool allocate_footprints(uint32_t count, uint32_t& out_offset) {
+        if (count == 0) {
+            out_offset = 0;
+            return true;
+        }
+        if (count > MAX_FOOTPRINTS) {
+            allocation_failures++;
+            return false;
+        }
         for (size_t i = 0; i < free_footprint_blocks.size(); ++i) {
             if (free_footprint_blocks[i].count >= count) {
                 out_offset = free_footprint_blocks[i].offset;
@@ -2086,12 +2132,19 @@ public:
                 } else {
                     free_footprint_blocks.erase(free_footprint_blocks.begin() + i);
                 }
+                total_footprints_allocated += count;
+                uint32_t live = get_live_footprints();
+                if (live > high_water_mark_footprints) high_water_mark_footprints = live;
                 return true;
             }
         }
         if (next_footprint_pool_offset + count <= MAX_FOOTPRINTS) {
             out_offset = next_footprint_pool_offset;
             next_footprint_pool_offset += count;
+            total_footprints_allocated += count;
+            if (next_footprint_pool_offset > high_water_mark_footprints) {
+                high_water_mark_footprints = next_footprint_pool_offset;
+            }
             return true;
         }
         allocation_failures++;
@@ -2101,6 +2154,7 @@ public:
     void free_footprints(uint32_t offset, uint32_t count) {
         if (count == 0) return;
         free_footprint_blocks.push_back({ offset, count });
+        total_footprints_reclaimed += count;
     }
 
     void apply_b0_transitions(const std::vector<ASTGB0TransitionRecord>& transitions, uint32_t group_id) {
@@ -2129,14 +2183,14 @@ public:
         }
     }
 
-    void remove_group_dynamic_occlusion_gpu(uint32_t group_id) {
+    bool remove_group_dynamic_occlusion_gpu(uint32_t group_id) {
         std::vector<ASTGGroupLightKey> keys_to_remove;
         for (const auto& kv : group_light_allocations) {
             if (kv.first.group_id == group_id) {
                 keys_to_remove.push_back(kv.first);
             }
         }
-        if (keys_to_remove.empty()) return;
+        if (keys_to_remove.empty()) return true; // Idempotent!
 
         std::vector<ASTGChangedGroupLightPairGPU> removal_pairs;
         std::vector<ASTGMembershipWordWorkGPU> removal_work_items;
@@ -2148,7 +2202,7 @@ public:
             p.actual_light_id = alloc.actual_light_id;
             p.packed_light_index = alloc.packed_light_index;
             p.first_bound = 0;
-            p.bound_count = 0; // Empty bounds force current membership to 0
+            p.bound_count = 0; // Empty bounds force current membership to 0 -> unblock delta
             p.record_offset = alloc.record_offset;
             p.record_count = alloc.record_count;
             p.bvh_root_index = 0;
@@ -2170,7 +2224,7 @@ public:
         }
 
         if (!removal_pairs.empty()) {
-            rtx_update_part_j_dynamic_inputs(
+            bool up_ok = rtx_update_part_j_dynamic_inputs(
                 removal_pairs.data(), (uint32_t)removal_pairs.size(),
                 nullptr, 0,
                 removal_work_items.data(), (uint32_t)removal_work_items.size(),
@@ -2178,6 +2232,7 @@ public:
                 0,
                 MAX_FOOTPRINTS
             );
+            if (!up_ok) return false;
 
             std::vector<ASTGB0TransitionRecord> gpu_transitions(65536);
             uint32_t trans_count = 0;
@@ -2191,34 +2246,101 @@ public:
                 65536,
                 &telem
             );
+            if (!j_ok) return false;
 
-            if (j_ok && trans_count > 0) {
+            if (trans_count > 0) {
                 gpu_transitions.resize(trans_count);
                 apply_b0_transitions(gpu_transitions, group_id);
             }
         }
 
+        // Only after verified successful GPU removal: clear device words and free allocations
         for (const auto& key : keys_to_remove) {
             const auto& alloc = group_light_allocations[key];
+            rtx_clear_part_j_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
             free_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
             free_footprints(alloc.footprint_offset, alloc.footprint_count);
             group_light_allocations.erase(key);
         }
+        return true;
+    }
+
+    bool remove_single_group_light_dynamic_occlusion_gpu(uint32_t group_id, uint32_t light_id) {
+        ASTGGroupLightKey key{ group_id, light_id };
+        auto it = group_light_allocations.find(key);
+        if (it == group_light_allocations.end()) return true;
+
+        const auto& alloc = it->second;
+        ASTGChangedGroupLightPairGPU p{};
+        p.group_id = alloc.group_id;
+        p.actual_light_id = alloc.actual_light_id;
+        p.packed_light_index = alloc.packed_light_index;
+        p.first_bound = 0;
+        p.bound_count = 0;
+        p.record_offset = alloc.record_offset;
+        p.record_count = alloc.record_count;
+        p.bvh_root_index = 0;
+        p.generation = (uint32_t)++transport_generation;
+        p.membership_word_offset = alloc.membership_word_offset;
+        p.membership_word_count = alloc.membership_word_count;
+        p.footprint_offset = alloc.footprint_offset;
+
+        std::vector<ASTGMembershipWordWorkGPU> removal_work_items;
+        for (uint32_t w = 0; w < alloc.membership_word_count; ++w) {
+            ASTGMembershipWordWorkGPU work{};
+            work.pair_index = 0;
+            work.local_word_index = w;
+            work.global_word_offset = alloc.membership_word_offset + w;
+            removal_work_items.push_back(work);
+        }
+
+        bool up_ok = rtx_update_part_j_dynamic_inputs(
+            &p, 1,
+            nullptr, 0,
+            removal_work_items.data(), (uint32_t)removal_work_items.size(),
+            (uint32_t)transport_generation, 0, MAX_FOOTPRINTS
+        );
+        if (!up_ok) return false;
+
+        std::vector<ASTGB0TransitionRecord> gpu_transitions(1024);
+        uint32_t trans_count = 0;
+        ASTGPartsJKTelemetryGPU telem{};
+        bool j_ok = rtx_dispatch_part_j_gpu(
+            1, 0, (uint32_t)removal_work_items.size(),
+            gpu_transitions.data(), &trans_count, 1024, &telem
+        );
+        if (!j_ok) return false;
+
+        if (trans_count > 0) {
+            gpu_transitions.resize(trans_count);
+            apply_b0_transitions(gpu_transitions, group_id);
+        }
+
+        rtx_clear_part_j_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
+        free_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
+        free_footprints(alloc.footprint_offset, alloc.footprint_count);
+        group_light_allocations.erase(key);
+        return true;
+    }
+
+    bool remove_light_dynamic_occlusion_gpu(uint32_t light_id) {
+        std::vector<uint32_t> groups_to_update;
+        for (const auto& kv : group_light_allocations) {
+            if (kv.first.light_id == light_id) {
+                groups_to_update.push_back(kv.first.group_id);
+            }
+        }
+        for (uint32_t gid : groups_to_update) {
+            remove_single_group_light_dynamic_occlusion_gpu(gid, light_id);
+        }
+        return true;
     }
 
     ASTGB0AngularTelemetry b0_telemetry{};
 
     void invalidate_light_hierarchy(uint32_t light_id) {
+        remove_light_dynamic_occlusion_gpu(light_id);
         light_b0_hierarchies.erase(light_id);
-        for (auto it = group_light_allocations.begin(); it != group_light_allocations.end(); ) {
-            if (it->first.light_id == light_id) {
-                free_membership_words(it->second.membership_word_offset, it->second.membership_word_count);
-                free_footprints(it->second.footprint_offset, it->second.footprint_count);
-                it = group_light_allocations.erase(it);
-            } else {
-                ++it;
-            }
-        }
     }
 
     void invalidate_probe_hierarchy(uint32_t group_id) {
@@ -3165,11 +3287,40 @@ public:
                 }
                 if (lights_to_test.empty()) lights_to_test.push_back(0);
             }
+            // Deterministic light sorting (eliminates hash map bucket ordering divergence)
+            std::sort(lights_to_test.begin(), lights_to_test.end());
 
             if (parts_jk_execution_mode == ASTG_PARTS_JK_GPU_PRODUCTION &&
                 (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS || mode == ASTG_OCCLUSION_ANGULAR_B0_ONLY || has_receivers)) {
                 if (!lights_to_test.empty()) {
-                    // Ensure static light B0 data uploaded
+                    // Compute static B0 layout hash to upload static data only when altered (including light state)
+                    uint64_t current_static_hash = 14695981039346656037ULL;
+                    for (uint32_t lid : lights_to_test) {
+                        auto& hier = get_or_create_light_hierarchy(lid);
+                        current_static_hash ^= hier.compute_b0_layout_hash();
+                        current_static_hash *= 1099511628211ULL;
+
+                        auto it_c = light_colors.find(lid);
+                        if (it_c != light_colors.end()) {
+                            uint32_t cr, cg, cb;
+                            std::memcpy(&cr, &it_c->second.x, 4);
+                            std::memcpy(&cg, &it_c->second.y, 4);
+                            std::memcpy(&cb, &it_c->second.z, 4);
+                            current_static_hash ^= ((uint64_t)cr << 32) | cg;
+                            current_static_hash *= 1099511628211ULL;
+                            current_static_hash ^= cb;
+                            current_static_hash *= 1099511628211ULL;
+                        }
+
+                        auto it_i = light_intensities.find(lid);
+                        if (it_i != light_intensities.end()) {
+                            uint32_t ci;
+                            std::memcpy(&ci, &it_i->second, 4);
+                            current_static_hash ^= ci;
+                            current_static_hash *= 1099511628211ULL;
+                        }
+                    }
+
                     std::vector<RTXSourceAngularFrame> frames;
                     std::vector<ASTGLightB0RangeGPU> ranges;
                     std::vector<ASTGB0DirectionRecord> all_records;
@@ -3219,11 +3370,20 @@ public:
                         }
                     }
 
-                    rtx_upload_parts_jk_static_data(
-                        frames.data(), ranges.data(), (uint32_t)frames.size(),
-                        all_records.data(), all_hit_positions.data(), (uint32_t)all_records.size(),
-                        all_bvh_nodes.data(), (uint32_t)all_bvh_nodes.size()
-                    );
+                    if (current_static_hash != last_uploaded_static_b0_hash) {
+                        bool static_ok = rtx_upload_parts_jk_static_data(
+                            frames.data(), ranges.data(), (uint32_t)frames.size(),
+                            all_records.data(), all_hit_positions.data(), (uint32_t)all_records.size(),
+                            all_bvh_nodes.data(), (uint32_t)all_bvh_nodes.size()
+                        );
+                        if (!static_ok) {
+                            m.gpu_dispatch_failed = true;
+                            return m;
+                        }
+                        last_uploaded_static_b0_hash = current_static_hash;
+                    }
+
+                    auto t_prep_start = std::chrono::high_resolution_clock::now();
 
                     // Build changed group/light pairs and bone bounds
                     std::vector<ASTGBoneBoundGPU> gpu_bounds;
@@ -3250,27 +3410,53 @@ public:
                     std::vector<ASTGChangedGroupLightPairGPU> gpu_pairs;
                     for (size_t l_idx = 0; l_idx < lights_to_test.size(); ++l_idx) {
                         uint32_t actual_lid = lights_to_test[l_idx];
+                        auto& hier = get_or_create_light_hierarchy(actual_lid);
+                        uint64_t current_layout_hash = hier.compute_b0_layout_hash();
                         const auto& r = ranges[l_idx];
                         ASTGGroupLightKey key{ group_id, actual_lid };
                         auto it_alloc = group_light_allocations.find(key);
                         uint32_t needed_words = (r.record_count + 31) / 32;
-                        if (it_alloc == group_light_allocations.end() || it_alloc->second.membership_word_count != needed_words) {
+                        uint32_t needed_footprints = (uint32_t)gpu_bounds.size();
+
+                        bool need_realloc = (it_alloc == group_light_allocations.end()) ||
+                                            (it_alloc->second.membership_word_count != needed_words) ||
+                                            (it_alloc->second.record_offset != r.record_offset) ||
+                                            (it_alloc->second.layout_hash != current_layout_hash);
+
+                        if (need_realloc) {
                             if (it_alloc != group_light_allocations.end()) {
-                                free_membership_words(it_alloc->second.membership_word_offset, it_alloc->second.membership_word_count);
-                                free_footprints(it_alloc->second.footprint_offset, it_alloc->second.footprint_count);
+                                remove_single_group_light_dynamic_occlusion_gpu(group_id, actual_lid);
+                                it_alloc = group_light_allocations.end();
                             }
+
+                            uint32_t temp_mem_offset = 0;
+                            uint32_t temp_foot_offset = 0;
+                            if (!allocate_membership_words(needed_words, temp_mem_offset)) {
+                                m.gpu_dispatch_failed = true;
+                                return m;
+                            }
+                            if (!allocate_footprints(needed_footprints, temp_foot_offset)) {
+                                free_membership_words(temp_mem_offset, needed_words);
+                                m.gpu_dispatch_failed = true;
+                                return m;
+                            }
+
+                            // Zero newly allocated membership words on GPU prior to first use
+                            rtx_clear_part_j_membership_words(temp_mem_offset, needed_words);
+
                             ASTGGroupLightMembershipAllocation alloc{};
                             alloc.group_id = group_id;
                             alloc.actual_light_id = actual_lid;
                             alloc.packed_light_index = (uint32_t)l_idx;
                             alloc.record_offset = r.record_offset;
                             alloc.record_count = r.record_count;
+                            alloc.membership_word_offset = temp_mem_offset;
                             alloc.membership_word_count = needed_words;
-                            allocate_membership_words(needed_words, alloc.membership_word_offset);
-                            alloc.footprint_count = (uint32_t)gpu_bounds.size();
-                            allocate_footprints(alloc.footprint_count, alloc.footprint_offset);
-                            alloc.light_layout_generation = (uint32_t)transport_generation;
+                            alloc.footprint_offset = temp_foot_offset;
+                            alloc.footprint_count = needed_footprints;
+                            alloc.light_layout_generation = (uint32_t)hier.source_frame.generation;
                             alloc.allocation_generation = (uint32_t)transport_generation;
+                            alloc.layout_hash = current_layout_hash;
                             group_light_allocations[key] = alloc;
                             it_alloc = group_light_allocations.find(key);
                         }
@@ -3309,14 +3495,26 @@ public:
                         }
                     }
 
-                    rtx_update_part_j_dynamic_inputs(
+                    auto t_prep_end = std::chrono::high_resolution_clock::now();
+                    parts_jk_telemetry.cpu_prep_ms = std::chrono::duration<double, std::milli>(t_prep_end - t_prep_start).count();
+
+                    auto t_up_start = std::chrono::high_resolution_clock::now();
+                    bool up_j_ok = rtx_update_part_j_dynamic_inputs(
                         gpu_pairs.data(), (uint32_t)gpu_pairs.size(),
                         gpu_bounds.data(), (uint32_t)gpu_bounds.size(),
                         word_work_items.data(), (uint32_t)word_work_items.size(),
                         (uint32_t)transport_generation, (uint32_t)mode,
-                        65536
+                        MAX_FOOTPRINTS
                     );
+                    auto t_up_end = std::chrono::high_resolution_clock::now();
+                    parts_jk_telemetry.cpu_upload_ms = std::chrono::duration<double, std::milli>(t_up_end - t_up_start).count();
 
+                    if (!up_j_ok) {
+                        m.gpu_dispatch_failed = true;
+                        return m;
+                    }
+
+                    auto t_sub_start = std::chrono::high_resolution_clock::now();
                     std::vector<ASTGB0TransitionRecord> gpu_transitions(65536);
                     uint32_t transition_count = 0;
                     bool j_ok = rtx_dispatch_part_j_gpu(
@@ -3325,10 +3523,16 @@ public:
                         gpu_transitions.data(), &transition_count, 65536,
                         &parts_jk_telemetry
                     );
+                    auto t_sub_end = std::chrono::high_resolution_clock::now();
+                    parts_jk_telemetry.cpu_submission_ms = std::chrono::duration<double, std::milli>(t_sub_end - t_sub_start).count();
+                    parts_jk_telemetry.cpu_record_ms = parts_jk_telemetry.cpu_prep_ms + parts_jk_telemetry.cpu_upload_ms + parts_jk_telemetry.cpu_submission_ms;
+
                     if (!j_ok) {
                         m.gpu_dispatch_failed = true;
+                        return m;
                     }
 
+                    auto t_read_start = std::chrono::high_resolution_clock::now();
                     // Process GPU Transitions (GPU-resident B0 updates)
                     for (uint32_t t_i = 0; t_i < transition_count; ++t_i) {
                         const auto& tr = gpu_transitions[t_i];
@@ -3341,7 +3545,7 @@ public:
                             } else {
                                 auto it_cnt = b0_record_blocker_counts.find(key);
                                 if (it_cnt != b0_record_blocker_counts.end()) {
-                                    if (--(it_cnt->second) == 0) {
+                                    if (it_cnt->second > 0 && --(it_cnt->second) == 0) {
                                         b0_record_blocker_counts.erase(it_cnt);
                                     }
                                 }
@@ -3354,9 +3558,78 @@ public:
                             b0_telemetry.visibility_transitions++;
                         }
                     }
+                    auto t_read_end = std::chrono::high_resolution_clock::now();
+                    parts_jk_telemetry.cpu_readback_ms = std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
                 }
 
-                // Part K Dynamic Surface Receivers GPU Dispatch for all receiver groups
+                // Batched Part K Dynamic Surface Receivers GPU Dispatch for ALL receiver groups
+                struct ReceiverGroupSpan {
+                    uint32_t group_id;
+                    uint32_t probe_offset;
+                    uint32_t probe_count;
+                };
+                std::vector<ReceiverGroupSpan> batched_group_spans;
+                std::vector<ASTGBoneTransformGPU> batched_bone_transforms;
+                std::vector<ASTGBoneBoundGPU> batched_bone_bounds;
+                std::vector<ASTGReceiverClusterGPU> batched_clusters;
+                std::vector<uint32_t> batched_cluster_probe_indices;
+                std::vector<ASTGDynamicSurfaceProbeGPU> batched_probes;
+
+                std::unordered_map<uint32_t, uint32_t> group_transform_offsets;
+                for (const auto& kv : dynamic_occluder_groups) {
+                    group_transform_offsets[kv.first] = (uint32_t)batched_bone_transforms.size();
+                    const auto& grp = kv.second;
+                    if (grp.is_skeletal && !grp.bone_matrices.empty()) {
+                        for (const auto& bm : grp.bone_matrices) {
+                            ASTGBoneTransformGPU bt{};
+                            bt.row0_x = bm.m[0][0]; bt.row0_y = bm.m[0][1]; bt.row0_z = bm.m[0][2]; bt.row0_w = bm.m[0][3];
+                            bt.row1_x = bm.m[1][0]; bt.row1_y = bm.m[1][1]; bt.row1_z = bm.m[1][2]; bt.row1_w = bm.m[1][3];
+                            bt.row2_x = bm.m[2][0]; bt.row2_y = bm.m[2][1]; bt.row2_z = bm.m[2][2]; bt.row2_w = bm.m[2][3];
+                            bt.row3_x = bm.m[3][0]; bt.row3_y = bm.m[3][1]; bt.row3_z = bm.m[3][2]; bt.row3_w = bm.m[3][3];
+                            batched_bone_transforms.push_back(bt);
+                        }
+                    } else {
+                        const auto& rt = grp.rigid_transform;
+                        ASTGBoneTransformGPU bt{};
+                        bt.row0_x = rt.m[0][0]; bt.row0_y = rt.m[0][1]; bt.row0_z = rt.m[0][2]; bt.row0_w = rt.m[0][3];
+                        bt.row1_x = rt.m[1][0]; bt.row1_y = rt.m[1][1]; bt.row1_z = rt.m[1][2]; bt.row1_w = rt.m[1][3];
+                        bt.row2_x = rt.m[2][0]; bt.row2_y = rt.m[2][1]; bt.row2_z = rt.m[2][2]; bt.row2_w = rt.m[2][3];
+                        bt.row3_x = rt.m[3][0]; bt.row3_y = rt.m[3][1]; bt.row3_z = rt.m[3][2]; bt.row3_w = rt.m[3][3];
+                        batched_bone_transforms.push_back(bt);
+                    }
+                }
+
+                if (batched_bone_transforms.empty()) {
+                    ASTGBoneTransformGPU ident{};
+                    ident.row0_x = 1.0f; ident.row1_y = 1.0f; ident.row2_z = 1.0f; ident.row3_w = 1.0f;
+                    batched_bone_transforms.push_back(ident);
+                }
+
+                // Collect all active occluder bounds for exact shadowing
+                for (const auto& blk_kv : dynamic_occluder_groups) {
+                    if (!blk_kv.second.astg_occlusion_enabled) continue;
+                    uint32_t base_tx = group_transform_offsets[blk_kv.first];
+                    for (size_t b_idx = 0; b_idx < blk_kv.second.bounds.size(); ++b_idx) {
+                        const auto& ob = blk_kv.second.bounds[b_idx];
+                        ASTGBoneBoundGPU bb{};
+                        bb.bone_id = base_tx + (blk_kv.second.is_skeletal ? (ob.bone_id < blk_kv.second.bone_matrices.size() ? ob.bone_id : 0) : 0);
+                        bb.group_id = blk_kv.first;
+                        bb.local_min_x = ob.local_bounds.min_bounds.x;
+                        bb.local_min_y = ob.local_bounds.min_bounds.y;
+                        bb.local_min_z = ob.local_bounds.min_bounds.z;
+                        bb.local_max_x = ob.local_bounds.max_bounds.x;
+                        bb.local_max_y = ob.local_bounds.max_bounds.y;
+                        bb.local_max_z = ob.local_bounds.max_bounds.z;
+                        bb.world_min_x = ob.world_bounds.min_bounds.x;
+                        bb.world_min_y = ob.world_bounds.min_bounds.y;
+                        bb.world_min_z = ob.world_bounds.min_bounds.z;
+                        bb.world_max_x = ob.world_bounds.max_bounds.x;
+                        bb.world_max_y = ob.world_bounds.max_bounds.y;
+                        bb.world_max_z = ob.world_bounds.max_bounds.z;
+                        batched_bone_bounds.push_back(bb);
+                    }
+                }
+
                 for (auto& r_kv : dynamic_occluder_groups) {
                     auto& r_group = r_kv.second;
                     if (!r_group.enable_surface_receivers || r_group.surface_probes.empty()) continue;
@@ -3382,81 +3655,27 @@ public:
                         r_group.receiver_clusters.push_back(default_cluster);
                     }
 
-                    std::vector<ASTGBoneTransformGPU> bone_transforms;
-                    std::vector<ASTGBoneBoundGPU> bone_bounds;
-                    std::vector<ASTGReceiverClusterGPU> clusters;
-                    std::vector<ASTGDynamicSurfaceProbeGPU> probes;
+                    ReceiverGroupSpan span;
+                    span.group_id = r_kv.first;
+                    span.probe_offset = (uint32_t)batched_probes.size();
+                    span.probe_count = (uint32_t)r_group.surface_probes.size();
+                    batched_group_spans.push_back(span);
 
-                    std::unordered_map<uint32_t, uint32_t> group_transform_offsets;
-                    for (const auto& kv : dynamic_occluder_groups) {
-                        group_transform_offsets[kv.first] = (uint32_t)bone_transforms.size();
-                        const auto& grp = kv.second;
-                        if (grp.is_skeletal && !grp.bone_matrices.empty()) {
-                            for (const auto& bm : grp.bone_matrices) {
-                                ASTGBoneTransformGPU bt{};
-                                bt.row0_x = bm.m[0][0]; bt.row0_y = bm.m[0][1]; bt.row0_z = bm.m[0][2]; bt.row0_w = bm.m[0][3];
-                                bt.row1_x = bm.m[1][0]; bt.row1_y = bm.m[1][1]; bt.row1_z = bm.m[1][2]; bt.row1_w = bm.m[1][3];
-                                bt.row2_x = bm.m[2][0]; bt.row2_y = bm.m[2][1]; bt.row2_z = bm.m[2][2]; bt.row2_w = bm.m[2][3];
-                                bt.row3_x = bm.m[3][0]; bt.row3_y = bm.m[3][1]; bt.row3_z = bm.m[3][2]; bt.row3_w = bm.m[3][3];
-                                bone_transforms.push_back(bt);
-                            }
-                        } else {
-                            const auto& rt = grp.rigid_transform;
-                            ASTGBoneTransformGPU bt{};
-                            bt.row0_x = rt.m[0][0]; bt.row0_y = rt.m[0][1]; bt.row0_z = rt.m[0][2]; bt.row0_w = rt.m[0][3];
-                            bt.row1_x = rt.m[1][0]; bt.row1_y = rt.m[1][1]; bt.row1_z = rt.m[1][2]; bt.row1_w = rt.m[1][3];
-                            bt.row2_x = rt.m[2][0]; bt.row2_y = rt.m[2][1]; bt.row2_z = rt.m[2][2]; bt.row2_w = rt.m[2][3];
-                            bt.row3_x = rt.m[3][0]; bt.row3_y = rt.m[3][1]; bt.row3_z = rt.m[3][2]; bt.row3_w = rt.m[3][3];
-                            bone_transforms.push_back(bt);
-                        }
-                    }
-
-                    if (bone_transforms.empty()) {
-                        ASTGBoneTransformGPU ident{};
-                        ident.row0_x = 1.0f; ident.row1_y = 1.0f; ident.row2_z = 1.0f; ident.row3_w = 1.0f;
-                        bone_transforms.push_back(ident);
-                    }
-
-                    // Collect all active occluder bounds for exact shadowing
-                    for (const auto& blk_kv : dynamic_occluder_groups) {
-                        if (!blk_kv.second.astg_occlusion_enabled) continue;
-                        uint32_t base_tx = group_transform_offsets[blk_kv.first];
-                        for (size_t b_idx = 0; b_idx < blk_kv.second.bounds.size(); ++b_idx) {
-                            const auto& ob = blk_kv.second.bounds[b_idx];
-                            ASTGBoneBoundGPU bb{};
-                            bb.bone_id = base_tx + (blk_kv.second.is_skeletal ? (ob.bone_id < blk_kv.second.bone_matrices.size() ? ob.bone_id : 0) : 0);
-                            bb.group_id = blk_kv.first;
-                            bb.local_min_x = ob.local_bounds.min_bounds.x;
-                            bb.local_min_y = ob.local_bounds.min_bounds.y;
-                            bb.local_min_z = ob.local_bounds.min_bounds.z;
-                            bb.local_max_x = ob.local_bounds.max_bounds.x;
-                            bb.local_max_y = ob.local_bounds.max_bounds.y;
-                            bb.local_max_z = ob.local_bounds.max_bounds.z;
-                            bb.world_min_x = ob.world_bounds.min_bounds.x;
-                            bb.world_min_y = ob.world_bounds.min_bounds.y;
-                            bb.world_min_z = ob.world_bounds.min_bounds.z;
-                            bb.world_max_x = ob.world_bounds.max_bounds.x;
-                            bb.world_max_y = ob.world_bounds.max_bounds.y;
-                            bb.world_max_z = ob.world_bounds.max_bounds.z;
-                            bone_bounds.push_back(bb);
-                        }
-                    }
-
-                    std::vector<uint32_t> cluster_probe_indices;
+                    uint32_t base_probe_offset = span.probe_offset;
                     for (const auto& cl : r_group.receiver_clusters) {
                         ASTGReceiverClusterGPU c{};
                         c.world_center_x = cl.world_centroid.x; c.world_center_y = cl.world_centroid.y; c.world_center_z = cl.world_centroid.z;
                         c.radius = cl.cluster_radius;
                         c.normal_axis_x = cl.world_normal.x; c.normal_axis_y = cl.world_normal.y; c.normal_axis_z = cl.world_normal.z;
                         c.cos_normal_half_angle = 0.5f;
-                        c.probe_offset = (uint32_t)cluster_probe_indices.size();
+                        c.probe_offset = (uint32_t)batched_cluster_probe_indices.size();
                         c.probe_count = (uint32_t)cl.member_probe_indices.size();
                         for (uint32_t p_idx : cl.member_probe_indices) {
-                            cluster_probe_indices.push_back(p_idx);
+                            batched_cluster_probe_indices.push_back(base_probe_offset + p_idx);
                         }
                         c.bone_id = group_transform_offsets[r_kv.first] + (r_group.is_skeletal ? cl.bone_id : 0);
                         c.generation = (uint32_t)transport_generation;
-                        clusters.push_back(c);
+                        batched_clusters.push_back(c);
                     }
 
                     for (const auto& pr : r_group.surface_probes) {
@@ -3470,72 +3689,84 @@ public:
                         p.world_norm_x = pr.world_normal.x; p.world_norm_y = pr.world_normal.y; p.world_norm_z = pr.world_normal.z;
                         p.generation = (uint32_t)transport_generation;
                         p.irradiance_r = 0.0f; p.irradiance_g = 0.0f; p.irradiance_b = 0.0f;
-                        probes.push_back(p);
+                        batched_probes.push_back(p);
                     }
+                }
 
-                    rtx_update_part_k_dynamic_inputs(
-                        bone_transforms.data(), (uint32_t)bone_transforms.size(),
-                        bone_bounds.data(), (uint32_t)bone_bounds.size(),
-                        clusters.data(), (uint32_t)clusters.size(),
-                        cluster_probe_indices.data(), (uint32_t)cluster_probe_indices.size(),
-                        probes.data(), (uint32_t)probes.size(),
+                if (!batched_probes.empty()) {
+                    bool up_k_ok = rtx_update_part_k_dynamic_inputs(
+                        batched_bone_transforms.data(), (uint32_t)batched_bone_transforms.size(),
+                        batched_bone_bounds.data(), (uint32_t)batched_bone_bounds.size(),
+                        batched_clusters.data(), (uint32_t)batched_clusters.size(),
+                        batched_cluster_probe_indices.data(), (uint32_t)batched_cluster_probe_indices.size(),
+                        batched_probes.data(), (uint32_t)batched_probes.size(),
                         (uint32_t)lights_to_test.size(),
                         (uint32_t)transport_generation,
-                        r_group.is_skeletal ? 1 : 0
+                        group.is_skeletal ? 1 : 0
                     );
+                    if (!up_k_ok) {
+                        m.gpu_dispatch_failed = true;
+                        return m;
+                    }
 
-                    std::vector<ASTGDynamicSurfaceProbeGPU> gpu_out_probes(probes.size());
+                    std::vector<ASTGDynamicSurfaceProbeGPU> gpu_out_probes(batched_probes.size());
                     bool k_ok = rtx_dispatch_part_k_gpu(
-                        (uint32_t)bone_bounds.size(),
-                        (uint32_t)clusters.size(),
-                        (uint32_t)probes.size(),
+                        (uint32_t)batched_bone_bounds.size(),
+                        (uint32_t)batched_clusters.size(),
+                        (uint32_t)batched_probes.size(),
                         (uint32_t)lights_to_test.size(),
                         gpu_out_probes.data(),
                         &parts_jk_telemetry
                     );
                     if (!k_ok) {
                         m.gpu_dispatch_failed = true;
+                        return m;
                     }
 
-                    for (size_t p_i = 0; p_i < r_group.surface_probes.size(); ++p_i) {
-                        bool was_lit = (r_group.surface_probes[p_i].direct_irradiance.x > 1e-4f ||
-                                        r_group.surface_probes[p_i].direct_irradiance.y > 1e-4f ||
-                                        r_group.surface_probes[p_i].direct_irradiance.z > 1e-4f);
-                        r_group.surface_probes[p_i].direct_irradiance = {
-                            gpu_out_probes[p_i].irradiance_r,
-                            gpu_out_probes[p_i].irradiance_g,
-                            gpu_out_probes[p_i].irradiance_b
-                        };
-                        bool now_lit = (gpu_out_probes[p_i].irradiance_r > 1e-4f ||
-                                        gpu_out_probes[p_i].irradiance_g > 1e-4f ||
-                                        gpu_out_probes[p_i].irradiance_b > 1e-4f);
+                    // On verified success: scatter output probes back to respective receiver groups
+                    for (const auto& span : batched_group_spans) {
+                        auto& r_group = dynamic_occluder_groups[span.group_id];
+                        for (size_t p_i = 0; p_i < r_group.surface_probes.size(); ++p_i) {
+                            uint32_t global_p = span.probe_offset + (uint32_t)p_i;
+                            bool was_lit = (r_group.surface_probes[p_i].direct_irradiance.x > 1e-4f ||
+                                            r_group.surface_probes[p_i].direct_irradiance.y > 1e-4f ||
+                                            r_group.surface_probes[p_i].direct_irradiance.z > 1e-4f);
+                            r_group.surface_probes[p_i].direct_irradiance = {
+                                gpu_out_probes[global_p].irradiance_r,
+                                gpu_out_probes[global_p].irradiance_g,
+                                gpu_out_probes[global_p].irradiance_b
+                            };
+                            bool now_lit = (gpu_out_probes[global_p].irradiance_r > 1e-4f ||
+                                            gpu_out_probes[global_p].irradiance_g > 1e-4f ||
+                                            gpu_out_probes[global_p].irradiance_b > 1e-4f);
 
-                        if (now_lit) {
-                            m.receiver_mappings_active++;
-                            b0_telemetry.receiver_probes_touched++;
-                            if (was_lit) {
-                                m.receiver_mappings_reused++;
-                            } else {
-                                m.receiver_mappings_created++;
+                            if (now_lit) {
+                                m.receiver_mappings_active++;
+                                b0_telemetry.receiver_probes_touched++;
+                                if (was_lit) {
+                                    m.receiver_mappings_reused++;
+                                } else {
+                                    m.receiver_mappings_created++;
+                                }
+                            } else if (was_lit) {
+                                m.receiver_mappings_removed++;
                             }
-                        } else if (was_lit) {
-                            m.receiver_mappings_removed++;
+                        }
+
+                        for (auto& cluster : r_group.receiver_clusters) {
+                            cluster.direct_irradiance = { 0.0f, 0.0f, 0.0f };
+                            for (uint32_t p_idx : cluster.member_probe_indices) {
+                                if (p_idx < r_group.surface_probes.size()) {
+                                    cluster.direct_irradiance.x += r_group.surface_probes[p_idx].direct_irradiance.x;
+                                    cluster.direct_irradiance.y += r_group.surface_probes[p_idx].direct_irradiance.y;
+                                    cluster.direct_irradiance.z += r_group.surface_probes[p_idx].direct_irradiance.z;
+                                }
+                            }
                         }
                     }
 
                     if (m.receiver_mappings_active > 0) {
                         m.temporal_reuse_ratio = (float)m.receiver_mappings_reused / (float)m.receiver_mappings_active;
-                    }
-
-                    for (auto& cluster : r_group.receiver_clusters) {
-                        cluster.direct_irradiance = { 0.0f, 0.0f, 0.0f };
-                        for (uint32_t p_idx : cluster.member_probe_indices) {
-                            if (p_idx < r_group.surface_probes.size()) {
-                                cluster.direct_irradiance.x += r_group.surface_probes[p_idx].direct_irradiance.x;
-                                cluster.direct_irradiance.y += r_group.surface_probes[p_idx].direct_irradiance.y;
-                                cluster.direct_irradiance.z += r_group.surface_probes[p_idx].direct_irradiance.z;
-                            }
-                        }
                     }
                 }
 

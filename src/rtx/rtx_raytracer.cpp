@@ -281,6 +281,7 @@ struct RTXContext {
     ComPtr<ID3D12Resource> rec_probe_irradiance_accum_buffer;
     ComPtr<ID3D12Resource> rec_constant_buffer;
     ComPtr<ID3D12Resource> rec_zero_upload_buffer;
+    uint32_t current_cluster_probe_indices_count = 0;
 
     ComPtr<ID3D12InfoQueue> info_queue;
     bool debug_layer_active = false;
@@ -2594,7 +2595,19 @@ RTX_API bool rtx_update_part_j_dynamic_inputs(
     uint32_t footprint_capacity
 ) {
     if (!g_rtx.is_initialized) return false;
+    if (pair_count > 4096) return false;
+    if (bound_count > 4096) return false;
+    if (word_work_count > 65536) return false;
+
     if (pairs && pair_count > 0) {
+        for (uint32_t i = 0; i < pair_count; ++i) {
+            if (pairs[i].membership_word_offset + pairs[i].membership_word_count > 65536) {
+                return false;
+            }
+            if (pairs[i].footprint_offset + pairs[i].bound_count > 65536) {
+                return false;
+            }
+        }
         void* mapped = nullptr;
         g_rtx.b0_changed_pairs_buffer->Map(0, nullptr, &mapped);
         memcpy(mapped, pairs, pair_count * sizeof(ASTGChangedGroupLightPairGPU));
@@ -2851,6 +2864,30 @@ RTX_API bool rtx_update_part_k_dynamic_inputs(
     uint32_t is_skeletal
 ) {
     if (!g_rtx.is_initialized) return false;
+    if (bone_count > 1024) return false;
+    if (bound_count > 4096) return false;
+    if (cluster_count > 4096) return false;
+    if (cluster_probe_indices_count > 131072) return false;
+    if (probe_count > 65536) return false;
+
+    // Validate cluster probe ranges and index membership
+    if (clusters && cluster_count > 0) {
+        for (uint32_t c = 0; c < cluster_count; ++c) {
+            if (clusters[c].probe_offset + clusters[c].probe_count > cluster_probe_indices_count) {
+                return false;
+            }
+            if (cluster_probe_indices) {
+                for (uint32_t p = 0; p < clusters[c].probe_count; ++p) {
+                    uint32_t p_idx = cluster_probe_indices[clusters[c].probe_offset + p];
+                    if (p_idx >= probe_count) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    g_rtx.current_cluster_probe_indices_count = cluster_probe_indices_count;
+
     if (bone_transforms && bone_count > 0) {
         void* mapped = nullptr;
         g_rtx.rec_bone_transforms_buffer->Map(0, nullptr, &mapped);
@@ -2938,8 +2975,9 @@ RTX_API bool rtx_dispatch_part_k_gpu(
         g_rtx.command_list->CopyBufferRegion(g_rtx.rec_receiver_clusters_buffer.Get(), 0, g_rtx.rec_receiver_clusters_upload_buffer.Get(), 0, cluster_count * sizeof(ASTGReceiverClusterGPU));
         TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_receiver_clusters_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
+        uint32_t copy_idx_count = (g_rtx.current_cluster_probe_indices_count > 0) ? g_rtx.current_cluster_probe_indices_count : 1;
         TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_cluster_probe_indices_buffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-        g_rtx.command_list->CopyBufferRegion(g_rtx.rec_cluster_probe_indices_buffer.Get(), 0, g_rtx.rec_cluster_probe_indices_upload_buffer.Get(), 0, 131072 * sizeof(uint32_t));
+        g_rtx.command_list->CopyBufferRegion(g_rtx.rec_cluster_probe_indices_buffer.Get(), 0, g_rtx.rec_cluster_probe_indices_upload_buffer.Get(), 0, copy_idx_count * sizeof(uint32_t));
         TransitionResource(g_rtx.command_list.Get(), g_rtx.rec_cluster_probe_indices_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     }
     if (probe_count > 0) {
@@ -3275,23 +3313,114 @@ RTX_API bool rtx_read_parts_jk_diagnostics_blocking(
     return true;
 }
 
-RTX_API uint32_t rtx_get_d3d12_debug_error_count() {
-    if (g_rtx.info_queue) {
-        return (uint32_t)g_rtx.info_queue->GetNumStoredMessagesAllowedByRetrievalFilter();
-    }
-    return 0;
+RTX_API bool rtx_clear_part_j_membership_words(uint32_t word_offset, uint32_t word_count) {
+    if (!g_rtx.is_initialized || !g_rtx.b0_previous_membership_buffer) return false;
+    if (word_count == 0) return true;
+    if (word_offset + word_count > 65536) return false;
+
+    g_rtx.command_allocator->Reset();
+    g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
+
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_previous_membership_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+    g_rtx.command_list->CopyBufferRegion(
+        g_rtx.b0_previous_membership_buffer.Get(), word_offset * sizeof(uint32_t),
+        g_rtx.b0_zero_upload_buffer.Get(), 0,
+        word_count * sizeof(uint32_t)
+    );
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_previous_membership_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+    g_rtx.command_list->Close();
+    ID3D12CommandList* lists[] = { g_rtx.command_list.Get() };
+    g_rtx.command_queue->ExecuteCommandLists(1, lists);
+    WaitForGPU();
+    return true;
+}
+
+RTX_API bool rtx_clear_part_j_footprints(uint32_t footprint_offset, uint32_t footprint_count) {
+    if (!g_rtx.is_initialized || !g_rtx.b0_footprints_buffer) return false;
+    if (footprint_count == 0) return true;
+    if (footprint_offset + footprint_count > 65536) return false;
+
+    g_rtx.command_allocator->Reset();
+    g_rtx.command_list->Reset(g_rtx.command_allocator.Get(), nullptr);
+
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_footprints_buffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_DEST);
+    g_rtx.command_list->CopyBufferRegion(
+        g_rtx.b0_footprints_buffer.Get(), footprint_offset * sizeof(ASTGB0AngularFootprint),
+        g_rtx.b0_zero_upload_buffer.Get(), 0,
+        footprint_count * sizeof(ASTGB0AngularFootprint)
+    );
+    TransitionResource(g_rtx.command_list.Get(), g_rtx.b0_footprints_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+    g_rtx.command_list->Close();
+    ID3D12CommandList* lists[] = { g_rtx.command_list.Get() };
+    g_rtx.command_queue->ExecuteCommandLists(1, lists);
+    WaitForGPU();
+    return true;
 }
 
 RTX_API bool rtx_get_d3d12_debug_status(ASTGD3D12DebugStatus* out_status) {
     if (!out_status) return false;
     out_status->is_active = g_rtx.debug_layer_active;
+    out_status->gpu_based_validation_active = false;
     out_status->error_count = 0;
     out_status->warning_count = 0;
     out_status->corruption_count = 0;
+    out_status->info_count = 0;
+
     if (g_rtx.info_queue) {
-        out_status->error_count = g_rtx.info_queue->GetNumStoredMessagesAllowedByRetrievalFilter();
+        UINT64 num_msgs = g_rtx.info_queue->GetNumStoredMessagesAllowedByRetrievalFilter();
+        for (UINT64 i = 0; i < num_msgs; ++i) {
+            SIZE_T msg_byte_length = 0;
+            g_rtx.info_queue->GetMessage(i, nullptr, &msg_byte_length);
+            if (msg_byte_length > 0) {
+                std::vector<uint8_t> msg_bytes(msg_byte_length);
+                D3D12_MESSAGE* msg = reinterpret_cast<D3D12_MESSAGE*>(msg_bytes.data());
+                if (SUCCEEDED(g_rtx.info_queue->GetMessage(i, msg, &msg_byte_length))) {
+                    switch (msg->Severity) {
+                    case D3D12_MESSAGE_SEVERITY_CORRUPTION:
+                        out_status->corruption_count++;
+                        break;
+                    case D3D12_MESSAGE_SEVERITY_ERROR:
+                        out_status->error_count++;
+                        break;
+                    case D3D12_MESSAGE_SEVERITY_WARNING:
+                        out_status->warning_count++;
+                        break;
+                    case D3D12_MESSAGE_SEVERITY_INFO:
+                    case D3D12_MESSAGE_SEVERITY_MESSAGE:
+                        out_status->info_count++;
+                        break;
+                    }
+                }
+            }
+        }
     }
     return true;
+}
+
+RTX_API uint32_t rtx_get_d3d12_debug_error_count() {
+    ASTGD3D12DebugStatus s{};
+    rtx_get_d3d12_debug_status(&s);
+    return (uint32_t)(s.error_count + s.corruption_count);
+}
+
+RTX_API uint32_t rtx_get_d3d12_warning_count() {
+    ASTGD3D12DebugStatus s{};
+    rtx_get_d3d12_debug_status(&s);
+    return (uint32_t)s.warning_count;
+}
+
+RTX_API uint32_t rtx_get_d3d12_corruption_count() {
+    ASTGD3D12DebugStatus s{};
+    rtx_get_d3d12_debug_status(&s);
+    return (uint32_t)s.corruption_count;
+}
+
+RTX_API uint32_t rtx_get_d3d12_info_count() {
+    ASTGD3D12DebugStatus s{};
+    rtx_get_d3d12_debug_status(&s);
+    return (uint32_t)s.info_count;
 }
 
 RTX_API void rtx_clear_d3d12_debug_messages() {

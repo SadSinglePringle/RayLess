@@ -269,8 +269,17 @@ RTX_API bool rtx_read_parts_jk_diagnostics_blocking(
     ASTGPartsJKTelemetryGPU* out_telemetry
 );
 
+// Clears a range of persistent membership words on the GPU (zeros prior to slot reuse)
+RTX_API bool rtx_clear_part_j_membership_words(uint32_t word_offset, uint32_t word_count);
+
+// Clears a range of projected footprints on the GPU (zeros prior to slot reuse)
+RTX_API bool rtx_clear_part_j_footprints(uint32_t footprint_offset, uint32_t footprint_count);
+
 // Returns the count of Direct3D 12 debug layer error / corruption messages
 RTX_API uint32_t rtx_get_d3d12_debug_error_count();
+RTX_API uint32_t rtx_get_d3d12_warning_count();
+RTX_API uint32_t rtx_get_d3d12_corruption_count();
+RTX_API uint32_t rtx_get_d3d12_info_count();
 
 // Returns the truthful Direct3D 12 debug layer status and message counts
 RTX_API bool rtx_get_d3d12_debug_status(ASTGD3D12DebugStatus* out_status);

@@ -269,6 +269,7 @@ void CSTransformReceiverClusters(uint3 id : SV_DispatchThreadID) {
     if (count > 0) {
         float3 center = float3(0, 0, 0);
         float3 norm_sum = float3(0, 0, 0);
+        uint valid_count = 0;
 
         for (uint p = 0; p < count; ++p) {
             uint p_idx = g_cluster_probe_indices[cl.probe_offset + p];
@@ -276,11 +277,14 @@ void CSTransformReceiverClusters(uint3 id : SV_DispatchThreadID) {
                 ASTGDynamicSurfaceProbeGPU pr = g_surface_probes[p_idx];
                 center += float3(pr.world_pos_x, pr.world_pos_y, pr.world_pos_z);
                 norm_sum += float3(pr.world_norm_x, pr.world_norm_y, pr.world_norm_z);
+                valid_count++;
             } else {
                 InterlockedAdd(g_telemetry[24], 1); // Invalid probe index error
             }
         }
-        center /= float(count);
+        if (valid_count > 0) {
+            center /= float(valid_count);
+        }
         float norm_len = length(norm_sum);
         if (norm_len > 1e-4f) norm_sum /= norm_len;
         else norm_sum = float3(0, 1, 0);
@@ -439,10 +443,10 @@ void CSEvaluateReceiverVisibility(uint3 id : SV_DispatchThreadID) {
         contrib.irradiance_g = lr.color_g * attenuation;
         contrib.irradiance_b = lr.color_b * attenuation;
 
-        // Scalable atomic float accumulation into probe buffer
-        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 12 + 0, contrib.irradiance_r);
-        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 12 + 4, contrib.irradiance_g);
-        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 12 + 8, contrib.irradiance_b);
+        // Scalable atomic float accumulation into probe buffer (16-byte stride per probe)
+        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 16 + 0, contrib.irradiance_r);
+        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 16 + 4, contrib.irradiance_g);
+        InterlockedAddFloat(g_probe_irradiance_accum, work.probe_id * 16 + 8, contrib.irradiance_b);
     } else {
         contrib.irradiance_r = 0.0f;
         contrib.irradiance_g = 0.0f;
@@ -459,9 +463,9 @@ void CSAccumulateReceiverIrradiance(uint3 id : SV_DispatchThreadID) {
     uint probe_idx = id.x;
     if (probe_idx >= g_constants.total_probes) return;
 
-    float r = asfloat(g_probe_irradiance_accum.Load(probe_idx * 12 + 0));
-    float g = asfloat(g_probe_irradiance_accum.Load(probe_idx * 12 + 4));
-    float b = asfloat(g_probe_irradiance_accum.Load(probe_idx * 12 + 8));
+    float r = asfloat(g_probe_irradiance_accum.Load(probe_idx * 16 + 0));
+    float g = asfloat(g_probe_irradiance_accum.Load(probe_idx * 16 + 4));
+    float b = asfloat(g_probe_irradiance_accum.Load(probe_idx * 16 + 8));
 
     g_surface_probes[probe_idx].irradiance_r = r;
     g_surface_probes[probe_idx].irradiance_g = g;

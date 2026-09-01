@@ -509,6 +509,7 @@ struct ASTGGroupLightMembershipAllocation {
 
     uint32_t light_layout_generation;
     uint32_t allocation_generation;
+    uint64_t layout_hash;
 };
 typedef struct ASTGGroupLightMembershipAllocation ASTGGroupLightMembershipAllocation;
 
@@ -706,14 +707,19 @@ struct ASTGPartsJKTelemetryGPU {
     double cpu_prep_ms;
     double cpu_upload_ms;
     double cpu_record_ms;
+    double cpu_submission_ms;
+    double cpu_sync_wait_ms;
+    double cpu_readback_ms;
 };
 typedef struct ASTGPartsJKTelemetryGPU ASTGPartsJKTelemetryGPU;
 
 struct ASTGD3D12DebugStatus {
     bool is_active;
+    bool gpu_based_validation_active;
     uint64_t error_count;
     uint64_t warning_count;
     uint64_t corruption_count;
+    uint64_t info_count;
 };
 typedef struct ASTGD3D12DebugStatus ASTGD3D12DebugStatus;
 
