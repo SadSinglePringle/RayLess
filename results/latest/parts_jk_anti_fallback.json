@@ -1,10 +1,12 @@
 {
-  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
+  "run_uuid": "run_20260902_104709_UNCOMMITTED_WORKTREE_0a0106d9a646_evidence_hardened",
   "gpu_production_active": true,
-  "cpu_part_j_reference_calls": 0,
-  "cpu_part_k_reference_calls": 0,
+  "cpu_part_j_reference_calls": null,
+  "cpu_part_k_reference_calls": null,
+  "cpu_reference_call_provenance": "NOT_INSTRUMENTED",
   "anti_fallback_verified": true,
   "gpu_counters_positive": true,
-  "failure_injection_tested": true,
-  "failure_injection_detected": true
+  "failure_injection_tested": null,
+  "failure_injection_detected": null,
+  "failure_injection_provenance": "NOT_RUN_IN_DIAGNOSTIC"
 }

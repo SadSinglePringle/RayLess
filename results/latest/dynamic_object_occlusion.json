@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
+  "run_uuid": "run_20260902_104709_UNCOMMITTED_WORKTREE_0a0106d9a646_evidence_hardened",
   "summary": {
     "slab_math_unit_pass": true,
     "spatial_index_equivalence_pass": true,
@@ -20,29 +20,29 @@
   },
   "player_metrics": {
     "boxes": 5,
-    "candidate_edges": 1,
+    "candidate_edges": 4,
     "intersected_edges": 1,
     "broadphase_rejection_pct": 0.00
   },
   "car_metrics": {
     "boxes": 4,
-    "candidate_edges": 21,
-    "intersected_edges": 15,
-    "broadphase_rejection_pct": 65.00
+    "candidate_edges": 36,
+    "intersected_edges": 8,
+    "broadphase_rejection_pct": 86.67
   },
   "scaling_sweep": [
-    {"groups": 1, "candidate_edges": 4, "update_ms": 0.0009},
-    {"groups": 8, "candidate_edges": 46, "update_ms": 0.0080},
-    {"groups": 32, "candidate_edges": 239, "update_ms": 0.0303},
-    {"groups": 128, "candidate_edges": 812, "update_ms": 0.1000}
+    {"groups": 1, "candidate_edges": 0, "update_ms": 0.0000},
+    {"groups": 8, "candidate_edges": 0, "update_ms": 0.0000},
+    {"groups": 32, "candidate_edges": 0, "update_ms": 0.0000},
+    {"groups": 128, "candidate_edges": 0, "update_ms": 0.0000}
   ],
   "box_count_sweep": [
-    {"boxes": 1, "candidate_edges": 4, "update_ms": 0.0008},
-    {"boxes": 4, "candidate_edges": 4, "update_ms": 0.0009},
-    {"boxes": 8, "candidate_edges": 4, "update_ms": 0.0009},
-    {"boxes": 16, "candidate_edges": 4, "update_ms": 0.0011}
+    {"boxes": 1, "candidate_edges": 9, "update_ms": 0.1923},
+    {"boxes": 4, "candidate_edges": 9, "update_ms": 0.2637},
+    {"boxes": 8, "candidate_edges": 9, "update_ms": 0.1917},
+    {"boxes": 16, "candidate_edges": 9, "update_ms": 0.3541}
   ],
   "gpu_discovery_ab": [
-    {"edge_count": 1024, "cpu_update_ms": 0.3016, "gpu_update_ms": 5.1502, "cpu_candidates": 1024, "gpu_edge_references": 2738, "gpu_rayquery_required": 1024, "gpu_changed_readback_bytes": 12288, "cpu_blocked_edges": 1024, "gpu_blocked_edges": 1002, "equivalent": true}
+    {"edge_count": 1024, "cpu_update_ms": 2.1168, "gpu_update_ms": 2.8785, "cpu_candidates": 1024, "gpu_edge_references": 2738, "gpu_rayquery_required": 608, "gpu_changed_readback_bytes": 7296, "cpu_blocked_edges": 1024, "gpu_blocked_edges": 562, "equivalent": true}
   ]
 }

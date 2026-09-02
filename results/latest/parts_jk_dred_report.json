@@ -1,0 +1,11 @@
+{
+  "device_removed_reason": 2289696774,
+  "breadcrumbs_query_hr": 0,
+  "page_fault_query_hr": 0,
+  "command_lists": [
+    {"name": "", "breadcrumb_count": 31, "last_breadcrumb": 3, "last_operation_index": 2, "last_operation": "RESOURCEBARRIER", "history": ["OTHER","OTHER","RESOURCEBARRIER","COPYBUFFERREGION","RESOURCEBARRIER","RESOURCEBARRIER","COPYBUFFERREGION","RESOURCEBARRIER","RESOURCEBARRIER","COPYBUFFERREGION","RESOURCEBARRIER","RESOURCEBARRIER","COPYBUFFERREGION","RESOURCEBARRIER","OTHER","OTHER","DISPATCH","RESOURCEBARRIER","OTHER","DISPATCH","RESOURCEBARRIER","OTHER","DISPATCH","RESOURCEBARRIER","RESOURCEBARRIER","RESOURCEBARRIER","OTHER","DISPATCH","RESOURCEBARRIER","RESOURCEBARRIER","RESOLVEQUERYDATA"]}
+  ],
+  "page_fault_va": 0,
+  "existing_allocations": [],
+  "recently_freed_allocations": []
+}

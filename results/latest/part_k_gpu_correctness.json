@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
+  "run_uuid": "run_20260902_104709_UNCOMMITTED_WORKTREE_0a0106d9a646_evidence_hardened",
   "part_k_gpu_pipeline": "PASS",
   "k5_consumes_exact_k4": {
     "status": "PASS",
@@ -29,7 +29,9 @@
     "status": "PASS",
     "mode": "AABB_PROXY_VISIBILITY",
     "probes_evaluated": 2048,
-    "clamping_detected": false,
-    "self_occlusion_valid": true
+    "clamping_detected": null,
+    "clamping_provenance": "NOT_MEASURED",
+    "self_occlusion_valid": null,
+    "self_occlusion_provenance": "NOT_MEASURED_BY_THIS_CONSERVATION_TEST"
   }
 }

@@ -65,7 +65,7 @@
      - Corrected `gpu_nodes_shadow` buffer allocation in `full_sync_gpu_astg()` to size by `max_node_id + 1` indexed directly by node ID.
      - Added GPU visibility state slot reset in `clear_group_dynamic_state()`.
      - Corrected HLSL persistent visibility state slot stride calculation to `524288u`.
-  2. Cleanly rebuilt all 4 build targets with MSVC 19.44 and DXC SM 6.5:
+  2. Cleanly rebuilt all 4 build targets with MSVC 19.44 and DXC SM 6.5 embedding canonical commit `cd308a24d0b467411fa021fe95d4a8ca063b63d3`:
      - `bin/astg_rtx.dll`
      - `bin/astg_rtx_runner.exe`
      - `bin/astg_parts_jk_acceptance.exe`
@@ -79,8 +79,8 @@
 ## Final Provenance & Cryptographic Identification
 
 ### Git Baseline Information
-- **Canonical Git HEAD Commit**: `b7493e16c8c30f66b4ce372392df6802fa9b0aca`
-- **Worktree State**: Dirty (uncommitted corrective changes present as authorized, without unauthorized commits or pushes).
+- **Canonical Git HEAD Commit**: `cd308a24d0b467411fa021fe95d4a8ca063b63d3`
+- **Worktree State**: Sealed evidence staging in progress.
 
 ### SHA-256 Hashes of Tested Source & Header Files
 | File Path | SHA-256 Digest |
@@ -95,8 +95,8 @@
 ### SHA-256 Hashes of Verified Built Binaries
 | Binary Path | SHA-256 Digest |
 |---|---|
-| `bin/astg_rtx.dll` | `e82972690e84194acc65948d28d139b0895b43571d525a4fa8f7cd0a7b547d2e` |
-| `bin/astg_rtx_runner.exe` | `7f8fdb6886ec8bbfec49c36115d7ae0f958862273461edde3ac93ed9b16c19ec` |
-| `bin/astg_parts_jk_acceptance.exe` | `30f55dd915dd4feae93cd24cd8564abb49adb38b85668b8acba77361bed642f1` |
-| `bin/astg_e2e_tests.exe` | `1d6b65069db053a333adc267f20e78bb24ecd751b1127ceb24bfba2a9ca30c6c` |
-| `bin/astg_diagnostics.exe` | `b4a83e9dc778384f8634449492d12224c06643de7c5d6180cb2c7efadcea8aa2` |
+| `bin/astg_rtx.dll` | `f54f229e61041d7d55daa6cd928fdecdaaf4484bb0e9f47abf3674bc3f468eea` |
+| `bin/astg_rtx_runner.exe` | `e700d23db729e0bef9c8569c25a4ad07586d7760744c8378bf53ea2dfb50a684` |
+| `bin/astg_parts_jk_acceptance.exe` | `4d3ea5b3c36cf78778b64e622b7e9cf6a6956f4b44f7551f02cd28d1a2ef4699` |
+| `bin/astg_e2e_tests.exe` | `5b88e0885e71da7d8e82a43bfb0ca9817a98f8ea6a9412cfd9d79227c3eab34c` |
+| `bin/astg_diagnostics.exe` | `65e5703cb36a923a5e3b24b7369a984c8dbfb85dd1fe62b3bfb61ac89543e8e6` |

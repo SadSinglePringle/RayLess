@@ -122,7 +122,7 @@
     "test_uuid": "part_a_measurement_integrity",
     "assertion_name": "timing_precision_nonzero",
     "expected": "> 0.000 ms",
-    "actual": "3.385760 ms",
+    "actual": "1.566612 ms",
     "status": "PASS"
   },
   {
@@ -360,7 +360,7 @@
     "test_uuid": "occ_test_p_gpu_spatial_discovery_ab",
     "assertion_name": "cpu_fallback_and_gpu_spatial_discovery_equivalence",
     "expected": "1,024 identical candidate edges; GPU discovers and returns the same blocked set with changed-only readback",
-    "actual": "equivalent blocked sets; GPU references=2738, changed readback=12288 bytes",
+    "actual": "equivalent blocked sets; GPU references=2738, changed readback=7296 bytes",
     "status": "PASS"
   },
   {
@@ -514,7 +514,7 @@
     "test_uuid": "occ_test_d_car_occlusion_sweep",
     "assertion_name": "car_occlusion_and_spatial_rejection",
     "expected": "blocked > 0, broadphase rejection > 30%",
-    "actual": "blocked = 15, broadphase = 65.000000%",
+    "actual": "blocked = 8, broadphase = 86.666667%",
     "status": "PASS"
   },
   {
@@ -577,7 +577,7 @@
     "test_uuid": "occ_test_m_group_scaling_sweep",
     "assertion_name": "dynamic_group_scaling_sweep",
     "expected": "128 groups update time < 50ms",
-    "actual": "128 groups update = 0.100000ms",
+    "actual": "128 groups update = 0.000000ms",
     "status": "PASS"
   },
   {
@@ -913,14 +913,14 @@
     "test_uuid": "part_j_test_underflow_prevention",
     "assertion_name": "part_j_underflow_prevention",
     "expected": "Guarded InterlockedCompareExchange prevents blocker count underflow beneath 0 on second removal: 1 -> 0 -> 0",
-    "actual": "Underflow guarded: sequence verified 1->0->0",
+    "actual": "Underflow guarded: sequence verified 1->0->0, GPU underflow telemetry=0",
     "status": "PASS"
   },
   {
     "test_uuid": "part_j_test_sparse_lights",
     "assertion_name": "part_j_sparse_light_indexing",
     "expected": "Sparse light IDs {17, 203, 401} correctly indexed and generate GPU transitions with true IDs",
-    "actual": "Sparse lights {17, 203, 401} verified on device: cnts=[1, 1, 1]",
+    "actual": "Sparse lights {17, 203, 401} verified on device: transition IDs observed and cnts=[1, 1, 1]",
     "status": "PASS"
   },
   {

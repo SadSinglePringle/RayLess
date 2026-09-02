@@ -1,13 +1,13 @@
 {
-  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
+  "run_uuid": "run_20260902_104709_UNCOMMITTED_WORKTREE_0a0106d9a646_evidence_hardened",
   "d3d12_debug_layer_active": false,
   "d3d12_gpu_based_validation_active": false,
   "d3d12_corruption_count": 0,
   "d3d12_error_count": 0,
   "d3d12_warning_count": 0,
   "d3d12_info_count": 0,
-  "resource_transitions_valid": true,
-  "uav_barriers_valid": true,
-  "indirect_dispatch_valid": true,
-  "status": "PASS"
+  "resource_transitions_valid": null,
+  "uav_barriers_valid": null,
+  "indirect_dispatch_valid": null,
+  "status": "NOT_MEASURED"
 }

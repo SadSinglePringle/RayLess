@@ -1,7 +1,8 @@
 {
-  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
+  "run_uuid": "run_20260902_104709_UNCOMMITTED_WORKTREE_0a0106d9a646_evidence_hardened",
   "gpu_hardware_timestamps_valid": true,
-  "fabricated_timings_detected": false,
+  "fabricated_timings_detected": null,
+  "fabricated_timings_provenance": "NOT_MEASURED",
   "hardware_timer_frequency_active": true,
   "part_j_kernels_ms": {
     "j1_transform_projection": 0.0000,
@@ -12,13 +13,13 @@
     "total_part_j_ms": 0.0000
   },
   "part_k_kernels_ms": {
-    "k1_bone_transforms": 0.0040,
+    "k1_bone_transforms": 0.0041,
     "k2_surface_probes": 0.0041,
-    "k3_rebuild_clusters": 0.0092,
-    "k4_cull_hierarchy": 0.0635,
-    "k5_eval_visibility": 0.0113,
-    "k6_accum_irradiance": 0.0010,
-    "total_part_k_ms": 0.0941
+    "k3_rebuild_clusters": 0.0113,
+    "k4_cull_hierarchy": 0.0727,
+    "k5_eval_visibility": 0.0123,
+    "k6_accum_irradiance": 0.0020,
+    "total_part_k_ms": 0.1092
   },
-  "gpu_total_pipeline_ms": 0.0941
+  "gpu_total_pipeline_ms": 0.1092
 }

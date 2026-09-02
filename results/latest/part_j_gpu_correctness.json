@@ -1,5 +1,5 @@
 {
-  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
+  "run_uuid": "run_20260902_104709_UNCOMMITTED_WORKTREE_0a0106d9a646_evidence_hardened",
   "part_j_gpu_pipeline": "PASS",
   "order_invariance": {
     "status": "PASS",
@@ -12,7 +12,7 @@
   },
   "aggregate_blocker_count": {
     "status": "PASS",
-    "progression": [0, 2, 1, 0],
+    "progression": [0, 1, 2, 1, 0],
     "visibility_maintained": true
   },
   "underflow_prevention": {

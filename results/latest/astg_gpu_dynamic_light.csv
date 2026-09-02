@@ -1,6 +1,6 @@
-light_count,light_motion_type,ingress_rays_dispatched,ingress_rays_completed,first_hit_rays,stitches_accepted,continuation_rays,cached_segments_reused,avoided_rays,cpu_schedule_ms,gpu_ingress_trace_ms,cpu_stitch_ms,cpu_continuation_ms,cpu_deposition_ms,gpu_total_ms,end_to_end_ms
-64,STATIONARY_STATE_CHANGE,0,0,0,0,0,64,4096,0.3065,0.0000,0.0000,0.0000,0.0000,0.0000,0.3065
-1,MOVING_TRANSFORM,64,64,0,0,64,0,0,0.0044,0.0072,0.0000,0.0167,0.0000,0.0072,0.2738
-4,MOVING_TRANSFORM,256,256,0,0,256,0,0,0.0076,0.0061,0.0000,0.0005,0.0001,0.0061,0.1850
-16,MOVING_TRANSFORM,1024,1024,0,0,1024,0,0,0.0243,0.0082,0.0001,0.0009,0.0000,0.0082,0.6174
-64,MOVING_TRANSFORM,4096,4096,0,0,4096,0,0,0.1310,0.0205,0.0001,0.0018,0.0000,0.0205,0.6619
+light_count,light_motion_type,ingress_rays_dispatched,ingress_rays_completed,first_hit_rays,stitches_accepted,continuation_rays,cached_segments_reused,avoided_rays,cpu_schedule_ms,gpu_ingress_trace_ms,cpu_stitch_ms,cpu_continuation_ms,cpu_deposition_ms,gpu_total_ms,end_to_end_ms,cpu_phase_provenance
+64,STATIONARY_STATE_CHANGE,0,0,0,0,0,64,4096,1.1203,-1.0000,-1.0000,-1.0000,-1.0000,-1.0000,1.1203,NOT_MEASURED
+1,MOVING_TRANSFORM,64,64,0,0,64,0,0,0.0179,0.0070,0.0000,0.0001,0.0000,0.0070,1.5716,MEASURED
+4,MOVING_TRANSFORM,256,256,0,0,256,0,0,0.0089,0.0067,0.0000,0.0003,0.0000,0.0067,0.2181,MEASURED
+16,MOVING_TRANSFORM,1024,1024,0,0,1024,0,0,0.0275,0.0085,0.0000,0.0007,0.0000,0.0085,0.2514,MEASURED
+64,MOVING_TRANSFORM,4096,4096,0,0,4096,0,0,0.1185,0.0194,0.0000,0.0024,0.0000,0.0194,0.4258,MEASURED

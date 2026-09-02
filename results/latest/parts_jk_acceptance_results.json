@@ -1,0 +1,38 @@
+{
+  "schema": "astg_parts_jk_acceptance_v1",
+  "hardware_observed": true,
+  "base_commit": "cd308a24d0b467411fa021fe95d4a8ca063b63d3",
+  "worktree_dirty": true,
+  "source_commit_sha": "UNCOMMITTED_WORKTREE",
+  "build_commit_sha": "UNCOMMITTED_WORKTREE",
+  "build_source_tree_sha256": "0a0106d9a64678c8d66cb952cf000c0df3b81daaf73e09bbb1a49aaacafd5fe4",
+  "tested_binaries": {
+    "astg_diagnostics.exe": "65e5703cb36a923a5e3b24b7369a984c8dbfb85dd1fe62b3bfb61ac89543e8e6",
+    "astg_e2e_tests.exe": "5b88e0885e71da7d8e82a43bfb0ca9817a98f8ea6a9412cfd9d79227c3eab34c",
+    "astg_parts_jk_acceptance.exe": "4d3ea5b3c36cf78778b64e622b7e9cf6a6956f4b44f7551f02cd28d1a2ef4699",
+    "astg_rtx.dll": "f54f229e61041d7d55daa6cd928fdecdaaf4484bb0e9f47abf3674bc3f468eea",
+    "astg_rtx_runner.exe": "e700d23db729e0bef9c8569c25a4ad07586d7760744c8378bf53ea2dfb50a684",
+    "current_executable": "4d3ea5b3c36cf78778b64e622b7e9cf6a6956f4b44f7551f02cd28d1a2ef4699"
+  },
+  "clean_commit_sealing": "BLOCKED_WITHOUT_COMMIT_AUTHORIZATION",
+  "tests": [
+    {"name":"live_allocation_membership_allocation_failure","status":"PASS","detail":"GPU allocation remained published and retryable under async production"},
+    {"name":"live_allocation_footprint_allocation_failure","status":"PASS","detail":"GPU allocation remained published and retryable under async production"},
+    {"name":"live_allocation_membership_and_footprint_clear_failures","status":"PASS","detail":"clear stage preserved old range; clear stage preserved old range; "},
+    {"name":"neighboring_ranges_resize_guard","status":"PASS","detail":"grown target range did not modify adjacent allocation or GPU blocker state"},
+    {"name":"layout_reorder_clean_rebuild_equivalence","status":"PASS","detail":"reordered layout matched independent clean GPU rebuild"},
+    {"name":"light_insert_remove_flattened_offset_equivalence","status":"PASS","detail":"inserted and removed light shifted flattened ranges with transactional unblock"},
+    {"name":"engine_async_production_no_wait_readback_map","status":"PASS","detail":"consecutive dirty frames queued asynchronously with zero host waits, readbacks, or maps"},
+    {"name":"blocking_async_gpu_result_equivalence","status":"PASS","detail":"blocking and shared-recorder async results matched"},
+    {"name":"frame_level_dirty_jk_batch_dispatch_count","status":"PASS","detail":"two mutation calls produced one frame dispatch and zero clean-frame dispatches"},
+    {"name":"mixed_rigid_skeletal_gpu_reference","status":"PASS","detail":"rigid and skeletal probe transforms matched with unequal transform and bound counts"},
+    {"name":"dense_probe_numerical_visibility_self_occlusion_reference","status":"PASS","detail":"occluded=100 unoccluded=112 oracle_ok=1 max_delta=0.000000"},
+    {"name":"sparse_actual_light_id_gpu_output","status":"PASS","detail":"GPU transition records preserved sparse source light IDs end-to-end"},
+    {"name":"radiometric_oracle_negative_control_sensitivity","status":"PASS","detail":"base=1 blk_rej=1 (delta=0.361060) shd_rej=1 (delta=2.500000) unl_rej=1 (delta=0.361060) scl_rej=1 (delta=0.180530)"},
+    {"name":"frame_slot_allocator_ownership_and_fence_safety","status":"PASS","detail":"frame slots own distinct allocators; all resets occurred after completed fence"},
+    {"name":"slot_backpressure_and_ring_wraparound","status":"PASS","detail":"16 dirty frames wrapped ring safely with exact per-frame outputs and zero upload corruption"},
+    {"name":"b1_plus_gpu_only_execution_and_multi_blocker","status":"PASS","detail":"zero_cpu=1 gpu_tested=1 edge_blocked=1 b_cnt=0 multi2=1 still=1 rest=1"},
+    {"name":"transactional_layout_migration_and_stationary_rebuild","status":"PASS","detail":"pass=1 init_ok=1 init_rec_b=8 has_b_mig=1 rec_b=4 hash_match=1 hash_diff=1"}
+  ],
+  "status": "PASS"
+}

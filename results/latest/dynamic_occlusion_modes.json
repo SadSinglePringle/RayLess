@@ -1,13 +1,13 @@
 {
-  "run_uuid": "run_20260901_144256_bc2055b74cb6350267dcdf41abafeefe880f4c4f_evidence_hardened",
+  "run_uuid": "run_20260902_104709_UNCOMMITTED_WORKTREE_0a0106d9a646_evidence_hardened",
   "modes": [
     {
       "mode": "NONE",
       "b0_detection": "none",
       "b1_plus_detection": "none",
       "total_rays": 0,
-      "mean_update_ms": 0.0000,
-      "rmse_vs_reference": 0.185605,
+      "mean_update_ms": 0.0001,
+      "rmse_vs_reference": 0.152028,
       "max_error": 0.666667
     },
     {
@@ -15,8 +15,8 @@
       "b0_detection": "angular",
       "b1_plus_detection": "none",
       "total_rays": 0,
-      "mean_update_ms": 1.3886,
-      "rmse_vs_reference": 0.185605,
+      "mean_update_ms": 1.2365,
+      "rmse_vs_reference": 0.152028,
       "max_error": 0.666667
     },
     {
@@ -24,8 +24,8 @@
       "b0_detection": "angular",
       "b1_plus_detection": "edges",
       "total_rays": 0,
-      "mean_update_ms": 1.4120,
-      "rmse_vs_reference": 0.094281,
+      "mean_update_ms": 1.5369,
+      "rmse_vs_reference": 0.117851,
       "max_error": 0.666667
     },
     {
@@ -33,7 +33,7 @@
       "b0_detection": "edges",
       "b1_plus_detection": "edges",
       "total_rays": 0,
-      "mean_update_ms": 0.0012,
+      "mean_update_ms": 0.4044,
       "rmse_vs_reference": 0.000000,
       "max_error": 0.000000
     }
