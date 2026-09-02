@@ -506,6 +506,10 @@ struct ASTGGroupLightMembershipAllocation {
 
     uint32_t footprint_offset;
     uint32_t footprint_count;
+    // Reserved device capacity. footprint_count is the number of records used
+    // by the current update; this remains stable until a transactional swap
+    // has completed and prevents a larger update from overrunning a neighbor.
+    uint32_t footprint_capacity;
 
     uint32_t light_layout_generation;
     uint32_t allocation_generation;
@@ -712,6 +716,34 @@ struct ASTGPartsJKTelemetryGPU {
     double cpu_readback_ms;
 };
 typedef struct ASTGPartsJKTelemetryGPU ASTGPartsJKTelemetryGPU;
+
+// Host-side instrumentation for proving that production dispatch is truly
+// asynchronous.  These counters are scoped to the Parts J/K API surface and
+// are intentionally separate from GPU telemetry: a production submission may
+// queue work without performing a wait, readback copy, or CPU map.
+struct ASTGPartsJKIOCounters {
+    uint64_t wait_count;
+    uint64_t readback_copy_count;
+    uint64_t map_count;
+};
+typedef struct ASTGPartsJKIOCounters ASTGPartsJKIOCounters;
+
+enum RTXFrameSlotState {
+    RTX_SLOT_STATE_IDLE = 0,
+    RTX_SLOT_STATE_ACQUIRED = 1,
+    RTX_SLOT_STATE_RECORDING = 2,
+    RTX_SLOT_STATE_SUBMITTED = 3
+};
+
+struct ASTGFrameSlotRecord {
+    uint32_t slot_index;
+    uint32_t state;
+    uint64_t allocator_address;
+    uint64_t submission_fence;
+    uint64_t completed_fence;
+    uint64_t last_reset_fence;
+};
+typedef struct ASTGFrameSlotRecord ASTGFrameSlotRecord;
 
 struct ASTGD3D12DebugStatus {
     bool is_active;

@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <map>
+#include <set>
 #include <numeric>
 #include <chrono>
 #include <cassert>
@@ -1410,6 +1411,8 @@ struct ASTGDynamicOcclusionMetrics {
     uint32_t gpu_changed_result_readback_bytes = 0;
     uint32_t fine_tested_edges = 0;
     uint32_t intersected_edges = 0;
+    uint32_t cpu_reference_edges_tested = 0;
+    uint32_t gpu_b1_plus_edges_tested = 0;
     uint32_t newly_blocked_edges = 0;
     uint32_t newly_unblocked_edges = 0;
     uint32_t currently_blocked_edges = 0;
@@ -1985,6 +1988,14 @@ struct ASTGExactMemoryAudit {
 class ASTGTransportEngine {
 public:
     ASTGTransportEngine() {
+#if defined(ASTG_DIAGNOSTIC_BUILD)
+        // The diagnostic harness contains legacy unit cases that intentionally
+        // exercise one-group mutation semantics synchronously.  Production
+        // callers keep the default deferred frame path below; this compile-time
+        // opt-in is test-harness compatibility only and is never used by the
+        // runtime DLL.
+        defer_dynamic_updates_to_frame = false;
+#endif
         rtx_reset_parts_jk_persistent_state();
     }
 
@@ -2035,13 +2046,33 @@ public:
     bool enable_legacy_angular_mask_diagnostics = false; // Default false; strictly read-only when enabled
     ASTGPartsJKExecutionMode parts_jk_execution_mode = ASTG_PARTS_JK_GPU_PRODUCTION;
     ASTGPartsJKTelemetryGPU parts_jk_telemetry{};
+    // Last compact GPU transition batch, retained only as diagnostic evidence
+    // so tests can verify actual sparse light IDs instead of host allocation
+    // bookkeeping.
+    std::vector<ASTGB0TransitionRecord> last_gpu_transitions;
     std::unordered_map<uint32_t, ASTGAngularHierarchy> light_b0_hierarchies;
     std::unordered_map<uint64_t, uint32_t> b0_record_blocker_counts; // (light_id << 32) | record_id -> count
     std::unordered_map<uint64_t, std::unordered_set<uint32_t>> group_light_blocked_records; // ((group_id << 32) | light_id) -> blocked record indices
     std::unordered_map<uint64_t, bool> group_b0_record_blocked; // ((group_id << 40) | (light_id << 20) | record_id) -> bool
     std::unordered_map<uint32_t, std::unordered_set<uint32_t>> group_previously_lit_probes;
     std::map<ASTGGroupLightKey, ASTGGroupLightMembershipAllocation> group_light_allocations;
+    // Frame-batched replacements are published only after the single GPU
+    // dispatch succeeds.  Old ranges remain retired until that submission has
+    // completed, so a resize can never reuse memory still referenced by the
+    // GPU.  Ranges whose clear failed are quarantined permanently for this
+    // engine instance and are never returned to the free lists.
+    struct RetiredFrameAllocation {
+        ASTGGroupLightMembershipAllocation alloc;
+        uint64_t fence_value = 0;
+    };
+    std::vector<RetiredFrameAllocation> retired_frame_allocations;
+    std::vector<ASTGGroupLightMembershipAllocation> quarantined_frame_allocations;
     uint64_t last_uploaded_static_b0_hash = 0;
+    std::vector<RTXSourceAngularFrame> resident_static_frames;
+    std::vector<ASTGLightB0RangeGPU> resident_static_ranges;
+    std::vector<ASTGB0DirectionRecord> resident_static_records;
+    std::vector<RTXVector3> resident_static_hit_positions;
+    std::vector<ASTGB0AngularBVHNode> resident_static_bvh_nodes;
     struct MemoryBlock {
         uint32_t offset;
         uint32_t count;
@@ -2063,6 +2094,23 @@ public:
     uint32_t high_water_mark_footprints = 0;
 
     uint32_t allocation_failures = 0;
+
+    // Deterministic test-only fault injection for transactional update
+    // acceptance tests.  The hook is host-side and is never enabled by the
+    // runtime defaults; it lets tests fail each allocation/clear stage before
+    // touching the live GPU allocation.
+    enum ASTGPartsJKFailureInjectionStage : uint32_t {
+        ASTG_JK_FAIL_NONE = 0,
+        ASTG_JK_FAIL_MEMBERSHIP_ALLOCATION = 1,
+        ASTG_JK_FAIL_FOOTPRINT_ALLOCATION = 2,
+        ASTG_JK_FAIL_MEMBERSHIP_CLEAR = 3,
+        ASTG_JK_FAIL_FOOTPRINT_CLEAR = 4
+    };
+    ASTGPartsJKFailureInjectionStage parts_jk_failure_injection = ASTG_JK_FAIL_NONE;
+
+    void set_parts_jk_failure_injection(ASTGPartsJKFailureInjectionStage stage) {
+        parts_jk_failure_injection = stage;
+    }
 
     uint32_t get_live_membership_words() const {
         return (total_words_allocated >= total_words_reclaimed) ? (total_words_allocated - total_words_reclaimed) : 0;
@@ -2155,6 +2203,37 @@ public:
         if (count == 0) return;
         free_footprint_blocks.push_back({ offset, count });
         total_footprints_reclaimed += count;
+    }
+
+    bool reclaim_retired_frame_allocations() {
+        if (retired_frame_allocations.empty()) return true;
+        uint64_t completed_fence = rtx_get_completed_fence_value();
+        std::vector<RetiredFrameAllocation> pending;
+        pending.reserve(retired_frame_allocations.size());
+        for (const auto& item : retired_frame_allocations) {
+            if (completed_fence < item.fence_value) {
+                // GPU is still executing the frame that used this allocation; keep pending without CPU wait
+                pending.push_back(item);
+                continue;
+            }
+            const auto& alloc = item.alloc;
+            const bool membership_ok = rtx_clear_part_j_membership_words(
+                alloc.membership_word_offset, alloc.membership_word_count);
+            const bool footprint_ok = rtx_clear_part_j_footprints(
+                alloc.footprint_offset, alloc.footprint_capacity);
+            if (membership_ok && footprint_ok) {
+                free_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
+                free_footprints(alloc.footprint_offset, alloc.footprint_capacity);
+            } else {
+                pending.push_back(item);
+            }
+        }
+        retired_frame_allocations.swap(pending);
+        return true;
+    }
+
+    void quarantine_frame_allocation(const ASTGGroupLightMembershipAllocation& alloc) {
+        quarantined_frame_allocations.push_back(alloc);
     }
 
     void apply_b0_transitions(const std::vector<ASTGB0TransitionRecord>& transitions, uint32_t group_id) {
@@ -2250,6 +2329,7 @@ public:
 
             if (trans_count > 0) {
                 gpu_transitions.resize(trans_count);
+                last_gpu_transitions = gpu_transitions;
                 apply_b0_transitions(gpu_transitions, group_id);
             }
         }
@@ -2257,20 +2337,22 @@ public:
         // Only after verified successful GPU removal: clear device words and free allocations
         for (const auto& key : keys_to_remove) {
             const auto& alloc = group_light_allocations[key];
-            rtx_clear_part_j_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
+            if (!rtx_clear_part_j_membership_words(alloc.membership_word_offset, alloc.membership_word_count) ||
+                !rtx_clear_part_j_footprints(alloc.footprint_offset, alloc.footprint_capacity)) {
+                return false;
+            }
             free_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
-            free_footprints(alloc.footprint_offset, alloc.footprint_count);
+            free_footprints(alloc.footprint_offset, alloc.footprint_capacity);
             group_light_allocations.erase(key);
         }
         return true;
     }
 
-    bool remove_single_group_light_dynamic_occlusion_gpu(uint32_t group_id, uint32_t light_id) {
-        ASTGGroupLightKey key{ group_id, light_id };
-        auto it = group_light_allocations.find(key);
-        if (it == group_light_allocations.end()) return true;
-
-        const auto& alloc = it->second;
+    // Remove one allocation's active membership from the GPU, but do not clear
+    // or return its host ranges.  Reallocation uses this as the commit point:
+    // the old allocation remains owned by the map until the replacement has
+    // been allocated and initialized successfully.
+    bool remove_single_group_light_gpu_state(const ASTGGroupLightMembershipAllocation& alloc, uint32_t group_id) {
         ASTGChangedGroupLightPairGPU p{};
         p.group_id = alloc.group_id;
         p.actual_light_id = alloc.actual_light_id;
@@ -2286,6 +2368,7 @@ public:
         p.footprint_offset = alloc.footprint_offset;
 
         std::vector<ASTGMembershipWordWorkGPU> removal_work_items;
+        removal_work_items.reserve(alloc.membership_word_count);
         for (uint32_t w = 0; w < alloc.membership_word_count; ++w) {
             ASTGMembershipWordWorkGPU work{};
             work.pair_index = 0;
@@ -2294,31 +2377,40 @@ public:
             removal_work_items.push_back(work);
         }
 
-        bool up_ok = rtx_update_part_j_dynamic_inputs(
-            &p, 1,
-            nullptr, 0,
-            removal_work_items.data(), (uint32_t)removal_work_items.size(),
-            (uint32_t)transport_generation, 0, MAX_FOOTPRINTS
-        );
-        if (!up_ok) return false;
+        if (!rtx_update_part_j_dynamic_inputs(
+                &p, 1, nullptr, 0, removal_work_items.data(),
+                (uint32_t)removal_work_items.size(), (uint32_t)transport_generation,
+                0, MAX_FOOTPRINTS)) {
+            return false;
+        }
 
         std::vector<ASTGB0TransitionRecord> gpu_transitions(1024);
         uint32_t trans_count = 0;
         ASTGPartsJKTelemetryGPU telem{};
-        bool j_ok = rtx_dispatch_part_j_gpu(
-            1, 0, (uint32_t)removal_work_items.size(),
-            gpu_transitions.data(), &trans_count, 1024, &telem
-        );
-        if (!j_ok) return false;
-
+        if (!rtx_dispatch_part_j_gpu(
+                1, 0, (uint32_t)removal_work_items.size(), gpu_transitions.data(),
+                &trans_count, (uint32_t)gpu_transitions.size(), &telem)) {
+            return false;
+        }
+        if (trans_count > gpu_transitions.size()) return false;
         if (trans_count > 0) {
             gpu_transitions.resize(trans_count);
             apply_b0_transitions(gpu_transitions, group_id);
         }
+        return true;
+    }
 
-        rtx_clear_part_j_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
+    bool remove_single_group_light_dynamic_occlusion_gpu(uint32_t group_id, uint32_t light_id) {
+        ASTGGroupLightKey key{ group_id, light_id };
+        auto it = group_light_allocations.find(key);
+        if (it == group_light_allocations.end()) return true;
+
+        const auto alloc = it->second;
+        if (!remove_single_group_light_gpu_state(alloc, group_id)) return false;
+        if (!rtx_clear_part_j_membership_words(alloc.membership_word_offset, alloc.membership_word_count)) return false;
+        if (!rtx_clear_part_j_footprints(alloc.footprint_offset, alloc.footprint_capacity)) return false;
         free_membership_words(alloc.membership_word_offset, alloc.membership_word_count);
-        free_footprints(alloc.footprint_offset, alloc.footprint_count);
+        free_footprints(alloc.footprint_offset, alloc.footprint_capacity);
         group_light_allocations.erase(key);
         return true;
     }
@@ -2331,7 +2423,9 @@ public:
             }
         }
         for (uint32_t gid : groups_to_update) {
-            remove_single_group_light_dynamic_occlusion_gpu(gid, light_id);
+            if (!remove_single_group_light_dynamic_occlusion_gpu(gid, light_id)) {
+                return false;
+            }
         }
         return true;
     }
@@ -2339,8 +2433,11 @@ public:
     ASTGB0AngularTelemetry b0_telemetry{};
 
     void invalidate_light_hierarchy(uint32_t light_id) {
-        remove_light_dynamic_occlusion_gpu(light_id);
-        light_b0_hierarchies.erase(light_id);
+        // Never discard the CPU hierarchy while its GPU membership state could
+        // not be removed and cleared.  The caller can retry safely.
+        if (remove_light_dynamic_occlusion_gpu(light_id)) {
+            light_b0_hierarchies.erase(light_id);
+        }
     }
 
     void invalidate_probe_hierarchy(uint32_t group_id) {
@@ -2665,8 +2762,10 @@ public:
 
         dynamic_occluder_groups[gid] = group;
 
-        if (enabled) {
+        if (enabled && !defer_dynamic_updates_to_frame) {
             update_dynamic_occlusion(gid);
+        } else if (enabled) {
+            dirty_dynamic_groups.insert(gid);
         }
         return gid;
     }
@@ -2699,6 +2798,15 @@ public:
                 }
             }
             dynamic_group_to_edges.erase(it_edges);
+        }
+
+        // Reset GPU persistent visibility state slot for this group
+        auto it_slot = gpu_visibility_state_slots.find(group_id);
+        if (it_slot != gpu_visibility_state_slots.end()) {
+            if (rtx_is_hardware_active()) {
+                rtx_reset_astg_visibility_state_slot(it_slot->second);
+            }
+            gpu_visibility_state_slots.erase(it_slot);
         }
 
         // 2. Clear angular cell blockers
@@ -2824,8 +2932,10 @@ public:
         }
 
         it->second.update_receiver_transforms();
-        if (it->second.astg_occlusion_enabled) {
+        if (it->second.astg_occlusion_enabled && !defer_dynamic_updates_to_frame) {
             update_dynamic_occlusion(group_id);
+        } else if (it->second.astg_occlusion_enabled) {
+            dirty_dynamic_groups.insert(group_id);
         }
         return (uint32_t)it->second.surface_probes.size();
     }
@@ -2838,6 +2948,7 @@ public:
         it->second.rigid_transform = transform;
         it->second.is_skeletal = false;
         it->second.update_receiver_transforms();
+        mark_dynamic_group_dirty(group_id);
     }
 
     void set_dynamic_group_bone_matrices(uint32_t group_id, const std::vector<RTXMatrix4x4>& bones) {
@@ -2848,6 +2959,7 @@ public:
         it->second.bone_matrices = bones;
         it->second.is_skeletal = true;
         it->second.update_receiver_transforms();
+        mark_dynamic_group_dirty(group_id);
     }
 
     void set_dynamic_group_bounds(uint32_t group_id, const std::vector<ASTGAABB>& new_boxes) {
@@ -2861,12 +2973,13 @@ public:
             it->second.bounds.push_back(ob);
         }
         it->second.update_receiver_transforms();
+        mark_dynamic_group_dirty(group_id);
     }
 
     void update_dynamic_group_rigid_transform(uint32_t group_id, const RTXMatrix4x4& transform) {
         set_dynamic_group_rigid_transform(group_id, transform);
         auto it = dynamic_occluder_groups.find(group_id);
-        if (it != dynamic_occluder_groups.end() && it->second.astg_occlusion_enabled) {
+        if (it != dynamic_occluder_groups.end() && it->second.astg_occlusion_enabled && !defer_dynamic_updates_to_frame) {
             update_dynamic_occlusion(group_id);
         }
     }
@@ -2874,7 +2987,7 @@ public:
     void update_dynamic_group_bone_matrices(uint32_t group_id, const std::vector<RTXMatrix4x4>& bones) {
         set_dynamic_group_bone_matrices(group_id, bones);
         auto it = dynamic_occluder_groups.find(group_id);
-        if (it != dynamic_occluder_groups.end() && it->second.astg_occlusion_enabled) {
+        if (it != dynamic_occluder_groups.end() && it->second.astg_occlusion_enabled && !defer_dynamic_updates_to_frame) {
             update_dynamic_occlusion(group_id);
         }
     }
@@ -3203,8 +3316,10 @@ public:
         it->second.astg_occlusion_enabled = enabled;
         if (!enabled) {
             clear_group_dynamic_state(group_id);
-        } else {
+        } else if (!defer_dynamic_updates_to_frame) {
             update_dynamic_occlusion(group_id);
+        } else {
+            dirty_dynamic_groups.insert(group_id);
         }
     }
 
@@ -3215,8 +3330,10 @@ public:
 
         clear_group_dynamic_state(group_id);
         it->second.occlusion_mode = mode;
-        if (it->second.astg_occlusion_enabled) {
+        if (it->second.astg_occlusion_enabled && !defer_dynamic_updates_to_frame) {
             update_dynamic_occlusion(group_id);
+        } else if (it->second.astg_occlusion_enabled) {
+            dirty_dynamic_groups.insert(group_id);
         }
     }
 
@@ -3228,8 +3345,10 @@ public:
         }
         global_occlusion_mode = mode;
         for (auto& pair : dynamic_occluder_groups) {
-            if (pair.second.astg_occlusion_enabled) {
+            if (pair.second.astg_occlusion_enabled && !defer_dynamic_updates_to_frame) {
                 update_dynamic_occlusion(pair.first);
+            } else if (pair.second.astg_occlusion_enabled) {
+                dirty_dynamic_groups.insert(pair.first);
             }
         }
     }
@@ -3237,13 +3356,717 @@ public:
     void update_dynamic_occluder_group_bounds(uint32_t group_id, const std::vector<ASTGAABB>& new_boxes) {
         set_dynamic_group_bounds(group_id, new_boxes);
         auto it = dynamic_occluder_groups.find(group_id);
-        if (it != dynamic_occluder_groups.end() && it->second.astg_occlusion_enabled) {
+        if (it != dynamic_occluder_groups.end() && it->second.astg_occlusion_enabled && !defer_dynamic_updates_to_frame) {
             update_dynamic_occlusion(group_id);
+        } else if (it != dynamic_occluder_groups.end() && it->second.astg_occlusion_enabled) {
+            dirty_dynamic_groups.insert(group_id);
         }
+    }
+
+    // Explicit production-frame mode.  Immediate per-group updates remain
+    // available for editor/diagnostic callers; the engine frame loop can set
+    // this flag and call update_all_dynamic_occlusions() to submit one J/K
+    // batch for all dirty receiver/occluder groups.
+    bool enable_async_frame_production = true;
+    bool defer_dynamic_updates_to_frame = false;
+    std::unordered_set<uint32_t> dirty_dynamic_groups;
+    uint32_t last_frame_jk_dispatch_count = 0;
+    uint32_t last_frame_jk_pair_count = 0;
+    uint32_t last_frame_jk_probe_count = 0;
+
+    void mark_dynamic_group_dirty(uint32_t group_id) {
+        if (dynamic_occluder_groups.find(group_id) != dynamic_occluder_groups.end()) {
+            dirty_dynamic_groups.insert(group_id);
+        }
+    }
+
+    std::vector<uint32_t> collect_gpu_light_ids() const {
+        std::vector<uint32_t> ids;
+        ids.reserve(light_positions.size());
+        for (const auto& kv : light_positions) ids.push_back(kv.first);
+        if (ids.empty()) {
+            for (const auto& edge : dag_edges) {
+                if (std::find(ids.begin(), ids.end(), edge.source_light_id) == ids.end()) {
+                    ids.push_back(edge.source_light_id);
+                }
+            }
+        }
+        if (ids.empty()) ids.push_back(0);
+        std::sort(ids.begin(), ids.end());
+        return ids;
+    }
+
+    bool ensure_resident_gpu_static_layout(const std::vector<uint32_t>& lights) {
+        uint64_t current_hash = 14695981039346656037ULL;
+        for (uint32_t lid : lights) {
+            auto& hier = get_or_create_light_hierarchy(lid);
+            current_hash ^= hier.compute_b0_layout_hash();
+            current_hash *= 1099511628211ULL;
+            auto it_c = light_colors.find(lid);
+            if (it_c != light_colors.end()) {
+                uint32_t cr, cg, cb;
+                std::memcpy(&cr, &it_c->second.x, sizeof(uint32_t));
+                std::memcpy(&cg, &it_c->second.y, sizeof(uint32_t));
+                std::memcpy(&cb, &it_c->second.z, sizeof(uint32_t));
+                current_hash ^= ((uint64_t)cr << 32) | cg;
+                current_hash *= 1099511628211ULL;
+                current_hash ^= cb;
+                current_hash *= 1099511628211ULL;
+            }
+            auto it_i = light_intensities.find(lid);
+            if (it_i != light_intensities.end()) {
+                uint32_t ci;
+                std::memcpy(&ci, &it_i->second, sizeof(uint32_t));
+                current_hash ^= ci;
+                current_hash *= 1099511628211ULL;
+            }
+        }
+        if (current_hash == last_uploaded_static_b0_hash) return true;
+
+        // 1. Preflight replacement layout resources in temporary memory
+        std::vector<RTXSourceAngularFrame> cand_frames;
+        std::vector<ASTGLightB0RangeGPU> cand_ranges;
+        std::vector<ASTGB0DirectionRecordGPU> cand_records;
+        std::vector<RTXVector3> cand_hit_positions;
+        std::vector<ASTGB0AngularBVHNode> cand_bvh_nodes;
+        cand_frames.reserve(lights.size());
+        cand_ranges.reserve(lights.size());
+
+        for (uint32_t lid : lights) {
+            auto& hier = get_or_create_light_hierarchy(lid);
+            cand_frames.push_back(hier.source_frame);
+            RTXVector3 color = { 1.0f, 1.0f, 1.0f };
+            float intensity = 10.0f;
+            auto it_c = light_colors.find(lid);
+            if (it_c != light_colors.end()) color = it_c->second;
+            auto it_i = light_intensities.find(lid);
+            if (it_i != light_intensities.end()) intensity = it_i->second;
+
+            ASTGLightB0RangeGPU range{};
+            range.record_offset = (uint32_t)cand_records.size();
+            range.record_count = (uint32_t)hier.b0_records.size();
+            range.bvh_offset = (uint32_t)cand_bvh_nodes.size();
+            range.bvh_node_count = (uint32_t)hier.b0_bvh_nodes.size();
+            range.color_r = color.x;
+            range.color_g = color.y;
+            range.color_b = color.z;
+            range.intensity = intensity;
+            cand_ranges.push_back(range);
+
+            RTXVector3 light_pos = { hier.source_frame.origin_x, hier.source_frame.origin_y, hier.source_frame.origin_z };
+            for (const auto& rec : hier.b0_records) {
+                cand_records.push_back(rec);
+                RTXVector3 dir = hier.local_to_world({ rec.dir_local_x, rec.dir_local_y, rec.dir_local_z });
+                cand_hit_positions.push_back({
+                    light_pos.x + dir.x * rec.hit_dist,
+                    light_pos.y + dir.y * rec.hit_dist,
+                    light_pos.z + dir.z * rec.hit_dist
+                });
+            }
+            for (const auto& node : hier.b0_bvh_nodes) {
+                ASTGB0AngularBVHNode adjusted = node;
+                if (adjusted.record_count > 0) adjusted.left_child += range.record_offset;
+                else {
+                    if (adjusted.left_child != 0) adjusted.left_child += range.bvh_offset;
+                    if (adjusted.right_child != 0) adjusted.right_child += range.bvh_offset;
+                }
+                cand_bvh_nodes.push_back(adjusted);
+            }
+        }
+
+        // 2. Unblock all existing allocations against the OLD layout on the GPU first
+        if (last_uploaded_static_b0_hash != 0) {
+            std::vector<ASTGGroupLightKey> keys_to_remove;
+            for (const auto& kv : group_light_allocations) {
+                keys_to_remove.push_back(kv.first);
+            }
+            for (const auto& key : keys_to_remove) {
+                if (!remove_single_group_light_dynamic_occlusion_gpu(key.group_id, key.light_id)) {
+                    // Safe abort: preserve consistency
+                    return false;
+                }
+            }
+            // Mark EVERY dynamic occluder group dirty so both moving and stationary groups are rebuilt
+            for (const auto& kv : dynamic_occluder_groups) {
+                dirty_dynamic_groups.insert(kv.first);
+            }
+        }
+
+        // 3. Upload new static layout to GPU only after old state is safely resolved
+        if (!rtx_upload_parts_jk_static_data(
+                cand_frames.data(), cand_ranges.data(),
+                (uint32_t)cand_frames.size(), cand_records.data(),
+                cand_hit_positions.data(), (uint32_t)cand_records.size(),
+                cand_bvh_nodes.data(), (uint32_t)cand_bvh_nodes.size())) {
+            return false;
+        }
+
+        // 4. Commit candidate layout to resident state
+        resident_static_frames = std::move(cand_frames);
+        resident_static_ranges = std::move(cand_ranges);
+        resident_static_records = std::move(cand_records);
+        resident_static_hit_positions = std::move(cand_hit_positions);
+        resident_static_bvh_nodes = std::move(cand_bvh_nodes);
+        last_uploaded_static_b0_hash = current_hash;
+        return true;
+    }
+
+    std::vector<ASTGDynamicOcclusionMetrics> update_dynamic_occlusions_frame_async() {
+        std::vector<ASTGDynamicOcclusionMetrics> metrics;
+        last_frame_jk_dispatch_count = 0;
+        last_frame_jk_pair_count = 0;
+        last_frame_jk_probe_count = 0;
+        if (dirty_dynamic_groups.empty()) return metrics;
+        // A frame owns one upload/command-list set.  Complete the previous
+        // submission before recording the next batch, then reclaim only ranges
+        // whose prior GPU use and zeroing are both complete.
+        if (!reclaim_retired_frame_allocations()) return metrics;
+
+        if (parts_jk_execution_mode != ASTG_PARTS_JK_GPU_PRODUCTION) {
+            for (const auto& kv : dynamic_occluder_groups) metrics.push_back(update_dynamic_occlusion(kv.first));
+            return metrics;
+        }
+
+        // Preflight and execute transactional layout migration BEFORE taking snapshot of frame_dirty_groups!
+        // This ensures all groups affected by layout migration are included in frame_dirty_groups.
+        const std::vector<uint32_t> lights = collect_gpu_light_ids();
+        if (!ensure_resident_gpu_static_layout(lights)) return metrics;
+
+        const std::unordered_set<uint32_t> frame_dirty_groups = dirty_dynamic_groups;
+        const uint32_t frame_generation = (uint32_t)++transport_generation;
+
+        // Disabled/mode-NONE dirty groups have no J pair in this frame. Their
+        // previously published GPU allocation must nevertheless be removed
+        // before the batch is committed.
+        for (uint32_t gid : frame_dirty_groups) {
+            auto it_group = dynamic_occluder_groups.find(gid);
+            if (it_group == dynamic_occluder_groups.end()) continue;
+            const auto& group = it_group->second;
+            const ASTGDynamicOcclusionMode mode =
+                (global_occlusion_mode != ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES && global_occlusion_mode != group.occlusion_mode)
+                    ? global_occlusion_mode : group.occlusion_mode;
+            if (!group.astg_occlusion_enabled || group.bounds.empty() || mode == ASTG_OCCLUSION_NONE) {
+                if (!remove_group_dynamic_occlusion_gpu(gid)) return metrics;
+            }
+        }
+
+        struct GroupSpan { uint32_t group_id; uint32_t bound_offset; uint32_t bound_count; };
+        std::vector<GroupSpan> group_spans;
+        std::vector<ASTGBoneBoundGPU> bounds;
+        std::vector<ASTGChangedGroupLightPairGPU> pairs;
+        std::vector<ASTGMembershipWordWorkGPU> words;
+        std::map<ASTGGroupLightKey, ASTGGroupLightMembershipAllocation> frame_allocations;
+        std::set<ASTGGroupLightKey> replacement_keys;
+        std::vector<ASTGGroupLightMembershipAllocation> frame_temporary_allocations;
+        bool slot_acquired = false;
+        uint32_t acquired_slot = 0;
+
+        auto abort_frame_allocation = [&]() {
+            // A failed clear leaves the contents untrusted.  Never return
+            // those ranges to the allocator; quarantine them until the engine
+            // is destroyed.  Existing published allocations are untouched.
+            for (const auto& temp : frame_temporary_allocations) {
+                quarantine_frame_allocation(temp);
+            }
+            if (slot_acquired) {
+                rtx_release_unsubmitted_frame_slot(acquired_slot);
+                slot_acquired = false;
+            }
+            return metrics;
+        };
+
+        for (const auto& group_kv : dynamic_occluder_groups) {
+            const uint32_t gid = group_kv.first;
+            if (frame_dirty_groups.find(gid) == frame_dirty_groups.end()) continue;
+            const auto& group = group_kv.second;
+            const ASTGDynamicOcclusionMode mode =
+                (global_occlusion_mode != ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES && global_occlusion_mode != group.occlusion_mode)
+                    ? global_occlusion_mode : group.occlusion_mode;
+            const bool needs_j = group.astg_occlusion_enabled && !group.bounds.empty() &&
+                (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS || mode == ASTG_OCCLUSION_ANGULAR_B0_ONLY ||
+                 (group.enable_surface_receivers && !group.surface_probes.empty()));
+            if (!needs_j) continue;
+
+            const uint32_t bound_offset = (uint32_t)bounds.size();
+            for (size_t b = 0; b < group.bounds.size(); ++b) {
+                const auto& ob = group.bounds[b];
+                ASTGBoneBoundGPU bound{};
+                bound.bone_id = (uint32_t)b;
+                bound.group_id = gid;
+                bound.local_min_x = ob.world_bounds.min_bounds.x; bound.local_min_y = ob.world_bounds.min_bounds.y; bound.local_min_z = ob.world_bounds.min_bounds.z;
+                bound.local_max_x = ob.world_bounds.max_bounds.x; bound.local_max_y = ob.world_bounds.max_bounds.y; bound.local_max_z = ob.world_bounds.max_bounds.z;
+                bound.world_min_x = ob.world_bounds.min_bounds.x; bound.world_min_y = ob.world_bounds.min_bounds.y; bound.world_min_z = ob.world_bounds.min_bounds.z;
+                bound.world_max_x = ob.world_bounds.max_bounds.x; bound.world_max_y = ob.world_bounds.max_bounds.y; bound.world_max_z = ob.world_bounds.max_bounds.z;
+                bounds.push_back(bound);
+            }
+            group_spans.push_back({ gid, bound_offset, (uint32_t)group.bounds.size() });
+
+            for (size_t li = 0; li < lights.size(); ++li) {
+                const uint32_t lid = lights[li];
+                auto& hier = get_or_create_light_hierarchy(lid);
+                const auto& range = resident_static_ranges[li];
+                const uint32_t needed_words = (range.record_count + 31u) / 32u;
+                const uint32_t needed_footprints = (uint32_t)group.bounds.size();
+                const ASTGGroupLightKey key{ gid, lid };
+                auto it_alloc = group_light_allocations.find(key);
+                bool need_realloc = it_alloc == group_light_allocations.end() ||
+                    it_alloc->second.membership_word_count != needed_words ||
+                    it_alloc->second.record_offset != range.record_offset ||
+                    it_alloc->second.layout_hash != hier.compute_b0_layout_hash() ||
+                    needed_footprints > it_alloc->second.footprint_capacity;
+                ASTGGroupLightMembershipAllocation alloc{};
+                if (need_realloc) {
+                    uint32_t mem_offset = 0, footprint_offset = 0;
+                    if (parts_jk_failure_injection == ASTG_JK_FAIL_MEMBERSHIP_ALLOCATION ||
+                        !allocate_membership_words(needed_words, mem_offset)) return abort_frame_allocation();
+                    ASTGGroupLightMembershipAllocation temp_mem{};
+                    temp_mem.group_id = gid; temp_mem.actual_light_id = lid;
+                    temp_mem.membership_word_offset = mem_offset;
+                    temp_mem.membership_word_count = needed_words;
+                    if (parts_jk_failure_injection == ASTG_JK_FAIL_FOOTPRINT_ALLOCATION ||
+                        !allocate_footprints(needed_footprints, footprint_offset)) {
+                        quarantine_frame_allocation(temp_mem);
+                        return abort_frame_allocation();
+                    }
+                    ASTGGroupLightMembershipAllocation replacement{};
+                    replacement.group_id = gid; replacement.actual_light_id = lid; replacement.packed_light_index = (uint32_t)li;
+                    replacement.record_offset = range.record_offset; replacement.record_count = range.record_count;
+                    replacement.membership_word_offset = mem_offset; replacement.membership_word_count = needed_words;
+                    replacement.footprint_offset = footprint_offset; replacement.footprint_count = needed_footprints; replacement.footprint_capacity = needed_footprints;
+                    replacement.light_layout_generation = hier.source_frame.generation; replacement.allocation_generation = frame_generation;
+                    replacement.layout_hash = hier.compute_b0_layout_hash();
+                    const bool membership_clear_ok =
+                        parts_jk_failure_injection != ASTG_JK_FAIL_MEMBERSHIP_CLEAR &&
+                        rtx_clear_part_j_membership_words(mem_offset, needed_words);
+                    const bool footprint_clear_ok =
+                        parts_jk_failure_injection != ASTG_JK_FAIL_FOOTPRINT_CLEAR &&
+                        rtx_clear_part_j_footprints(footprint_offset, needed_footprints);
+                    if (!membership_clear_ok || !footprint_clear_ok) {
+                        quarantine_frame_allocation(replacement);
+                        return abort_frame_allocation();
+                    }
+                    frame_temporary_allocations.push_back(replacement);
+                    frame_allocations[key] = replacement;
+                    replacement_keys.insert(key);
+                    alloc = replacement;
+                } else {
+                    alloc = it_alloc->second;
+                }
+                alloc.packed_light_index = (uint32_t)li;
+                alloc.group_id = gid;
+                alloc.actual_light_id = lid;
+                alloc.footprint_count = needed_footprints;
+                frame_allocations[key] = alloc;
+                ASTGChangedGroupLightPairGPU pair{};
+                pair.group_id = gid; pair.actual_light_id = lid; pair.packed_light_index = (uint32_t)li;
+                pair.first_bound = bound_offset; pair.bound_count = (uint32_t)group.bounds.size();
+                pair.record_offset = range.record_offset; pair.record_count = range.record_count; pair.bvh_root_index = range.bvh_offset;
+                pair.generation = frame_generation; pair.membership_word_offset = alloc.membership_word_offset;
+                pair.membership_word_count = alloc.membership_word_count; pair.footprint_offset = alloc.footprint_offset;
+                const uint32_t pair_index = (uint32_t)pairs.size();
+                pairs.push_back(pair);
+            }
+        }
+
+        // A replacement pair is preceded by a zero-bound pair for the old
+        // allocation.  Both are submitted in this same frame dispatch, so old
+        // persistent memberships are removed without a blocking per-group
+        // dispatch and without exposing duplicate blocker counts.
+        for (const auto& key : replacement_keys) {
+            auto old_it = group_light_allocations.find(key);
+            if (old_it == group_light_allocations.end()) continue;
+            const auto& old = old_it->second;
+            ASTGChangedGroupLightPairGPU clear_pair{};
+            clear_pair.group_id = old.group_id;
+            clear_pair.actual_light_id = old.actual_light_id;
+            clear_pair.packed_light_index = old.packed_light_index;
+            clear_pair.record_offset = old.record_offset;
+            clear_pair.record_count = old.record_count;
+            clear_pair.generation = frame_generation;
+            clear_pair.membership_word_offset = old.membership_word_offset;
+            clear_pair.membership_word_count = old.membership_word_count;
+            clear_pair.footprint_offset = old.footprint_offset;
+            pairs.insert(pairs.begin(), clear_pair);
+        }
+        // Rebuild word work after any old-range clear pairs were prepended.
+        for (size_t p_i = 0; p_i < pairs.size(); ++p_i) {
+            for (uint32_t w = 0; w < pairs[p_i].membership_word_count; ++w) {
+                words.push_back({ (uint32_t)p_i, w,
+                    pairs[p_i].membership_word_offset + w, 0 });
+            }
+        }
+
+        // Build one receiver batch. Every probe carries its group ownership;
+        // no frame-wide skeletal flag is used for mixed rigid/skeletal input.
+        std::vector<ASTGBoneTransformGPU> transforms;
+        std::vector<ASTGBoneBoundGPU> receiver_bounds;
+        std::vector<ASTGReceiverClusterGPU> clusters;
+        std::vector<uint32_t> cluster_indices;
+        std::vector<ASTGDynamicSurfaceProbeGPU> probes_gpu;
+        struct ProbeSpan { uint32_t group_id; uint32_t offset; };
+        std::vector<ProbeSpan> probe_spans;
+        std::unordered_map<uint32_t, uint32_t> transform_offsets;
+        for (const auto& kv : dynamic_occluder_groups) {
+            const auto& grp = kv.second;
+            transform_offsets[kv.first] = (uint32_t)transforms.size();
+            if (grp.is_skeletal) {
+                size_t num_bones = grp.bone_matrices.size();
+                if (num_bones == 0) {
+                    for (const auto& ob : grp.bounds) num_bones = (std::max)(num_bones, (size_t)ob.bone_id + 1);
+                    for (const auto& pr : grp.surface_probes) num_bones = (std::max)(num_bones, (size_t)pr.bone_id + 1);
+                    if (num_bones == 0) num_bones = 1;
+                }
+                for (size_t b_i = 0; b_i < num_bones; ++b_i) {
+                    if (b_i < grp.bone_matrices.size()) {
+                        const auto& bm = grp.bone_matrices[b_i];
+                        ASTGBoneTransformGPU t{};
+                        t.row0_x=bm.m[0][0]; t.row0_y=bm.m[0][1]; t.row0_z=bm.m[0][2]; t.row0_w=bm.m[0][3];
+                        t.row1_x=bm.m[1][0]; t.row1_y=bm.m[1][1]; t.row1_z=bm.m[1][2]; t.row1_w=bm.m[1][3];
+                        t.row2_x=bm.m[2][0]; t.row2_y=bm.m[2][1]; t.row2_z=bm.m[2][2]; t.row2_w=bm.m[2][3];
+                        t.row3_x=bm.m[3][0]; t.row3_y=bm.m[3][1]; t.row3_z=bm.m[3][2]; t.row3_w=bm.m[3][3]; transforms.push_back(t);
+                    } else {
+                        ASTGBoneTransformGPU t{}; t.row0_x=1; t.row1_y=1; t.row2_z=1; t.row3_w=1; transforms.push_back(t);
+                    }
+                }
+            } else {
+                const auto& rm = grp.rigid_transform;
+                ASTGBoneTransformGPU t{};
+                t.row0_x=rm.m[0][0]; t.row0_y=rm.m[0][1]; t.row0_z=rm.m[0][2]; t.row0_w=rm.m[0][3];
+                t.row1_x=rm.m[1][0]; t.row1_y=rm.m[1][1]; t.row1_z=rm.m[1][2]; t.row1_w=rm.m[1][3];
+                t.row2_x=rm.m[2][0]; t.row2_y=rm.m[2][1]; t.row2_z=rm.m[2][2]; t.row2_w=rm.m[2][3];
+                t.row3_x=rm.m[3][0]; t.row3_y=rm.m[3][1]; t.row3_z=rm.m[3][2]; t.row3_w=rm.m[3][3]; transforms.push_back(t);
+            }
+        }
+        if (transforms.empty()) { ASTGBoneTransformGPU t{}; t.row0_x=1; t.row1_y=1; t.row2_z=1; t.row3_w=1; transforms.push_back(t); }
+        for (const auto& kv : dynamic_occluder_groups) {
+            const auto& grp = kv.second;
+            if (!grp.astg_occlusion_enabled) continue;
+            const uint32_t base = transform_offsets[kv.first];
+            for (const auto& ob : grp.bounds) {
+                ASTGBoneBoundGPU b{};
+                b.bone_id = base + (grp.is_skeletal ? ob.bone_id : 0);
+                b.group_id = kv.first;
+                b.local_min_x=ob.local_bounds.min_bounds.x; b.local_min_y=ob.local_bounds.min_bounds.y; b.local_min_z=ob.local_bounds.min_bounds.z;
+                b.local_max_x=ob.local_bounds.max_bounds.x; b.local_max_y=ob.local_bounds.max_bounds.y; b.local_max_z=ob.local_bounds.max_bounds.z;
+                b.world_min_x=ob.world_bounds.min_bounds.x; b.world_min_y=ob.world_bounds.min_bounds.y; b.world_min_z=ob.world_bounds.min_bounds.z;
+                b.world_max_x=ob.world_bounds.max_bounds.x; b.world_max_y=ob.world_bounds.max_bounds.y; b.world_max_z=ob.world_bounds.max_bounds.z;
+                receiver_bounds.push_back(b);
+            }
+        }
+        // Evaluate B1+ edges for dirty groups with B1+ modes
+        std::unordered_set<uint32_t> frame_affected_paths;
+        std::unordered_map<uint32_t, ASTGDynamicOcclusionMetrics> group_edge_metrics;
+        for (uint32_t gid : frame_dirty_groups) {
+            auto it_g = dynamic_occluder_groups.find(gid);
+            if (it_g == dynamic_occluder_groups.end()) continue;
+            const auto& grp = it_g->second;
+            const ASTGDynamicOcclusionMode grp_mode =
+                (global_occlusion_mode != ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES && global_occlusion_mode != grp.occlusion_mode)
+                    ? global_occlusion_mode : grp.occlusion_mode;
+            if (grp.astg_occlusion_enabled && !grp.bounds.empty() &&
+                (grp_mode == ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES || grp_mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS)) {
+                ASTGDynamicOcclusionMetrics edge_m{};
+                evaluate_and_apply_b1_plus_edges(gid, grp, grp_mode, edge_m, frame_affected_paths);
+                group_edge_metrics[gid] = edge_m;
+            }
+        }
+
+        // Include all active receiver groups so stationary receivers remain in probes_gpu and receive updated lighting
+        for (auto& kv : dynamic_occluder_groups) {
+            auto& grp = kv.second;
+            if (!grp.enable_surface_receivers || grp.surface_probes.empty()) continue;
+            if (grp.receiver_clusters.empty()) {
+                ASTGReceiverCluster c{}; c.cluster_id=0; c.bone_id=0; c.world_normal={0,1,0}; c.cluster_radius=100.0f;
+                for (size_t p=0;p<grp.surface_probes.size();++p) { c.member_probe_indices.push_back((uint32_t)p); c.world_centroid.x+=grp.surface_probes[p].world_position.x; c.world_centroid.y+=grp.surface_probes[p].world_position.y; c.world_centroid.z+=grp.surface_probes[p].world_position.z; }
+                const float inv=1.0f/(float)grp.surface_probes.size(); c.world_centroid.x*=inv;c.world_centroid.y*=inv;c.world_centroid.z*=inv; grp.receiver_clusters.push_back(c);
+            }
+            const uint32_t po=(uint32_t)probes_gpu.size(); probe_spans.push_back({kv.first,po});
+            for (const auto& cl : grp.receiver_clusters) {
+                ASTGReceiverClusterGPU c{}; c.world_center_x=cl.world_centroid.x;c.world_center_y=cl.world_centroid.y;c.world_center_z=cl.world_centroid.z;c.radius=cl.cluster_radius;
+                c.normal_axis_x=cl.world_normal.x;c.normal_axis_y=cl.world_normal.y;c.normal_axis_z=cl.world_normal.z;c.cos_normal_half_angle=0.5f;
+                c.probe_offset=(uint32_t)cluster_indices.size(); c.probe_count=(uint32_t)cl.member_probe_indices.size();
+                for (uint32_t idx : cl.member_probe_indices) cluster_indices.push_back(po+idx);
+                c.bone_id=transform_offsets[kv.first]+(grp.is_skeletal?cl.bone_id:0); c.generation=frame_generation; clusters.push_back(c);
+            }
+            for (const auto& pr : grp.surface_probes) {
+                ASTGDynamicSurfaceProbeGPU p{}; p.local_pos_x=pr.local_position.x;p.local_pos_y=pr.local_position.y;p.local_pos_z=pr.local_position.z;
+                p.bone_id=transform_offsets[kv.first]+(grp.is_skeletal?pr.bone_id:0); p.local_norm_x=pr.local_normal.x;p.local_norm_y=pr.local_normal.y;p.local_norm_z=pr.local_normal.z;
+                p.cluster_id=pr.cluster_id;p.world_pos_x=pr.world_position.x;p.world_pos_y=pr.world_position.y;p.world_pos_z=pr.world_position.z;p.group_id=kv.first;
+                p.world_norm_x=pr.world_normal.x;p.world_norm_y=pr.world_normal.y;p.world_norm_z=pr.world_normal.z;p.generation=frame_generation;
+                p.last_visibility_mask=grp.is_skeletal?0x80000000u:0u; probes_gpu.push_back(p);
+            }
+        }
+
+        // Safe slot acquisition BEFORE writing any input upload buffers
+        bool backpressure = false;
+        if (!rtx_acquire_frame_slot(&acquired_slot, false /* non-blocking */, &backpressure)) {
+            // Under GPU backpressure, the next slot is still in-flight.
+            // Do NOT touch upload buffers or publish a frame.
+            // Retain dirty_dynamic_groups for retry on the subsequent frame.
+            for (const auto& temp : frame_temporary_allocations) {
+                free_footprints(temp.footprint_offset, temp.footprint_capacity);
+                free_membership_words(temp.membership_word_offset, temp.membership_word_count);
+            }
+            return metrics;
+        }
+        slot_acquired = true;
+
+        if (!rtx_update_part_j_dynamic_inputs(pairs.data(), (uint32_t)pairs.size(), bounds.data(), (uint32_t)bounds.size(), words.data(), (uint32_t)words.size(), frame_generation, (uint32_t)ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS, MAX_FOOTPRINTS)) return abort_frame_allocation();
+        if (!rtx_update_part_k_dynamic_inputs(transforms.data(), (uint32_t)transforms.size(), receiver_bounds.data(), (uint32_t)receiver_bounds.size(), clusters.data(), (uint32_t)clusters.size(), cluster_indices.data(), (uint32_t)cluster_indices.size(), probes_gpu.data(), (uint32_t)probes_gpu.size(), (uint32_t)lights.size(), frame_generation, 0)) return abort_frame_allocation();
+        if (!rtx_dispatch_parts_jk_production_async((uint32_t)pairs.size(), (uint32_t)bounds.size(), (uint32_t)words.size(), (uint32_t)receiver_bounds.size(), (uint32_t)clusters.size(), (uint32_t)probes_gpu.size(), (uint32_t)lights.size())) return abort_frame_allocation();
+
+        // Commit only after the complete batch is queued.  Replacements are
+        // retired rather than immediately freed; their old membership must be
+        // kept alive until the fence has completed.
+        for (const auto& kv : frame_allocations) {
+            auto old_it = group_light_allocations.find(kv.first);
+            if (replacement_keys.find(kv.first) != replacement_keys.end() &&
+                old_it != group_light_allocations.end()) {
+                retired_frame_allocations.push_back({ old_it->second, rtx_get_current_fence_value() });
+            }
+            group_light_allocations[kv.first] = kv.second;
+        }
+
+        last_frame_jk_dispatch_count=1; last_frame_jk_pair_count=(uint32_t)pairs.size(); last_frame_jk_probe_count=(uint32_t)probes_gpu.size();
+        for (uint32_t dirty_gid : frame_dirty_groups) dirty_dynamic_groups.erase(dirty_gid);
+        for (const auto& kv : dynamic_occluder_groups) {
+            if (frame_dirty_groups.find(kv.first) == frame_dirty_groups.end()) continue;
+            ASTGDynamicOcclusionMetrics m = group_edge_metrics.count(kv.first) ? group_edge_metrics[kv.first] : ASTGDynamicOcclusionMetrics{};
+            m.group_id=kv.first; m.enabled=kv.second.astg_occlusion_enabled; m.box_count=(uint32_t)kv.second.bounds.size(); m.mode=kv.second.occlusion_mode; m.gpu_dispatch_failed=false; m.total_update_ms=0.0;
+            metrics.push_back(m);
+        }
+        return metrics;
+    }
+
+    void evaluate_and_apply_b1_plus_edges(
+        uint32_t group_id,
+        const ASTGDynamicOccluderGroup& group,
+        ASTGDynamicOcclusionMode mode,
+        ASTGDynamicOcclusionMetrics& m,
+        std::unordered_set<uint32_t>& affected_path_ids
+    ) {
+        ASTGAABB swept_bounds = ASTGAABB::union_of(group.previous_world_union_bounds, group.world_union_bounds);
+        std::vector<uint32_t> candidate_edges;
+        std::vector<ASTGGPUCellRange> gpu_spatial_ranges;
+        uint32_t gpu_edge_references = 0;
+        uint32_t gpu_visibility_state_slot = UINT32_MAX;
+        auto t_sp_start = std::chrono::high_resolution_clock::now();
+        query_gpu_edge_spatial_ranges(swept_bounds, gpu_spatial_ranges, gpu_edge_references);
+        const bool is_gpu_production = (parts_jk_execution_mode == ASTG_PARTS_JK_GPU_PRODUCTION);
+
+        // GPU execution decision: any positive reference count (1..131072) runs on GPU.
+        // No arbitrary >= 256 cutoff!
+        const bool use_gpu_spatial_discovery = enable_gpu_spatial_discovery && rtx_is_hardware_active() &&
+            gpu_edge_references >= 1 &&
+            gpu_edge_references <= 131072 &&
+            !gpu_spatial_ranges.empty() && sync_gpu_edge_spatial_index();
+        const bool use_gpu_persistent_visibility = use_gpu_spatial_discovery &&
+            ensure_gpu_visibility_state_slot(group_id, gpu_visibility_state_slot);
+        if (!use_gpu_persistent_visibility) {
+            edge_spatial_grid.query_edges_in_aabb(swept_bounds, candidate_edges);
+        }
+        auto t_sp_end = std::chrono::high_resolution_clock::now();
+        m.spatial_query_us = std::chrono::duration<double, std::micro>(t_sp_end - t_sp_start).count();
+        m.candidate_edges = use_gpu_persistent_visibility ? gpu_edge_references : (uint32_t)candidate_edges.size();
+        m.spatial_cells_touched = (uint32_t)gpu_spatial_ranges.size();
+        m.spatial_edge_references = gpu_edge_references;
+
+        std::unordered_set<uint32_t> new_blocked_edge_set;
+        auto t_fine_start = std::chrono::high_resolution_clock::now();
+        std::vector<uint32_t> gpu_candidate_edges;
+        if (!use_gpu_persistent_visibility) {
+            gpu_candidate_edges.reserve(candidate_edges.size());
+            for (uint32_t edge_idx : candidate_edges) {
+                if (edge_idx >= dag_edges.size()) continue;
+                const auto& edge = dag_edges[edge_idx];
+                if (!edge.is_active && edge.state == ASTG_EDGE_INVALID_STATIC) continue;
+                if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS && edge.source_bounce_depth == 0) continue;
+                if (!get_node_by_id(edge.parent_node_id) || !get_node_by_id(edge.child_node_id)) continue;
+                gpu_candidate_edges.push_back(edge_idx);
+            }
+        }
+
+        if (use_gpu_persistent_visibility) {
+            new_blocked_edge_set = dynamic_group_to_edges[group_id];
+            std::vector<ASTGEdgeVisibilityResult> gpu_results;
+            ASTGVisibilityCounters gpu_counters = {};
+            RTGPUTimings gpu_timings = {};
+            incremental_sync_gpu_astg();
+            sync_gpu_dynamic_occluders();
+            gpu_results.resize(gpu_edge_references);
+            ++gpu_discovery_stamp;
+            if (gpu_discovery_stamp == 0) {
+                gpu_discovery_stamp = 1;
+                gpu_edge_spatial_index_uploaded = false;
+                sync_gpu_edge_spatial_index();
+            }
+            rtx_trace_spatial_edge_ranges(gpu_spatial_ranges.data(), (uint32_t)gpu_spatial_ranges.size(),
+                gpu_edge_references, group_id,
+                gpu_occluder_dense_indices.count(group_id) ? gpu_occluder_dense_indices[group_id] : UINT32_MAX,
+                gpu_discovery_stamp, gpu_visibility_state_slot, gpu_results.data(), &gpu_counters, &gpu_timings);
+            m.gpu_generation_rejected = gpu_counters.generation_rejected;
+            m.gpu_angular_rejected = gpu_counters.angular_rejected;
+            m.gpu_aabb_rejected = gpu_counters.broadphase_rejected;
+            m.gpu_rayquery_required = gpu_counters.rayquery_candidates;
+            m.gpu_visibility_state_transitions = gpu_counters.changed_state_count;
+            m.gpu_changed_result_readback_bytes = gpu_counters.changed_state_count * (uint32_t)sizeof(ASTGEdgeVisibilityResult);
+            m.spatial_duplicate_edges_removed = gpu_edge_references > gpu_counters.edges_considered
+                ? gpu_edge_references - gpu_counters.edges_considered : 0;
+            m.gpu_b1_plus_edges_tested += gpu_edge_references;
+            m.cpu_reference_edges_tested = 0;
+            m.fine_tested_edges = gpu_counters.rayquery_candidates;
+
+            const uint32_t changed_count = (std::min)(gpu_counters.changed_state_count, gpu_edge_references);
+            for (uint32_t result_index = 0; result_index < changed_count; ++result_index) {
+                const auto& result = gpu_results[result_index];
+                const uint32_t edge_idx = result.edge_id;
+                if (edge_idx >= dag_edges.size() ||
+                    result.generation != dag_edges[edge_idx].repair_generation) continue;
+                if (result.visibility_state == 1) {
+                    new_blocked_edge_set.insert(edge_idx);
+                } else {
+                    new_blocked_edge_set.erase(edge_idx);
+                }
+            }
+            m.intersected_edges = (uint32_t)new_blocked_edge_set.size();
+        } else if (is_gpu_production) {
+            // In GPU production mode: if spatial discovery is inactive, attempt GPU candidate batch dispatch
+            if (rtx_is_hardware_active() && !gpu_candidate_edges.empty()) {
+                std::vector<ASTGGPUVisibilityCandidate> cand_segs;
+                cand_segs.reserve(gpu_candidate_edges.size());
+                for (uint32_t e_idx : gpu_candidate_edges) {
+                    const auto& ed = dag_edges[e_idx];
+                    ASTGGPUVisibilityCandidate seg{};
+                    seg.edge_id = e_idx;
+                    seg.object_id = group_id;
+                    seg.transport_generation = ed.repair_generation;
+                    seg.occluder_index = gpu_occluder_dense_indices.count(group_id) ? gpu_occluder_dense_indices[group_id] : 0;
+                    cand_segs.push_back(seg);
+                }
+                std::vector<ASTGEdgeVisibilityResult> gpu_res(cand_segs.size());
+                ASTGVisibilityCounters counters{};
+                RTGPUTimings timings{};
+                incremental_sync_gpu_astg();
+                sync_gpu_dynamic_occluders();
+                int32_t traced = rtx_trace_candidates_batch(cand_segs.data(), (uint32_t)cand_segs.size(), gpu_res.data(), &counters, &timings);
+                if (traced >= 0) {
+                    m.gpu_b1_plus_edges_tested += (uint32_t)cand_segs.size();
+                    m.cpu_reference_edges_tested = 0;
+                    for (size_t i = 0; i < cand_segs.size(); ++i) {
+                        uint32_t e_idx = cand_segs[i].edge_id;
+                        m.fine_tested_edges++;
+                        if (gpu_res[i].visibility_state == 1) {
+                            new_blocked_edge_set.insert(e_idx);
+                            m.intersected_edges++;
+                        } else {
+                            new_blocked_edge_set.erase(e_idx);
+                        }
+                    }
+                } else {
+                    m.gpu_dispatch_failed = true;
+                    return;
+                }
+            } else if (gpu_candidate_edges.empty()) {
+                // Zero candidate edges intersecting swept volume: 0 blocked edges
+                m.gpu_b1_plus_edges_tested = 0;
+                m.cpu_reference_edges_tested = 0;
+            } else {
+                // Acceleration structure/hardware unavailable in GPU production mode:
+                // Report visible failure without entering CPU reference execution!
+                m.gpu_dispatch_failed = true;
+                return;
+            }
+        } else {
+            // EXPLICIT CPU REFERENCE MODE ONLY (ASTG_PARTS_JK_CPU_REFERENCE)
+            m.cpu_reference_edges_tested += (uint32_t)gpu_candidate_edges.size();
+            m.gpu_b1_plus_edges_tested = 0;
+            for (uint32_t edge_idx : gpu_candidate_edges) {
+                const auto& edge = dag_edges[edge_idx];
+                const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
+                const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
+                m.fine_tested_edges++;
+                bool edge_hit = false;
+                for (const auto& ob : group.bounds) {
+                    if (segment_intersects_aabb(parent_n->position, child_n->position, ob.aabb)) {
+                        edge_hit = true;
+                        break;
+                    }
+                }
+                if (edge_hit) {
+                    new_blocked_edge_set.insert(edge_idx);
+                    m.intersected_edges++;
+                }
+            }
+        }
+        auto t_fine_end = std::chrono::high_resolution_clock::now();
+        m.fine_test_us = std::chrono::duration<double, std::micro>(t_fine_end - t_fine_start).count();
+
+        std::unordered_set<uint32_t>& old_blocked = dynamic_group_to_edges[group_id];
+
+        for (uint32_t old_eid : old_blocked) {
+            if (new_blocked_edge_set.find(old_eid) == new_blocked_edge_set.end()) {
+                m.newly_unblocked_edges++;
+                if (old_eid < dag_edges.size()) {
+                    auto& edge = dag_edges[old_eid];
+                    auto& b_ids = edge.dynamic_blocker_ids;
+                    b_ids.erase(std::remove(b_ids.begin(), b_ids.end(), group_id), b_ids.end());
+                    edge.dynamic_blocker_count = (uint32_t)b_ids.size();
+                    if (edge.dynamic_blocker_count == 0) {
+                        edge.state = (edge.is_active ? ASTG_EDGE_ACTIVE : ASTG_EDGE_INVALID_STATIC);
+                        dynamic_edge_timeline.push_back({ dynamic_timeline_frame, old_eid, "UNBLOCKED", group_id, 0 });
+                    }
+
+                    auto it_p = edge_to_path_contributions.find(old_eid);
+                    if (it_p != edge_to_path_contributions.end()) {
+                        for (uint32_t dep_id : it_p->second) {
+                            if (dep_id < path_probe_contributions.size()) {
+                                if (path_probe_contributions[dep_id].dynamic_occlusion_count > 0) {
+                                    path_probe_contributions[dep_id].dynamic_occlusion_count--;
+                                }
+                                affected_path_ids.insert(dep_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (uint32_t new_eid : new_blocked_edge_set) {
+            if (old_blocked.find(new_eid) == old_blocked.end()) {
+                m.newly_blocked_edges++;
+                if (new_eid < dag_edges.size()) {
+                    auto& edge = dag_edges[new_eid];
+                    if (std::find(edge.dynamic_blocker_ids.begin(), edge.dynamic_blocker_ids.end(), group_id) == edge.dynamic_blocker_ids.end()) {
+                        edge.dynamic_blocker_ids.push_back(group_id);
+                    }
+                    edge.dynamic_blocker_count = (uint32_t)edge.dynamic_blocker_ids.size();
+                    edge.state = ASTG_EDGE_OCCLUDED_DYNAMIC;
+                    dynamic_edge_timeline.push_back({ dynamic_timeline_frame, new_eid, "BLOCKED", group_id, edge.dynamic_blocker_count });
+
+                    auto it_p = edge_to_path_contributions.find(new_eid);
+                    if (it_p != edge_to_path_contributions.end()) {
+                        for (uint32_t dep_id : it_p->second) {
+                            if (dep_id < path_probe_contributions.size()) {
+                                path_probe_contributions[dep_id].dynamic_occlusion_count++;
+                                affected_path_ids.insert(dep_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        old_blocked = new_blocked_edge_set;
+        m.currently_blocked_edges = (uint32_t)old_blocked.size();
     }
 
     ASTGDynamicOcclusionMetrics update_dynamic_occlusion(uint32_t group_id) {
         auto t_start = std::chrono::high_resolution_clock::now();
+        // A caller explicitly requesting immediate per-group semantics may
+        // follow a deferred production frame. Complete that submission before
+        // reusing the single command allocator/upload set.
+        rtx_complete_parts_jk_production();
+        dirty_dynamic_groups.erase(group_id);
         ASTGDynamicOcclusionMetrics m;
         m.group_id = group_id;
         m.total_dag_edges = (uint32_t)dag_edges.size();
@@ -3321,11 +4144,21 @@ public:
                         }
                     }
 
-                    std::vector<RTXSourceAngularFrame> frames;
-                    std::vector<ASTGLightB0RangeGPU> ranges;
-                    std::vector<ASTGB0DirectionRecord> all_records;
-                    std::vector<RTXVector3> all_hit_positions;
-                    std::vector<ASTGB0AngularBVHNode> all_bvh_nodes;
+                    // Do not rebuild the flattened staging arrays on every
+                    // dynamic receiver update.  Hashing is cheap; vector
+                    // construction/upload is reserved for a dirty static
+                    // light/B0 layout.
+                    auto& frames = resident_static_frames;
+                    auto& ranges = resident_static_ranges;
+                    auto& all_records = resident_static_records;
+                    auto& all_hit_positions = resident_static_hit_positions;
+                    auto& all_bvh_nodes = resident_static_bvh_nodes;
+                    if (current_static_hash != last_uploaded_static_b0_hash) {
+                        frames.clear();
+                        ranges.clear();
+                        all_records.clear();
+                        all_hit_positions.clear();
+                        all_bvh_nodes.clear();
 
                     for (uint32_t lid : lights_to_test) {
                         auto& hier = get_or_create_light_hierarchy(lid);
@@ -3370,7 +4203,6 @@ public:
                         }
                     }
 
-                    if (current_static_hash != last_uploaded_static_b0_hash) {
                         bool static_ok = rtx_upload_parts_jk_static_data(
                             frames.data(), ranges.data(), (uint32_t)frames.size(),
                             all_records.data(), all_hit_positions.data(), (uint32_t)all_records.size(),
@@ -3421,50 +4253,97 @@ public:
                         bool need_realloc = (it_alloc == group_light_allocations.end()) ||
                                             (it_alloc->second.membership_word_count != needed_words) ||
                                             (it_alloc->second.record_offset != r.record_offset) ||
-                                            (it_alloc->second.layout_hash != current_layout_hash);
+                                            (it_alloc->second.layout_hash != current_layout_hash) ||
+                                            (needed_footprints > it_alloc->second.footprint_capacity);
 
                         if (need_realloc) {
-                            if (it_alloc != group_light_allocations.end()) {
-                                remove_single_group_light_dynamic_occlusion_gpu(group_id, actual_lid);
-                                it_alloc = group_light_allocations.end();
-                            }
-
+                            // Allocate and initialize replacement ranges while the old
+                            // allocation is still live.  This is deliberately
+                            // transactional: allocation or GPU initialization failure
+                            // must not destroy the active mapping.
                             uint32_t temp_mem_offset = 0;
                             uint32_t temp_foot_offset = 0;
-                            if (!allocate_membership_words(needed_words, temp_mem_offset)) {
+                            if (parts_jk_failure_injection == ASTG_JK_FAIL_MEMBERSHIP_ALLOCATION ||
+                                !allocate_membership_words(needed_words, temp_mem_offset)) {
                                 m.gpu_dispatch_failed = true;
                                 return m;
                             }
-                            if (!allocate_footprints(needed_footprints, temp_foot_offset)) {
+                            if (parts_jk_failure_injection == ASTG_JK_FAIL_FOOTPRINT_ALLOCATION ||
+                                !allocate_footprints(needed_footprints, temp_foot_offset)) {
                                 free_membership_words(temp_mem_offset, needed_words);
                                 m.gpu_dispatch_failed = true;
                                 return m;
                             }
 
-                            // Zero newly allocated membership words on GPU prior to first use
-                            rtx_clear_part_j_membership_words(temp_mem_offset, needed_words);
+                            ASTGGroupLightMembershipAllocation replacement{};
+                            replacement.group_id = group_id;
+                            replacement.actual_light_id = actual_lid;
+                            replacement.packed_light_index = (uint32_t)l_idx;
+                            replacement.record_offset = r.record_offset;
+                            replacement.record_count = r.record_count;
+                            replacement.membership_word_offset = temp_mem_offset;
+                            replacement.membership_word_count = needed_words;
+                            replacement.footprint_offset = temp_foot_offset;
+                            replacement.footprint_count = needed_footprints;
+                            replacement.footprint_capacity = needed_footprints;
+                            replacement.light_layout_generation = (uint32_t)hier.source_frame.generation;
+                            replacement.allocation_generation = (uint32_t)transport_generation;
+                            replacement.layout_hash = current_layout_hash;
 
-                            ASTGGroupLightMembershipAllocation alloc{};
-                            alloc.group_id = group_id;
-                            alloc.actual_light_id = actual_lid;
-                            alloc.packed_light_index = (uint32_t)l_idx;
-                            alloc.record_offset = r.record_offset;
-                            alloc.record_count = r.record_count;
-                            alloc.membership_word_offset = temp_mem_offset;
-                            alloc.membership_word_count = needed_words;
-                            alloc.footprint_offset = temp_foot_offset;
-                            alloc.footprint_count = needed_footprints;
-                            alloc.light_layout_generation = (uint32_t)hier.source_frame.generation;
-                            alloc.allocation_generation = (uint32_t)transport_generation;
-                            alloc.layout_hash = current_layout_hash;
-                            group_light_allocations[key] = alloc;
+                            const bool membership_clear_ok =
+                                parts_jk_failure_injection != ASTG_JK_FAIL_MEMBERSHIP_CLEAR &&
+                                rtx_clear_part_j_membership_words(temp_mem_offset, needed_words);
+                            const bool footprint_clear_ok =
+                                parts_jk_failure_injection != ASTG_JK_FAIL_FOOTPRINT_CLEAR &&
+                                rtx_clear_part_j_footprints(temp_foot_offset, needed_footprints);
+                            if (!membership_clear_ok || !footprint_clear_ok) {
+                                // Fault injection fails before either clear
+                                // submits work.  Return both temporary host
+                                // ranges to quarantine and leave the published
+                                // allocation untouched so the next retry is
+                                // valid.  A failed device clear makes reuse
+                                // unsafe, even if the host allocator succeeded.
+                                quarantine_frame_allocation(replacement);
+                                m.gpu_dispatch_failed = true;
+                                return m;
+                            }
+
+                            if (it_alloc != group_light_allocations.end()) {
+                                const ASTGGroupLightMembershipAllocation old = it_alloc->second;
+                                if (!remove_single_group_light_gpu_state(old, group_id) ||
+                                    !rtx_clear_part_j_footprints(old.footprint_offset, old.footprint_capacity)) {
+                                    // The old record remains published.  The temporary
+                                    // range is intentionally quarantined because the
+                                    // swap did not reach its commit point.  Do not
+                                    // return it to a future group.
+                                    quarantine_frame_allocation(replacement);
+                                    m.gpu_dispatch_failed = true;
+                                    return m;
+                                }
+                                group_light_allocations[key] = replacement;
+                                free_membership_words(old.membership_word_offset, old.membership_word_count);
+                                free_footprints(old.footprint_offset, old.footprint_capacity);
+                            } else {
+                                group_light_allocations.emplace(key, replacement);
+                            }
                             it_alloc = group_light_allocations.find(key);
                         }
+
+                        if (it_alloc == group_light_allocations.end()) {
+                            m.gpu_dispatch_failed = true;
+                            return m;
+                        }
+
                         auto& alloc = it_alloc->second;
                         alloc.packed_light_index = (uint32_t)l_idx;
                         alloc.record_offset = r.record_offset;
                         alloc.record_count = r.record_count;
                         alloc.footprint_count = (uint32_t)gpu_bounds.size();
+                        if (alloc.footprint_count > alloc.footprint_capacity ||
+                            alloc.footprint_offset > MAX_FOOTPRINTS - alloc.footprint_count) {
+                            m.gpu_dispatch_failed = true;
+                            return m;
+                        }
 
                         ASTGChangedGroupLightPairGPU p{};
                         p.group_id = group_id;
@@ -3514,7 +4393,6 @@ public:
                         return m;
                     }
 
-                    auto t_sub_start = std::chrono::high_resolution_clock::now();
                     std::vector<ASTGB0TransitionRecord> gpu_transitions(65536);
                     uint32_t transition_count = 0;
                     bool j_ok = rtx_dispatch_part_j_gpu(
@@ -3523,17 +4401,28 @@ public:
                         gpu_transitions.data(), &transition_count, 65536,
                         &parts_jk_telemetry
                     );
-                    auto t_sub_end = std::chrono::high_resolution_clock::now();
-                    parts_jk_telemetry.cpu_submission_ms = std::chrono::duration<double, std::milli>(t_sub_end - t_sub_start).count();
-                    parts_jk_telemetry.cpu_record_ms = parts_jk_telemetry.cpu_prep_ms + parts_jk_telemetry.cpu_upload_ms + parts_jk_telemetry.cpu_submission_ms;
+                    // rtx_dispatch_part_j_gpu is a blocking diagnostic entry
+                    // point: its host interval includes queue submission,
+                    // fence wait, readback copies, and mapping.  It cannot be
+                    // truthfully labeled as CPU submission time.
+                    parts_jk_telemetry.cpu_submission_ms = -1.0;
+                    parts_jk_telemetry.cpu_sync_wait_ms = -1.0;
+                    parts_jk_telemetry.cpu_record_ms = parts_jk_telemetry.cpu_prep_ms + parts_jk_telemetry.cpu_upload_ms;
 
                     if (!j_ok) {
                         m.gpu_dispatch_failed = true;
                         return m;
                     }
 
-                    auto t_read_start = std::chrono::high_resolution_clock::now();
-                    // Process GPU Transitions (GPU-resident B0 updates)
+                    // Process GPU Transitions (GPU-resident B0 updates).  Keep
+                    // the most recent non-empty batch for diagnostics: a
+                    // second idempotent update legitimately emits zero
+                    // transitions, and clearing here would erase the only
+                    // observable proof of the preceding GPU update (notably
+                    // for sparse, non-contiguous light IDs).
+                    if (transition_count > 0) {
+                        last_gpu_transitions.assign(gpu_transitions.begin(), gpu_transitions.begin() + transition_count);
+                    }
                     for (uint32_t t_i = 0; t_i < transition_count; ++t_i) {
                         const auto& tr = gpu_transitions[t_i];
                         uint32_t nid = tr.transport_node_id;
@@ -3558,8 +4447,10 @@ public:
                             b0_telemetry.visibility_transitions++;
                         }
                     }
-                    auto t_read_end = std::chrono::high_resolution_clock::now();
-                    parts_jk_telemetry.cpu_readback_ms = std::chrono::duration<double, std::milli>(t_read_end - t_read_start).count();
+                    // The blocking RTX API already performed its readback
+                    // internally; this host loop is result consumption, not a
+                    // separately instrumented readback phase.
+                    parts_jk_telemetry.cpu_readback_ms = -1.0;
                 }
 
                 // Batched Part K Dynamic Surface Receivers GPU Dispatch for ALL receiver groups
@@ -3579,14 +4470,26 @@ public:
                 for (const auto& kv : dynamic_occluder_groups) {
                     group_transform_offsets[kv.first] = (uint32_t)batched_bone_transforms.size();
                     const auto& grp = kv.second;
-                    if (grp.is_skeletal && !grp.bone_matrices.empty()) {
-                        for (const auto& bm : grp.bone_matrices) {
-                            ASTGBoneTransformGPU bt{};
-                            bt.row0_x = bm.m[0][0]; bt.row0_y = bm.m[0][1]; bt.row0_z = bm.m[0][2]; bt.row0_w = bm.m[0][3];
-                            bt.row1_x = bm.m[1][0]; bt.row1_y = bm.m[1][1]; bt.row1_z = bm.m[1][2]; bt.row1_w = bm.m[1][3];
-                            bt.row2_x = bm.m[2][0]; bt.row2_y = bm.m[2][1]; bt.row2_z = bm.m[2][2]; bt.row2_w = bm.m[2][3];
-                            bt.row3_x = bm.m[3][0]; bt.row3_y = bm.m[3][1]; bt.row3_z = bm.m[3][2]; bt.row3_w = bm.m[3][3];
-                            batched_bone_transforms.push_back(bt);
+                    if (grp.is_skeletal) {
+                        size_t num_bones = grp.bone_matrices.size();
+                        if (num_bones == 0) {
+                            for (const auto& ob : grp.bounds) num_bones = (std::max)(num_bones, (size_t)ob.bone_id + 1);
+                            for (const auto& pr : grp.surface_probes) num_bones = (std::max)(num_bones, (size_t)pr.bone_id + 1);
+                            if (num_bones == 0) num_bones = 1;
+                        }
+                        for (size_t b_i = 0; b_i < num_bones; ++b_i) {
+                            if (b_i < grp.bone_matrices.size()) {
+                                const auto& bm = grp.bone_matrices[b_i];
+                                ASTGBoneTransformGPU bt{};
+                                bt.row0_x = bm.m[0][0]; bt.row0_y = bm.m[0][1]; bt.row0_z = bm.m[0][2]; bt.row0_w = bm.m[0][3];
+                                bt.row1_x = bm.m[1][0]; bt.row1_y = bm.m[1][1]; bt.row1_z = bm.m[1][2]; bt.row1_w = bm.m[1][3];
+                                bt.row2_x = bm.m[2][0]; bt.row2_y = bm.m[2][1]; bt.row2_z = bm.m[2][2]; bt.row2_w = bm.m[2][3];
+                                bt.row3_x = bm.m[3][0]; bt.row3_y = bm.m[3][1]; bt.row3_z = bm.m[3][2]; bt.row3_w = bm.m[3][3];
+                                batched_bone_transforms.push_back(bt);
+                            } else {
+                                ASTGBoneTransformGPU bt{}; bt.row0_x = 1; bt.row1_y = 1; bt.row2_z = 1; bt.row3_w = 1;
+                                batched_bone_transforms.push_back(bt);
+                            }
                         }
                     } else {
                         const auto& rt = grp.rigid_transform;
@@ -3612,7 +4515,7 @@ public:
                     for (size_t b_idx = 0; b_idx < blk_kv.second.bounds.size(); ++b_idx) {
                         const auto& ob = blk_kv.second.bounds[b_idx];
                         ASTGBoneBoundGPU bb{};
-                        bb.bone_id = base_tx + (blk_kv.second.is_skeletal ? (ob.bone_id < blk_kv.second.bone_matrices.size() ? ob.bone_id : 0) : 0);
+                        bb.bone_id = base_tx + (blk_kv.second.is_skeletal ? ob.bone_id : 0);
                         bb.group_id = blk_kv.first;
                         bb.local_min_x = ob.local_bounds.min_bounds.x;
                         bb.local_min_y = ob.local_bounds.min_bounds.y;
@@ -3689,6 +4592,10 @@ public:
                         p.world_norm_x = pr.world_normal.x; p.world_norm_y = pr.world_normal.y; p.world_norm_z = pr.world_normal.z;
                         p.generation = (uint32_t)transport_generation;
                         p.irradiance_r = 0.0f; p.irradiance_g = 0.0f; p.irradiance_b = 0.0f;
+                        // Preserve skeletal-vs-rigid ownership per probe in the
+                        // packed GPU record.  A frame-wide is_skeletal flag is
+                        // invalid when a batch contains mixed receiver groups.
+                        p.last_visibility_mask = r_group.is_skeletal ? 0x80000000u : 0u;
                         batched_probes.push_back(p);
                     }
                 }
@@ -3949,9 +4856,10 @@ public:
                                 if (cos_n > 0.001f) {
                                     bool is_occluded = false;
                                     for (const auto& other_grp_kv : dynamic_occluder_groups) {
-                                        if (other_grp_kv.first == group_id) continue;
+                                        if (other_grp_kv.first == group_id && !group.is_skeletal) continue;
                                         if (!other_grp_kv.second.astg_occlusion_enabled) continue;
                                         for (const auto& b : other_grp_kv.second.bounds) {
+                                            if (other_grp_kv.first == group_id && group.is_skeletal && b.bone_id == probe.bone_id) continue;
                                             if (segment_intersects_aabb(probe.world_position, light_pos, b.world_bounds)) {
                                                 is_occluded = true;
                                                 break;
@@ -4029,177 +4937,8 @@ public:
         // 2. DAG EDGE TESTING (Active for ALL_BOUNCES in Mode A, and for B1+ in Mode B) (Handoff Item 7, 8, 9, 10, 28, 29)
         // -------------------------------------------------------------
         if (mode == ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES || mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS) {
-            ASTGAABB swept_bounds = ASTGAABB::union_of(group.previous_world_union_bounds, group.world_union_bounds);
-            std::vector<uint32_t> candidate_edges;
-            std::vector<ASTGGPUCellRange> gpu_spatial_ranges;
-            uint32_t gpu_edge_references = 0;
-            uint32_t gpu_visibility_state_slot = UINT32_MAX;
-            auto t_sp_start = std::chrono::high_resolution_clock::now();
-            query_gpu_edge_spatial_ranges(swept_bounds, gpu_spatial_ranges, gpu_edge_references);
-            const bool use_gpu_spatial_discovery = enable_gpu_spatial_discovery && rtx_is_hardware_active() &&
-                gpu_edge_references >= 256 &&
-                gpu_edge_references <= 131072 &&
-                !gpu_spatial_ranges.empty() && sync_gpu_edge_spatial_index();
-            const bool use_gpu_persistent_visibility = use_gpu_spatial_discovery &&
-                ensure_gpu_visibility_state_slot(group_id, gpu_visibility_state_slot);
-            if (!use_gpu_persistent_visibility) {
-                edge_spatial_grid.query_edges_in_aabb(swept_bounds, candidate_edges);
-            }
-            auto t_sp_end = std::chrono::high_resolution_clock::now();
-            m.spatial_query_us = std::chrono::duration<double, std::micro>(t_sp_end - t_sp_start).count();
-            m.candidate_edges = use_gpu_persistent_visibility ? gpu_edge_references : (uint32_t)candidate_edges.size();
-            m.spatial_cells_touched = (uint32_t)gpu_spatial_ranges.size();
-            m.spatial_edge_references = gpu_edge_references;
-
-            std::unordered_set<uint32_t> new_blocked_edge_set;
-            auto t_fine_start = std::chrono::high_resolution_clock::now();
-            std::vector<uint32_t> gpu_candidate_edges;
-            if (!use_gpu_persistent_visibility) {
-                gpu_candidate_edges.reserve(candidate_edges.size());
-                for (uint32_t edge_idx : candidate_edges) {
-                    if (edge_idx >= dag_edges.size()) continue;
-                    const auto& edge = dag_edges[edge_idx];
-                    if (!edge.is_active && edge.state == ASTG_EDGE_INVALID_STATIC) continue;
-                    // In Mode B, B0 edges are handled by angular projection.
-                    if (mode == ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS && edge.source_bounce_depth == 0) continue;
-                    if (!get_node_by_id(edge.parent_node_id) || !get_node_by_id(edge.child_node_id)) continue;
-                    gpu_candidate_edges.push_back(edge_idx);
-                }
-            }
-
-            // GPU construction/traversal is used for representative workloads;
-            // tiny updates retain the low-latency CPU fast path. GPU results are
-            // only used to form the candidate blocked set; canonical DAG
-            // mutation below remains CPU-owned.
-            const bool use_gpu_visibility = use_gpu_persistent_visibility;
-            if (use_gpu_visibility) {
-                // Persistent GPU output is a transition stream. Start from
-                // the previous canonical blocked set and apply only changes.
-                new_blocked_edge_set = dynamic_group_to_edges[group_id];
-                std::vector<ASTGEdgeVisibilityResult> gpu_results;
-                ASTGVisibilityCounters gpu_counters = {};
-                RTGPUTimings gpu_timings = {};
-                incremental_sync_gpu_astg();
-                sync_gpu_dynamic_occluders();
-                gpu_results.resize(gpu_edge_references);
-                ++gpu_discovery_stamp;
-                if (gpu_discovery_stamp == 0) {
-                    // Stamp wrap is an ABA boundary: clear GPU stamps by
-                    // re-uploading the persistent spatial table before reuse.
-                    gpu_discovery_stamp = 1;
-                    gpu_edge_spatial_index_uploaded = false;
-                    sync_gpu_edge_spatial_index();
-                }
-                rtx_trace_spatial_edge_ranges(gpu_spatial_ranges.data(), (uint32_t)gpu_spatial_ranges.size(),
-                    gpu_edge_references, group_id,
-                    gpu_occluder_dense_indices.count(group_id) ? gpu_occluder_dense_indices[group_id] : UINT32_MAX,
-                    gpu_discovery_stamp, gpu_visibility_state_slot, gpu_results.data(), &gpu_counters, &gpu_timings);
-                m.gpu_generation_rejected = gpu_counters.generation_rejected;
-                m.gpu_angular_rejected = gpu_counters.angular_rejected;
-                m.gpu_aabb_rejected = gpu_counters.broadphase_rejected;
-                m.gpu_rayquery_required = gpu_counters.rayquery_candidates;
-                m.gpu_visibility_state_transitions = gpu_counters.changed_state_count;
-                m.gpu_changed_result_readback_bytes = gpu_counters.changed_state_count * (uint32_t)sizeof(ASTGEdgeVisibilityResult);
-                m.spatial_duplicate_edges_removed = gpu_edge_references > gpu_counters.edges_considered
-                    ? gpu_edge_references - gpu_counters.edges_considered : 0;
-                const uint32_t changed_count = std::min(gpu_counters.changed_state_count, gpu_edge_references);
-                for (uint32_t result_index = 0; result_index < changed_count; ++result_index) {
-                    const auto& result = gpu_results[result_index];
-                    const uint32_t edge_idx = result.edge_id;
-                    if (edge_idx >= dag_edges.size() ||
-                        result.generation != dag_edges[edge_idx].repair_generation) continue;
-                    m.fine_tested_edges++;
-                    // Bounds-backed groups have exact GPU slab semantics;
-                    // consume only state transitions, with no CPU segment
-                    // retest or per-candidate mutation work.
-                    if (result.visibility_state == 1) {
-                        new_blocked_edge_set.insert(edge_idx);
-                        m.intersected_edges++;
-                    } else {
-                        new_blocked_edge_set.erase(edge_idx);
-                    }
-                }
-            } else {
-                for (uint32_t edge_idx : gpu_candidate_edges) {
-                    const auto& edge = dag_edges[edge_idx];
-                    const ASTGTransportNode* parent_n = get_node_by_id(edge.parent_node_id);
-                    const ASTGTransportNode* child_n = get_node_by_id(edge.child_node_id);
-                    m.fine_tested_edges++;
-                    bool edge_hit = false;
-                    for (const auto& ob : group.bounds) {
-                        if (segment_intersects_aabb(parent_n->position, child_n->position, ob.aabb)) {
-                            edge_hit = true;
-                            break;
-                        }
-                    }
-                    if (edge_hit) {
-                        new_blocked_edge_set.insert(edge_idx);
-                        m.intersected_edges++;
-                    }
-                }
-            }
-            auto t_fine_end = std::chrono::high_resolution_clock::now();
-            m.fine_test_us = std::chrono::duration<double, std::micro>(t_fine_end - t_fine_start).count();
-
-            std::unordered_set<uint32_t>& old_blocked = dynamic_group_to_edges[group_id];
-
-            for (uint32_t old_eid : old_blocked) {
-                if (new_blocked_edge_set.find(old_eid) == new_blocked_edge_set.end()) {
-                    m.newly_unblocked_edges++;
-                    if (old_eid < dag_edges.size()) {
-                        auto& edge = dag_edges[old_eid];
-                        auto& b_ids = edge.dynamic_blocker_ids;
-                        b_ids.erase(std::remove(b_ids.begin(), b_ids.end(), group_id), b_ids.end());
-                        edge.dynamic_blocker_count = (uint32_t)b_ids.size();
-                        if (edge.dynamic_blocker_count == 0) {
-                            edge.state = (edge.is_active ? ASTG_EDGE_ACTIVE : ASTG_EDGE_INVALID_STATIC);
-                            dynamic_edge_timeline.push_back({ dynamic_timeline_frame, old_eid, "UNBLOCKED", group_id, 0 });
-                        }
-
-                        auto it_p = edge_to_path_contributions.find(old_eid);
-                        if (it_p != edge_to_path_contributions.end()) {
-                            for (uint32_t dep_id : it_p->second) {
-                                if (dep_id < path_probe_contributions.size()) {
-                                    if (path_probe_contributions[dep_id].dynamic_occlusion_count > 0) {
-                                        path_probe_contributions[dep_id].dynamic_occlusion_count--;
-                                    }
-                                    affected_path_ids.insert(dep_id);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (uint32_t new_eid : new_blocked_edge_set) {
-                if (old_blocked.find(new_eid) == old_blocked.end()) {
-                    m.newly_blocked_edges++;
-                    if (new_eid < dag_edges.size()) {
-                        auto& edge = dag_edges[new_eid];
-                        if (std::find(edge.dynamic_blocker_ids.begin(), edge.dynamic_blocker_ids.end(), group_id) == edge.dynamic_blocker_ids.end()) {
-                            edge.dynamic_blocker_ids.push_back(group_id);
-                        }
-                        edge.dynamic_blocker_count = (uint32_t)edge.dynamic_blocker_ids.size();
-                        edge.state = ASTG_EDGE_OCCLUDED_DYNAMIC;
-                        dynamic_edge_timeline.push_back({ dynamic_timeline_frame, new_eid, "BLOCKED", group_id, edge.dynamic_blocker_count });
-
-                        auto it_p = edge_to_path_contributions.find(new_eid);
-                        if (it_p != edge_to_path_contributions.end()) {
-                            for (uint32_t dep_id : it_p->second) {
-                                if (dep_id < path_probe_contributions.size()) {
-                                    path_probe_contributions[dep_id].dynamic_occlusion_count++;
-                                    affected_path_ids.insert(dep_id);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            old_blocked = new_blocked_edge_set;
-            m.currently_blocked_edges = (uint32_t)old_blocked.size();
+            evaluate_and_apply_b1_plus_edges(group_id, group, mode, m, affected_path_ids);
         }
-
         m.affected_layer2_paths = (uint32_t)affected_path_ids.size();
 
         std::unordered_set<uint32_t> affected_probes;
@@ -4246,6 +4985,9 @@ public:
     }
 
     std::vector<ASTGDynamicOcclusionMetrics> update_all_dynamic_occlusions() {
+        if (enable_async_frame_production && parts_jk_execution_mode == ASTG_PARTS_JK_GPU_PRODUCTION) {
+            return update_dynamic_occlusions_frame_async();
+        }
         std::vector<ASTGDynamicOcclusionMetrics> res;
         for (const auto& pair : dynamic_occluder_groups) {
             res.push_back(update_dynamic_occlusion(pair.first));
@@ -4315,13 +5057,22 @@ public:
 
     // Full synchronization on initial graph creation or structural reallocation
     void full_sync_gpu_astg() {
-        size_t total_nodes = bounce0_nodes.size() + bounce1_nodes.size();
-        gpu_nodes_shadow.resize(total_nodes);
+        uint32_t max_node_id = 0;
+        bool has_nodes = false;
+        for (const auto& n : bounce0_nodes) {
+            max_node_id = (std::max)(max_node_id, n.node_id);
+            has_nodes = true;
+        }
+        for (const auto& n : bounce1_nodes) {
+            max_node_id = (std::max)(max_node_id, n.node_id);
+            has_nodes = true;
+        }
+        size_t total_nodes = has_nodes ? (size_t)(max_node_id + 1) : 0;
+        gpu_nodes_shadow.assign(total_nodes, ASTGGPUNode{});
 
-        for (size_t i = 0; i < bounce0_nodes.size(); ++i) {
-            uint32_t nid = (uint32_t)i;
-            const auto& src = bounce0_nodes[i];
-            auto& dst = gpu_nodes_shadow[nid];
+        for (const auto& src : bounce0_nodes) {
+            if (src.node_id >= total_nodes) continue;
+            auto& dst = gpu_nodes_shadow[src.node_id];
             dst.pos_x = src.position.x; dst.pos_y = src.position.y; dst.pos_z = src.position.z;
             dst.active_flags = (src.is_active ? 1u : 0u);
             dst.normal_x = src.geometric_normal.x; dst.normal_y = src.geometric_normal.y; dst.normal_z = src.geometric_normal.z;
@@ -4330,10 +5081,9 @@ public:
             dst.chunk_id = src.destruction_chunk_id;
         }
 
-        for (size_t i = 0; i < bounce1_nodes.size(); ++i) {
-            uint32_t nid = (uint32_t)(bounce0_nodes.size() + i);
-            const auto& src = bounce1_nodes[i];
-            auto& dst = gpu_nodes_shadow[nid];
+        for (const auto& src : bounce1_nodes) {
+            if (src.node_id >= total_nodes) continue;
+            auto& dst = gpu_nodes_shadow[src.node_id];
             dst.pos_x = src.position.x; dst.pos_y = src.position.y; dst.pos_z = src.position.z;
             dst.active_flags = (src.is_active ? 1u : 0u) | 2u;
             dst.normal_x = src.geometric_normal.x; dst.normal_y = src.geometric_normal.y; dst.normal_z = src.geometric_normal.z;

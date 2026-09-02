@@ -2,6 +2,7 @@
 .godot/
 *.tmp
 *.log
+*.uid
 
 # C++ Build outputs and object files
 *.obj

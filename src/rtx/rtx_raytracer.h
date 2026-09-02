@@ -224,7 +224,7 @@ RTX_API bool rtx_dispatch_part_j_gpu(
 // Updates dynamic inputs for Part K (bone transforms, clusters, cluster probe indices, surface probes)
 RTX_API bool rtx_update_part_k_dynamic_inputs(
     const ASTGBoneTransformGPU* bone_transforms,
-    uint32_t bone_count,
+    uint32_t transform_count,
     const ASTGBoneBoundGPU* bone_bounds,
     uint32_t bound_count,
     const ASTGReceiverClusterGPU* clusters,
@@ -240,7 +240,7 @@ RTX_API bool rtx_update_part_k_dynamic_inputs(
 
 // Dispatches GPU Part K compute pipeline (Passes K1 -> K2 -> K3 -> K4 -> K5 -> K6)
 RTX_API bool rtx_dispatch_part_k_gpu(
-    uint32_t bone_count,
+    uint32_t bound_count,
     uint32_t cluster_count,
     uint32_t probe_count,
     uint32_t light_count,
@@ -253,11 +253,51 @@ RTX_API bool rtx_dispatch_parts_jk_production_async(
     uint32_t j_pair_count,
     uint32_t j_bound_count,
     uint32_t j_word_work_count,
-    uint32_t k_bone_count,
+    uint32_t k_bound_count,
     uint32_t k_cluster_count,
     uint32_t k_probe_count,
     uint32_t k_light_count
 );
+
+// Diagnostic counterpart using the same command recorder. It waits only
+// after submission and performs explicit readback through the diagnostics
+// API; production must use the asynchronous entry point above.
+RTX_API bool rtx_dispatch_parts_jk_diagnostics_blocking(
+    uint32_t j_pair_count,
+    uint32_t j_bound_count,
+    uint32_t j_word_work_count,
+    uint32_t k_bound_count,
+    uint32_t k_cluster_count,
+    uint32_t k_probe_count,
+    uint32_t k_light_count,
+    ASTGB0TransitionRecord* out_transitions,
+    uint32_t* out_transition_count,
+    uint32_t max_transitions,
+    ASTGDynamicSurfaceProbeGPU* out_probes,
+    ASTGPartsJKTelemetryGPU* out_telemetry
+);
+
+// Queries the GPU completed fence value for non-blocking resource retirement
+RTX_API uint64_t rtx_get_completed_fence_value();
+RTX_API uint64_t rtx_get_current_fence_value();
+
+// Completes a queued production submission without mapping or copying any
+// result buffer. Used when a caller must switch queues/recorders safely.
+RTX_API bool rtx_acquire_frame_slot(uint32_t* out_slot_index, bool wait_if_busy, bool* out_backpressure);
+RTX_API void rtx_release_unsubmitted_frame_slot(uint32_t slot_index);
+RTX_API bool rtx_get_frame_slot_record(uint32_t slot_index, ASTGFrameSlotRecord* out_record);
+RTX_API uint32_t rtx_get_frame_slot_count();
+RTX_API bool rtx_complete_parts_jk_production();
+
+// Test-only command-recording limiter. Zero records the complete J/K frame;
+// values 1..6 stop after the corresponding J clear/J1/J2/J4/J5/resolve stage.
+// Production leaves this at zero.
+RTX_API void rtx_set_parts_jk_stage_limit(uint32_t stage_limit);
+
+// Resets/reads host-side I/O instrumentation used by the async acceptance
+// tests. Production dispatch must leave all three counters unchanged.
+RTX_API void rtx_reset_parts_jk_io_counters();
+RTX_API bool rtx_get_parts_jk_io_counters(ASTGPartsJKIOCounters* out_counters);
 
 // Blocking Diagnostics Readback (Section 18)
 RTX_API bool rtx_read_parts_jk_diagnostics_blocking(

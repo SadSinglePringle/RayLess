@@ -41,6 +41,8 @@ $GIT_COMMIT = (git rev-parse HEAD).Trim()
 if (-not $GIT_COMMIT) {
     $GIT_COMMIT = "unknown_commit"
 }
+$GIT_STATUS = (git status --porcelain --untracked-files=all)
+$WORKTREE_DIRTY = if ($GIT_STATUS) { 1 } else { 0 }
 
 $cl = "$MSVC_DIR\cl.exe"
 $args = @(
@@ -50,6 +52,7 @@ $args = @(
     "/EHsc",
     "/openmp",
     "/DASTG_BUILD_COMMIT=`"$GIT_COMMIT`"",
+    "/DASTG_BUILD_WORKTREE_DIRTY=$WORKTREE_DIRTY",
     "/I$MSVC_INC",
     "/I$WIN_SDK_INC\um",
     "/I$WIN_SDK_INC\shared",

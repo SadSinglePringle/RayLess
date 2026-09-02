@@ -282,9 +282,15 @@ void CSTransformReceiverClusters(uint3 id : SV_DispatchThreadID) {
                 InterlockedAdd(g_telemetry[24], 1); // Invalid probe index error
             }
         }
-        if (valid_count > 0) {
-            center /= float(valid_count);
+        if (valid_count == 0) {
+            // A cluster whose packed membership is entirely invalid has no
+            // meaningful centroid.  Preserve the prior descriptor and expose
+            // the malformed input through telemetry instead of publishing an
+            // origin cluster that could create false visibility work.
+            InterlockedAdd(g_telemetry[24], 1);
+            return;
         }
+        center /= float(valid_count);
         float norm_len = length(norm_sum);
         if (norm_len > 1e-4f) norm_sum /= norm_len;
         else norm_sum = float3(0, 1, 0);
@@ -413,7 +419,11 @@ void CSEvaluateReceiverVisibility(uint3 id : SV_DispatchThreadID) {
         bool is_occluded = false;
         for (uint b = 0; b < g_constants.total_bones; ++b) {
             ASTGBoneBoundGPU bb = g_bone_bounds[b];
-            if (g_constants.is_skeletal == 0) {
+            // The batch may contain rigid and skeletal receiver groups.  The
+            // frame-wide constant is retained for ABI compatibility, but the
+            // per-probe ownership bit is authoritative for self-occlusion.
+            bool probe_is_skeletal = (pr.last_visibility_mask & 0x80000000u) != 0;
+            if (!probe_is_skeletal) {
                 if (bb.group_id == pr.group_id) continue;
             } else {
                 if (bb.group_id == pr.group_id && bb.bone_id == pr.bone_id) continue;

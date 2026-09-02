@@ -60,6 +60,7 @@ struct ASTGGPUCellRange {
     uint edge_index_offset;
     uint edge_index_count;
     uint dispatch_offset;
+    uint padding;
 };
 
 struct ASTGPersistentVisibilityState {
@@ -110,7 +111,7 @@ void EmitVisibilityResult(uint input_index, uint edge_id, uint visibility_state,
         return;
     }
 
-    const uint state_index = g_visibility_state_slot * g_total_edges + edge_id;
+    const uint state_index = g_visibility_state_slot * 524288u + edge_id;
     ASTGPersistentVisibilityState prior = g_visibility_states[state_index];
     if (prior.edge_generation == generation && prior.visibility_state == visibility_state) return;
 
@@ -314,7 +315,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID) {
     bool is_angular_rejected = false;
 
     // 2.1 Antipodal / Back-facing Normal Cone Culling (>90 deg from normal)
-    if (dist > 1e-4f && dot(n_src, n_src) > 0.1f) {
+    if (dist > 1e-4f && dot(n_src, n_src) > 0.1f && (edge.flags & 0x2) != 0) {
         float3 ray_dir = delta / dist;
         float cos_theta = dot(n_src, ray_dir);
         if (cos_theta < -0.01f) {

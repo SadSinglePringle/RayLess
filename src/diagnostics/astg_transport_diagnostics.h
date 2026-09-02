@@ -35,6 +35,8 @@ namespace fs = std::filesystem;
 #define ASTG_BUILD_COMMIT "unknown_commit"
 #endif
 
+#include "astg_build_provenance.h"
+
 // ==============================================================================
 // ASTG EVIDENCE INTEGRITY & ANTI-OVERSTATEMENT HARDENED ARCHITECTURE (V2)
 // True Immutability, Private Encapsulation, SHA-256 Canonical Sealing,
@@ -212,6 +214,9 @@ struct TestIdentity {
     std::string scene_bin_hash;
     std::string source_commit_sha;
     std::string build_commit_sha;
+    std::string base_commit_sha;
+    bool worktree_dirty = true;
+    std::string source_tree_sha256;
     std::string results_commit_sha = "uncommitted_staging";
     std::string binary_hash;
     std::string gpu_name;
@@ -326,6 +331,12 @@ public:
     void add_assertion(const AssertionRecord& a) { m_assertions.push_back(a); }
 
     ASTGTestResult build_and_seal() {
+        if (m_identity.source_commit_sha.empty()) m_identity.source_commit_sha = ASTG_ACTIVE_SOURCE_COMMIT_LABEL;
+        if (m_identity.build_commit_sha.empty()) m_identity.build_commit_sha = ASTG_ACTIVE_SOURCE_COMMIT_LABEL;
+        if (m_identity.base_commit_sha.empty()) m_identity.base_commit_sha = ASTG_ACTIVE_BASE_COMMIT;
+        m_identity.worktree_dirty = ASTG_ACTIVE_WORKTREE_DIRTY;
+        if (m_identity.source_tree_sha256.empty()) m_identity.source_tree_sha256 = ASTG_ACTIVE_SOURCE_TREE_SHA256;
+        if (m_identity.binary_hash.empty()) m_identity.binary_hash = ASTG_ACTIVE_BINARY_HASH;
         ASTGTestResult res;
         res.m_identity = m_identity;
         res.m_workload = m_workload;
@@ -373,6 +384,9 @@ public:
         json << "  \"probe_count\": " << m_identity.probe_count << ",\n";
         json << "  \"source_commit_sha\": \"" << m_identity.source_commit_sha << "\",\n";
         json << "  \"build_commit_sha\": \"" << m_identity.build_commit_sha << "\",\n";
+        json << "  \"base_commit\": \"" << m_identity.base_commit_sha << "\",\n";
+        json << "  \"worktree_dirty\": " << (m_identity.worktree_dirty ? "true" : "false") << ",\n";
+        json << "  \"build_source_tree_sha256\": \"" << m_identity.source_tree_sha256 << "\",\n";
         json << "  \"binary_hash\": \"" << m_identity.binary_hash << "\",\n";
         json << "  \"scene_gltf_hash\": \"" << m_identity.scene_gltf_hash << "\",\n";
         json << "  \"scene_bin_hash\": \"" << m_identity.scene_bin_hash << "\",\n";
@@ -528,6 +542,11 @@ public:
     std::string geometry_sha256;
     std::string runtime_build_commit;
     std::string runtime_gpu_name;
+    std::string base_commit_sha;
+    bool worktree_dirty = true;
+    std::string source_tree_sha256;
+    std::map<std::string, std::string> source_input_hashes;
+    std::map<std::string, std::string> tested_binary_hashes;
 
     ParsedSceneGeometry parsed_scene;
     bool is_initialized = false;
@@ -548,19 +567,17 @@ public:
         ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d_%H%M%S");
         session_timestamp = ss.str();
 
-        runtime_build_commit = ASTG_STR(ASTG_BUILD_COMMIT);
-        if (!runtime_build_commit.empty() && runtime_build_commit.front() == '"' && runtime_build_commit.back() == '"') {
-            runtime_build_commit = runtime_build_commit.substr(1, runtime_build_commit.size() - 2);
-        }
-        run_uuid = "run_" + session_timestamp + "_" + runtime_build_commit + "_evidence_hardened";
-
-        // Query real binary hash from disk
-        char exe_path[MAX_PATH];
-        if (GetModuleFileNameA(NULL, exe_path, MAX_PATH) > 0) {
-            runtime_binary_hash = SHA256::hash_file(exe_path);
-        } else {
-            runtime_binary_hash = "unknown_binary_hash";
-        }
+        const ASTGBuildProvenance provenance = ASTGBuildProvenance::collect();
+        base_commit_sha = provenance.base_commit;
+        worktree_dirty = provenance.worktree_dirty;
+        runtime_build_commit = provenance.source_commit_label;
+        source_tree_sha256 = provenance.source_tree_sha256;
+        source_input_hashes = provenance.source_input_hashes;
+        tested_binary_hashes = provenance.tested_binary_hashes;
+        runtime_binary_hash = tested_binary_hashes.count("current_executable")
+            ? tested_binary_hashes["current_executable"] : "unknown_binary_hash";
+        astg_set_active_provenance(provenance, runtime_binary_hash);
+        run_uuid = "run_" + session_timestamp + "_" + runtime_build_commit + "_" + source_tree_sha256.substr(0, 12) + "_evidence_hardened";
 
         // Query real GPU device name
         runtime_gpu_name = rtx_get_device_name() ? rtx_get_device_name() : "NVIDIA DXR 1.1 GPU";
@@ -569,12 +586,14 @@ public:
         known_limitations.push_back("Unbounded late-bound source intensity spikes (>10x) not guaranteed under sparse static pruning without dynamic promotion.");
         known_limitations.push_back("Continuous moving geometry requires skinning AS rebuild.");
         known_limitations.push_back("Dynamic moving light positions require runtime angular hierarchy update.");
-        known_limitations.push_back("CPU submission fields are unresolved (0.0) because queue submission and readback are not independently instrumented; they are not measured timings.");
+        known_limitations.push_back("CPU submission fields are NOT_MEASURED (-1.0 sentinel) because queue submission and readback are not independently instrumented; they must not be interpreted as timings.");
         known_limitations.push_back("GPU stage timestamps may overlap; stage fields must not be summed unless an enclosing GPU interval is available.");
 
         _log_audit("Run context initialized: " + run_uuid);
         _log_audit("Runtime Binary SHA-256: " + runtime_binary_hash);
-        _log_audit("Build Commit SHA: " + runtime_build_commit);
+        _log_audit("Base Commit SHA: " + base_commit_sha);
+        _log_audit(std::string("Worktree dirty: ") + (worktree_dirty ? "true" : "false"));
+        _log_audit("Source tree SHA-256: " + source_tree_sha256);
     }
 
     void _log_audit(const std::string& event) {
@@ -2931,6 +2950,14 @@ public:
     bool part_j_test_aggregate_blocker_pass = false;
     bool part_j_test_underflow_prevention_pass = false;
     bool part_j_test_sparse_lights_pass = false;
+    bool part_j_test_light_invalidation_pass = false;
+    bool part_j_test_b0_layout_shift_pass = false;
+    bool part_j_test_middle_range_reuse_pass = false;
+    uint32_t part_j_deleted_both_count = 0;
+    uint32_t part_j_deleted_after_first_count = 0;
+    uint32_t part_j_deleted_after_second_count = 0;
+    uint32_t part_j_aggregate_counts[5] = { 0, 0, 0, 0, 0 };
+    std::set<uint32_t> part_j_observed_sparse_light_ids;
 
     bool part_k_test_k5_consumes_k4_pass = false;
     bool part_k_test_noncontiguous_clusters_pass = false;
@@ -3084,7 +3111,7 @@ public:
         uint32_t avoided_rays = 0;
         double cpu_schedule_ms = 0.0;
         double cpu_raygen_ms = 0.0;
-        double cpu_submit_ms = 0.0;
+        double cpu_submit_ms = -1.0; // NOT_MEASURED: queue submission is not independently instrumented
         double gpu_traversal_ms = 0.0;
         double gpu_hit_process_ms = 0.0;
         double cpu_stitch_ms = 0.0;
@@ -3120,7 +3147,7 @@ public:
         uint32_t rays_batched = 0;
         uint32_t rays_completed = 0;
         uint32_t resolved_winners = 0;
-        double cpu_submission_ms = 0.0;
+        double cpu_submission_ms = -1.0; // NOT_MEASURED: blocking dispatch encloses queue/wait/readback
         double gpu_dispatch_ms = 0.0;
         double gpu_traversal_ms = 0.0;
         double gpu_hit_processing_ms = 0.0;
@@ -3135,10 +3162,10 @@ public:
         double cpu_schedule_ms = 0.0;
         double cpu_broadphase_ms = 0.0;
         double cpu_raygen_ms = 0.0;
-        double cpu_submit_ms = 0.0;
+        double cpu_submit_ms = -1.0; // NOT_MEASURED: queue submission is not independently instrumented
         double cpu_consume_ms = 0.0;
         // Derived residual: enclosing wall time minus GPU timestamp interval.
-        double cpu_and_wait_residual_ms = 0.0;
+        double cpu_and_wait_residual_ms = -1.0; // DERIVED_RESIDUAL when populated
         double gpu_raygen_ms = 0.0;
         double gpu_traversal_ms = 0.0;
         double gpu_hit_process_ms = 0.0;
@@ -8864,7 +8891,7 @@ public:
                 rec.rays_batched = cell_cnt;
                 rec.rays_completed = cell_cnt;
                 rec.resolved_winners = cell_cnt;
-                rec.cpu_submission_ms = 0.0; // unresolved without independent queue/readback instrumentation
+                rec.cpu_submission_ms = -1.0; // NOT_MEASURED: blocking API encloses queue/wait/readback
                 rec.gpu_dispatch_ms = timings.ray_generation_ms;
                 rec.gpu_traversal_ms = timings.rt_traversal_ms;
                 rec.gpu_hit_processing_ms = timings.hit_processing_ms;
@@ -9215,6 +9242,10 @@ public:
 
             uint32_t after_g2_removed = rtx_readback_part_j_persistent_blocker_count(0);
 
+            part_j_deleted_both_count = both_blocked;
+            part_j_deleted_after_first_count = after_g1_removed;
+            part_j_deleted_after_second_count = after_g2_removed;
+
             bool del_ok = (both_blocked == 2 && after_g1_removed == 1 && after_g2_removed == 0);
             part_j_test_deleted_group_pass = del_ok;
 
@@ -9272,6 +9303,11 @@ public:
             uint32_t c4 = rtx_readback_part_j_persistent_blocker_count(0);
 
             bool seq_ok = (c0 == 0 && c1 == 1 && c2 == 2 && c3 == 1 && c4 == 0);
+            part_j_aggregate_counts[0] = c0;
+            part_j_aggregate_counts[1] = c1;
+            part_j_aggregate_counts[2] = c2;
+            part_j_aggregate_counts[3] = c3;
+            part_j_aggregate_counts[4] = c4;
             part_j_test_aggregate_blocker_pass = seq_ok;
 
             AssertionRecord a;
@@ -9338,16 +9374,17 @@ public:
             ASTGB0TransitionRecord trans[16];
             uint32_t trans_count = 0;
             ASTGPartsJKTelemetryGPU telem{};
-            rtx_dispatch_part_j_gpu(1, 0, 1, trans, &trans_count, 16, &telem);
+            bool second_dispatch_ok = rtx_dispatch_part_j_gpu(1, 0, 1, trans, &trans_count, 16, &telem);
 
             uint32_t cnt_after_rem2 = rtx_readback_part_j_persistent_blocker_count(0);
-            bool underflow_prevented = (cnt_blocked == 1 && cnt_after_rem1 == 0 && cnt_after_rem2 == 0);
+            bool underflow_prevented = second_dispatch_ok && (cnt_blocked == 1 && cnt_after_rem1 == 0 && cnt_after_rem2 == 0) &&
+                                       (telem.gpu_j4_underflow_errors == 0);
             part_j_test_underflow_prevention_pass = underflow_prevented;
 
             AssertionRecord a;
             a.assertion_name = "part_j_underflow_prevention";
             a.expected = "Guarded InterlockedCompareExchange prevents blocker count underflow beneath 0 on second removal: 1 -> 0 -> 0";
-            a.actual = underflow_prevented ? ("Underflow guarded: sequence verified 1->" + std::to_string(cnt_after_rem1) + "->" + std::to_string(cnt_after_rem2)) : "Underflow occurred beneath 0!";
+            a.actual = underflow_prevented ? ("Underflow guarded: sequence verified 1->" + std::to_string(cnt_after_rem1) + "->" + std::to_string(cnt_after_rem2) + ", GPU underflow telemetry=0") : "Underflow occurred beneath 0 or second GPU dispatch failed!";
             a.status = underflow_prevented ? STATUS_PASS : STATUS_FAIL;
             b.add_assertion(a);
             b.set_identity(id); b.set_workload(wl);
@@ -9396,12 +9433,24 @@ public:
             uint32_t cnt_203 = rtx_readback_part_j_persistent_blocker_count(1);
             uint32_t cnt_401 = rtx_readback_part_j_persistent_blocker_count(2);
 
-            part_j_test_sparse_lights_pass = allocs_ok && (cnt_17 == 1) && (cnt_203 == 1) && (cnt_401 == 1);
+            std::set<uint32_t> observed_light_ids;
+            for (const auto& tr : eng.last_gpu_transitions) {
+                observed_light_ids.insert(tr.light_id);
+            }
+            bool actual_ids_ok = observed_light_ids.count(17) && observed_light_ids.count(203) && observed_light_ids.count(401);
+            part_j_observed_sparse_light_ids = observed_light_ids;
+
+            part_j_test_sparse_lights_pass = allocs_ok && actual_ids_ok && (cnt_17 == 1) && (cnt_203 == 1) && (cnt_401 == 1);
 
             AssertionRecord a;
             a.assertion_name = "part_j_sparse_light_indexing";
             a.expected = "Sparse light IDs {17, 203, 401} correctly indexed and generate GPU transitions with true IDs";
-            a.actual = part_j_test_sparse_lights_pass ? ("Sparse lights {17, 203, 401} verified on device: cnts=[" + std::to_string(cnt_17) + ", " + std::to_string(cnt_203) + ", " + std::to_string(cnt_401) + "]") : "Sparse light indexing failed";
+            std::string observed_ids_text;
+            for (uint32_t id_value : observed_light_ids) {
+                if (!observed_ids_text.empty()) observed_ids_text += ",";
+                observed_ids_text += std::to_string(id_value);
+            }
+            a.actual = part_j_test_sparse_lights_pass ? ("Sparse lights {17, 203, 401} verified on device: transition IDs observed and cnts=[" + std::to_string(cnt_17) + ", " + std::to_string(cnt_203) + ", " + std::to_string(cnt_401) + "]") : ("Sparse light indexing or GPU transition identity failed; observed transition IDs={" + observed_ids_text + "}, cnts=[" + std::to_string(cnt_17) + ", " + std::to_string(cnt_203) + ", " + std::to_string(cnt_401) + "]");
             a.status = part_j_test_sparse_lights_pass ? STATUS_PASS : STATUS_FAIL;
             b.add_assertion(a);
             b.set_identity(id); b.set_workload(wl);
@@ -9744,6 +9793,7 @@ public:
             bool reuse_ok = eng.allocate_membership_words(200, off_reused);
 
             bool middle_reuse_passed = reuse_ok && (off_reused == off2);
+            part_j_test_middle_range_reuse_pass = middle_reuse_passed;
 
             AssertionRecord a;
             a.assertion_name = "part_j_middle_range_reuse";
@@ -9783,6 +9833,7 @@ public:
             uint32_t cnt_after = rtx_readback_part_j_persistent_blocker_count(0);
 
             bool inval_passed = (cnt_before == 1) && (cnt_after == 0) && (eng.group_light_allocations.empty());
+            part_j_test_light_invalidation_pass = inval_passed;
 
             AssertionRecord a;
             a.assertion_name = "part_j_light_invalidation";
@@ -9829,6 +9880,7 @@ public:
             uint64_t hash2 = eng.group_light_allocations[ASTGGroupLightKey{ gid, 0 }].layout_hash;
 
             bool shift_detected = (hash1 != hash2) && (hash1 != 0) && (hash2 != 0);
+            part_j_test_b0_layout_shift_pass = shift_detected;
 
             AssertionRecord a;
             a.assertion_name = "part_j_layout_shift_detection";
@@ -10057,7 +10109,7 @@ public:
             rtx_trace_rays_batch_with_timings(repair_rays.data(), repair_hits.data(), 1024, &timings);
             auto t_sub1 = std::chrono::high_resolution_clock::now();
             double total_dispatch_ms = std::chrono::duration<double, std::milli>(t_sub1 - t_sub0).count();
-            double cpu_submit_ms = 0.0; // derived residual removed; submission is not independently instrumented
+            double cpu_submit_ms = -1.0; // NOT_MEASURED: submission is not independently instrumented
 
             uint32_t hits = 0;
             for (const auto& h : repair_hits) if (h.hit) hits++;
@@ -10164,11 +10216,11 @@ public:
             rec_stat.cached_segments_reused = 64;
             rec_stat.avoided_rays = 4096;
             rec_stat.cpu_schedule_ms = stat_cpu_ms;
-            rec_stat.gpu_ingress_trace_ms = 0.0;
-            rec_stat.cpu_stitch_ms = 0.0;
-            rec_stat.cpu_continuation_ms = 0.0;
-            rec_stat.cpu_deposition_ms = 0.0;
-            rec_stat.gpu_total_ms = 0.0;
+            rec_stat.gpu_ingress_trace_ms = -1.0; // NOT_MEASURED: no ingress rays in stationary control
+            rec_stat.cpu_stitch_ms = -1.0; // NOT_MEASURED: no stitch work in stationary control
+            rec_stat.cpu_continuation_ms = -1.0; // NOT_MEASURED: no continuation work in stationary control
+            rec_stat.cpu_deposition_ms = -1.0; // NOT_MEASURED: no deposition work in stationary control
+            rec_stat.gpu_total_ms = -1.0; // NOT_MEASURED: stationary control submits no GPU ingress dispatch
             rec_stat.end_to_end_ms = stat_cpu_ms;
             gpu_dynamic_light_records.push_back(rec_stat);
 
@@ -10320,7 +10372,7 @@ public:
                 double dispatch_wall_ms = std::chrono::duration<double, std::milli>(t_sub1 - t_sub0).count();
 
                 double gpu_ms = std::max(0.0, (double)timings.total_gpu_ms);
-                double cpu_submit_ms = 0.0; // unresolved without independent queue/readback instrumentation
+                double cpu_submit_ms = -1.0; // NOT_MEASURED: unresolved without independent queue/readback instrumentation
 
                 // Measure Phase 5: CPU Hit Result Consumption
                 auto t_cons0 = std::chrono::high_resolution_clock::now();
@@ -10576,7 +10628,7 @@ public:
         // never a fabricated minimum duration.
         {
             std::ofstream f(tmp_dir + "/timing_provenance.json");
-            f << "{\n  \"cpu_submit_ms\": {\"source\": \"NOT_MEASURED\", \"is_measured\": false, \"interpretation\": \"0 means unresolved; queue submission/readback are not independently instrumented\"},\n";
+            f << "{\n  \"schema\": \"astg_timing_provenance_v2\",\n  \"not_measured_sentinel\": -1.0,\n  \"cpu_submit_ms\": {\"source\": \"NOT_MEASURED\", \"is_measured\": false, \"sentinel\": -1.0, \"interpretation\": \"-1 means unresolved; queue submission/readback are not independently instrumented\"},\n";
             f << "  \"gpu_stage_ms\": {\"source\": \"GPU_TIMESTAMP_QUERY\", \"is_measured\": true, \"interpretation\": \"stage intervals may overlap; do not sum unless an enclosing interval is exported\"},\n";
             f << "  \"end_to_end_ms\": {\"source\": \"CPU_HIGH_RES_TIMER\", \"is_measured\": true, \"interpretation\": \"enclosing wall-clock interval where available\"},\n";
             f << "  \"derived_fields\": {\n";
@@ -10587,7 +10639,10 @@ public:
             f << "    \"astg_gpu_dynamic_light.csv.avoided_rays\": {\"source\": \"NOT_MEASURED\", \"is_measured\": false, \"formula\": null},\n";
             f << "    \"astg_gpu_regeneration.csv.invalidated_nodes\": {\"source\": \"CONFIG_VALUE\", \"is_measured\": false, \"formula\": null},\n";
             f << "    \"astg_gpu_regeneration.csv.invalidated_edges\": {\"source\": \"CONFIG_VALUE\", \"is_measured\": false, \"formula\": null},\n";
-            f << "    \"astg_gpu_regeneration.csv.repair_anchors\": {\"source\": \"CONFIG_VALUE\", \"is_measured\": false, \"formula\": null}\n";
+            f << "    \"astg_gpu_regeneration.csv.repair_anchors\": {\"source\": \"CONFIG_VALUE\", \"is_measured\": false, \"formula\": null},\n";
+            f << "    \"astg_gpu_regeneration.csv.cpu_submit_ms\": {\"source\": \"NOT_MEASURED\", \"is_measured\": false, \"sentinel\": -1.0, \"formula\": null},\n";
+            f << "    \"astg_gpu_dynamic_light.csv.cpu_phase_provenance\": {\"source\": \"FIELD_SENTINEL\", \"is_measured\": false, \"sentinel\": -1.0, \"formula\": null},\n";
+            f << "    \"astg_gpu_refinement.csv.cpu_submission_ms\": {\"source\": \"NOT_MEASURED\", \"is_measured\": false, \"sentinel\": -1.0, \"formula\": null}\n";
             f << "  }\n}\n";
         }
 
@@ -10663,10 +10718,28 @@ public:
             f << "  \"schema_version\": \"2.1.0\",\n";
             f << "  \"run_uuid\": \"" << run_uuid << "\",\n";
             f << "  \"session_timestamp\": \"" << session_timestamp << "\",\n";
+            f << "  \"base_commit\": \"" << base_commit_sha << "\",\n";
+            f << "  \"worktree_dirty\": " << (worktree_dirty ? "true" : "false") << ",\n";
             f << "  \"source_commit_sha\": \"" << runtime_build_commit << "\",\n";
             f << "  \"build_commit_sha\": \"" << runtime_build_commit << "\",\n";
-            f << "  \"results_commit_note\": \"results_commit != benchmarked_source_commit (results committed in post-pass)\",\n";
+            f << "  \"build_source_tree_sha256\": \"" << source_tree_sha256 << "\",\n";
+            f << "  \"results_commit_note\": \"clean-commit evidence sealing is blocked without commit authorization; this run is tied to the dirty worktree identity\",\n";
             f << "  \"binary_sha256\": \"" << runtime_binary_hash << "\",\n";
+            f << "  \"tested_binaries\": {\n";
+            size_t binary_index = 0;
+            for (const auto& binary : tested_binary_hashes) {
+                f << "    \"" << binary.first << "\": " << (binary.second.empty() ? "null" : "\"" + binary.second + "\"")
+                  << (++binary_index < tested_binary_hashes.size() ? "," : "") << "\n";
+            }
+            f << "  },\n";
+            f << "  \"source_input_hashes\": {\n";
+            size_t source_index = 0;
+            for (const auto& source : source_input_hashes) {
+                f << "    \"" << source.first << "\": \"" << source.second << "\""
+                  << (++source_index < source_input_hashes.size() ? "," : "") << "\n";
+            }
+            f << "  },\n";
+            f << "  \"clean_commit_sealing\": \"BLOCKED_WITHOUT_COMMIT_AUTHORIZATION\",\n";
             f << "  \"scene_gltf_sha256\": \"" << scene_gltf_hash << "\",\n";
             f << "  \"scene_bin_sha256\": \"" << scene_bin_hash << "\",\n";
             f << "  \"geometry_vertex_sha256\": \"" << geometry_sha256 << "\",\n";
@@ -11492,13 +11565,13 @@ public:
         // 41. astg_gpu_regeneration.csv (Handoff Item 28 / Review Item 2)
         {
             std::ofstream f(tmp_dir + "/astg_gpu_regeneration.csv");
-            f << "event_id,affected_chunks,invalidated_nodes,invalidated_edges,repair_anchors,rays_scheduled,rays_dispatched,rays_completed,ray_hits,stitches_accepted,cached_bounces_reused,avoided_rays,cpu_schedule_ms,cpu_raygen_ms,cpu_submit_ms,gpu_traversal_ms,gpu_hit_process_ms,cpu_stitch_ms,cpu_continuation_ms,cpu_deposition_ms,gpu_total_ms,end_to_end_ms\n";
+            f << "event_id,affected_chunks,invalidated_nodes,invalidated_edges,repair_anchors,rays_scheduled,rays_dispatched,rays_completed,ray_hits,stitches_accepted,cached_bounces_reused,avoided_rays,cpu_schedule_ms,cpu_raygen_ms,cpu_submit_ms,cpu_submit_provenance,gpu_traversal_ms,gpu_hit_process_ms,cpu_stitch_ms,cpu_continuation_ms,cpu_deposition_ms,gpu_total_ms,end_to_end_ms\n";
             for (const auto& r : gpu_regeneration_records) {
                 f << r.event_id << "," << r.affected_chunks << "," << r.invalidated_nodes << "," << r.invalidated_edges << ","
                   << r.repair_anchors << "," << r.rays_scheduled << "," << r.rays_dispatched << "," << r.rays_completed << ","
                   << r.ray_hits << "," << r.stitches_accepted << "," << r.cached_bounces_reused << "," << r.avoided_rays << ","
                   << std::fixed << std::setprecision(4)
-                  << r.cpu_schedule_ms << "," << r.cpu_raygen_ms << "," << r.cpu_submit_ms << ","
+                  << r.cpu_schedule_ms << "," << r.cpu_raygen_ms << "," << r.cpu_submit_ms << ",NOT_MEASURED,"
                   << r.gpu_traversal_ms << "," << r.gpu_hit_process_ms << "," << r.cpu_stitch_ms << ","
                   << r.cpu_continuation_ms << "," << r.cpu_deposition_ms << "," << r.gpu_total_ms << ","
                   << r.end_to_end_ms << "\n";
@@ -11508,7 +11581,7 @@ public:
         // 42. astg_gpu_dynamic_light.csv (Handoff Item 28 / Review Item 3)
         {
             std::ofstream f(tmp_dir + "/astg_gpu_dynamic_light.csv");
-            f << "light_count,light_motion_type,ingress_rays_dispatched,ingress_rays_completed,first_hit_rays,stitches_accepted,continuation_rays,cached_segments_reused,avoided_rays,cpu_schedule_ms,gpu_ingress_trace_ms,cpu_stitch_ms,cpu_continuation_ms,cpu_deposition_ms,gpu_total_ms,end_to_end_ms\n";
+            f << "light_count,light_motion_type,ingress_rays_dispatched,ingress_rays_completed,first_hit_rays,stitches_accepted,continuation_rays,cached_segments_reused,avoided_rays,cpu_schedule_ms,gpu_ingress_trace_ms,cpu_stitch_ms,cpu_continuation_ms,cpu_deposition_ms,gpu_total_ms,end_to_end_ms,cpu_phase_provenance\n";
             for (const auto& r : gpu_dynamic_light_records) {
                 f << r.light_count << "," << r.light_motion_type << ","
                   << r.ingress_rays_dispatched << "," << r.ingress_rays_completed << ","
@@ -11517,18 +11590,19 @@ public:
                   << std::fixed << std::setprecision(4)
                   << r.cpu_schedule_ms << "," << r.gpu_ingress_trace_ms << ","
                   << r.cpu_stitch_ms << "," << r.cpu_continuation_ms << ","
-                  << r.cpu_deposition_ms << "," << r.gpu_total_ms << "," << r.end_to_end_ms << "\n";
+                  << r.cpu_deposition_ms << "," << r.gpu_total_ms << "," << r.end_to_end_ms << ","
+                  << ((r.gpu_ingress_trace_ms < 0.0 || r.cpu_stitch_ms < 0.0 || r.cpu_continuation_ms < 0.0 || r.cpu_deposition_ms < 0.0) ? "NOT_MEASURED" : "MEASURED") << "\n";
             }
         }
 
         // 43. astg_gpu_refinement.csv (Handoff Item 28)
         {
             std::ofstream f(tmp_dir + "/astg_gpu_refinement.csv");
-            f << "ambiguous_cells,rays_batched,rays_completed,resolved_winners,cpu_submission_ms,gpu_dispatch_ms,gpu_traversal_ms,gpu_hit_processing_ms,gpu_total_ms,end_to_end_ms\n";
+            f << "ambiguous_cells,rays_batched,rays_completed,resolved_winners,cpu_submission_ms,cpu_submission_provenance,gpu_dispatch_ms,gpu_traversal_ms,gpu_hit_processing_ms,gpu_total_ms,end_to_end_ms\n";
             for (const auto& r : gpu_refinement_records) {
                 f << r.ambiguous_cells << "," << r.rays_batched << "," << r.rays_completed << "," << r.resolved_winners << ","
                   << std::fixed << std::setprecision(4)
-                  << r.cpu_submission_ms << "," << r.gpu_dispatch_ms << ","
+                  << r.cpu_submission_ms << ",NOT_MEASURED," << r.gpu_dispatch_ms << ","
                   << r.gpu_traversal_ms << "," << r.gpu_hit_processing_ms << ","
                   << r.gpu_total_ms << "," << r.end_to_end_ms << "\n";
             }
@@ -11550,8 +11624,10 @@ public:
                 f << "      \"cpu_broadphase_ms\": " << std::setprecision(4) << r.cpu_broadphase_ms << ",\n";
                 f << "      \"cpu_raygen_ms\": " << std::setprecision(4) << r.cpu_raygen_ms << ",\n";
                 f << "      \"cpu_submit_ms\": " << std::setprecision(4) << r.cpu_submit_ms << ",\n";
+                f << "      \"cpu_submit_provenance\": \"NOT_MEASURED\",\n";
                 f << "      \"cpu_consume_ms\": " << std::setprecision(4) << r.cpu_consume_ms << ",\n";
                 f << "      \"cpu_and_wait_residual_ms\": " << std::setprecision(4) << r.cpu_and_wait_residual_ms << ",\n";
+                f << "      \"cpu_and_wait_residual_provenance\": \"DERIVED_RESIDUAL\",\n";
                 f << "      \"gpu_raygen_ms\": " << std::setprecision(4) << r.gpu_raygen_ms << ",\n";
                 f << "      \"gpu_traversal_ms\": " << std::setprecision(4) << r.gpu_traversal_ms << ",\n";
                 f << "      \"gpu_hit_process_ms\": " << std::setprecision(4) << r.gpu_hit_process_ms << ",\n";
@@ -11570,20 +11646,22 @@ public:
             std::ofstream f(tmp_dir + "/part_j_gpu_correctness.json");
             f << "{\n";
             f << "  \"run_uuid\": \"" << run_uuid << "\",\n";
-            f << "  \"part_j_gpu_pipeline\": \"PASS\",\n";
+            const bool part_j_pipeline_pass = part_j_test_order_invariance_pass && part_j_test_deleted_group_pass &&
+                part_j_test_aggregate_blocker_pass && part_j_test_underflow_prevention_pass && part_j_test_sparse_lights_pass;
+            f << "  \"part_j_gpu_pipeline\": \"" << (part_j_pipeline_pass ? "PASS" : "FAIL") << "\",\n";
             f << "  \"order_invariance\": {\n";
             f << "    \"status\": \"" << (part_j_test_order_invariance_pass ? "PASS" : "FAIL") << "\",\n";
             f << "    \"diff_count\": 0\n";
             f << "  },\n";
             f << "  \"deleted_group\": {\n";
             f << "    \"status\": \"" << (part_j_test_deleted_group_pass ? "PASS" : "FAIL") << "\",\n";
-            f << "    \"clean_decrements\": true,\n";
-            f << "    \"unblocked_transitions_generated\": true\n";
+            f << "    \"clean_decrements\": " << (part_j_deleted_after_second_count == 0 ? "true" : "false") << ",\n";
+            f << "    \"unblocked_transitions_generated\": " << (part_j_deleted_both_count >= part_j_deleted_after_first_count && part_j_deleted_after_first_count >= part_j_deleted_after_second_count ? "true" : "false") << "\n";
             f << "  },\n";
             f << "  \"aggregate_blocker_count\": {\n";
             f << "    \"status\": \"" << (part_j_test_aggregate_blocker_pass ? "PASS" : "FAIL") << "\",\n";
-            f << "    \"progression\": [0, 2, 1, 0],\n";
-            f << "    \"visibility_maintained\": true\n";
+            f << "    \"progression\": [" << part_j_aggregate_counts[0] << ", " << part_j_aggregate_counts[1] << ", " << part_j_aggregate_counts[2] << ", " << part_j_aggregate_counts[3] << ", " << part_j_aggregate_counts[4] << "],\n";
+            f << "    \"visibility_maintained\": " << (part_j_test_aggregate_blocker_pass ? "true" : "false") << "\n";
             f << "  },\n";
             f << "  \"underflow_prevention\": {\n";
             f << "    \"status\": \"" << (part_j_test_underflow_prevention_pass ? "PASS" : "FAIL") << "\",\n";
@@ -11592,11 +11670,14 @@ public:
             f << "  },\n";
             f << "  \"sparse_light_indexing\": {\n";
             f << "    \"status\": \"" << (part_j_test_sparse_lights_pass ? "PASS" : "FAIL") << "\",\n";
-            f << "    \"sparse_lights_tested\": [17, 203, 401],\n";
-            f << "    \"actual_light_id_preserved\": true\n";
+            f << "    \"sparse_lights_tested\": [";
+            size_t sparse_i = 0;
+            for (uint32_t sparse_id : part_j_observed_sparse_light_ids) f << (sparse_i++ ? ", " : "") << sparse_id;
+            f << "],\n";
+            f << "    \"actual_light_id_preserved\": " << ((part_j_observed_sparse_light_ids.size() == 3 && part_j_test_sparse_lights_pass) ? "true" : "false") << "\n";
             f << "  },\n";
             f << "  \"group_deduplication\": {\n";
-            f << "    \"status\": \"PASS\",\n";
+            f << "    \"status\": \"" << (part_j_test_order_invariance_pass ? "PASS" : "FAIL") << "\",\n";
             f << "    \"false_positive_transitions\": 0\n";
             f << "  }\n";
             f << "}\n";
@@ -11607,16 +11688,18 @@ public:
             std::ofstream f(tmp_dir + "/part_j_gpu_persistence.json");
             f << "{\n";
             f << "  \"run_uuid\": \"" << run_uuid << "\",\n";
-            f << "  \"persistent_allocations_active\": true,\n";
-            f << "  \"slot_allocator_active\": true,\n";
-            f << "  \"high_water_mark_words\": 65536,\n";
-            f << "  \"transactional_rollback_verified\": true,\n";
-            f << "  \"middle_range_reuse_verified\": true,\n";
+            f << "  \"persistent_allocations_active\": " << (part_j_test_deleted_group_pass ? "true" : "false") << ",\n";
+            f << "  \"slot_allocator_active\": " << (part_j_test_middle_range_reuse_pass ? "true" : "false") << ",\n";
+            f << "  \"high_water_mark_words\": null,\n";
+            f << "  \"high_water_mark_provenance\": \"NOT_MEASURED\",\n";
+            f << "  \"transactional_rollback_verified\": null,\n";
+            f << "  \"transactional_rollback_provenance\": \"NOT_RUN_IN_DIAGNOSTIC\",\n";
+            f << "  \"middle_range_reuse_verified\": " << (part_j_test_middle_range_reuse_pass ? "true" : "false") << ",\n";
             f << "  \"invalidation_state\": {\n";
             f << "    \"layout_key_tracked\": true,\n";
             f << "    \"selective_invalidation_verified\": " << (part_j_test_deleted_group_pass ? "true" : "false") << ",\n";
-            f << "    \"light_invalidation_unblock_verified\": true,\n";
-            f << "    \"layout_shift_detection_verified\": true\n";
+            f << "    \"light_invalidation_unblock_verified\": " << (part_j_test_light_invalidation_pass ? "true" : "false") << ",\n";
+            f << "    \"layout_shift_detection_verified\": " << (part_j_test_b0_layout_shift_pass ? "true" : "false") << "\n";
             f << "  }\n";
             f << "}\n";
         }
@@ -11667,8 +11750,10 @@ public:
             f << "    \"status\": \"" << (part_k_test_192_probes_pass ? "PASS" : "FAIL") << "\",\n";
             f << "    \"mode\": \"AABB_PROXY_VISIBILITY\",\n";
             f << "    \"probes_evaluated\": " << part_jk_measured_telemetry.gpu_k2_probes_transformed << ",\n";
-            f << "    \"clamping_detected\": false,\n";
-            f << "    \"self_occlusion_valid\": " << (part_k_test_192_probes_pass ? "true" : "false") << "\n";
+            f << "    \"clamping_detected\": null,\n";
+            f << "    \"clamping_provenance\": \"NOT_MEASURED\",\n";
+            f << "    \"self_occlusion_valid\": null,\n";
+            f << "    \"self_occlusion_provenance\": \"NOT_MEASURED_BY_THIS_CONSERVATION_TEST\"\n";
             f << "  }\n";
             f << "}\n";
         }
@@ -11707,9 +11792,11 @@ public:
             std::ofstream f(tmp_dir + "/parts_jk_gpu_timestamps.json");
             f << "{\n";
             f << "  \"run_uuid\": \"" << run_uuid << "\",\n";
-            f << "  \"gpu_hardware_timestamps_valid\": true,\n";
-            f << "  \"fabricated_timings_detected\": false,\n";
-            f << "  \"hardware_timer_frequency_active\": true,\n";
+            const bool hardware_timestamps_valid = rtx_is_hardware_active() && part_jk_measured_telemetry.gpu_total_ms > 0.0;
+            f << "  \"gpu_hardware_timestamps_valid\": " << (hardware_timestamps_valid ? "true" : "false") << ",\n";
+            f << "  \"fabricated_timings_detected\": null,\n";
+            f << "  \"fabricated_timings_provenance\": \"NOT_MEASURED\",\n";
+            f << "  \"hardware_timer_frequency_active\": " << (hardware_timestamps_valid ? "true" : "false") << ",\n";
             f << "  \"part_j_kernels_ms\": {\n";
             f << "    \"j1_transform_projection\": " << std::fixed << std::setprecision(4) << part_jk_measured_telemetry.gpu_j1_ms << ",\n";
             f << "    \"j2_b0_traversal\": " << std::setprecision(4) << part_jk_measured_telemetry.gpu_j2_ms << ",\n";
@@ -11736,13 +11823,15 @@ public:
             std::ofstream f(tmp_dir + "/parts_jk_anti_fallback.json");
             f << "{\n";
             f << "  \"run_uuid\": \"" << run_uuid << "\",\n";
-            f << "  \"gpu_production_active\": true,\n";
-            f << "  \"cpu_part_j_reference_calls\": 0,\n";
-            f << "  \"cpu_part_k_reference_calls\": 0,\n";
+            f << "  \"gpu_production_active\": " << (rtx_is_hardware_active() ? "true" : "false") << ",\n";
+            f << "  \"cpu_part_j_reference_calls\": null,\n";
+            f << "  \"cpu_part_k_reference_calls\": null,\n";
+            f << "  \"cpu_reference_call_provenance\": \"NOT_INSTRUMENTED\",\n";
             f << "  \"anti_fallback_verified\": " << (mode_test_r_mandatory_anti_fallback_pass ? "true" : "false") << ",\n";
             f << "  \"gpu_counters_positive\": " << ((part_jk_measured_telemetry.gpu_k2_probes_transformed > 0) ? "true" : "false") << ",\n";
-            f << "  \"failure_injection_tested\": true,\n";
-            f << "  \"failure_injection_detected\": true\n";
+            f << "  \"failure_injection_tested\": null,\n";
+            f << "  \"failure_injection_detected\": null,\n";
+            f << "  \"failure_injection_provenance\": \"NOT_RUN_IN_DIAGNOSTIC\"\n";
             f << "}\n";
         }
 
@@ -11759,10 +11848,11 @@ public:
             f << "  \"d3d12_error_count\": " << dbg_status.error_count << ",\n";
             f << "  \"d3d12_warning_count\": " << dbg_status.warning_count << ",\n";
             f << "  \"d3d12_info_count\": " << dbg_status.info_count << ",\n";
-            f << "  \"resource_transitions_valid\": " << ((dbg_status.error_count == 0 && dbg_status.corruption_count == 0) ? "true" : "false") << ",\n";
-            f << "  \"uav_barriers_valid\": " << ((dbg_status.error_count == 0 && dbg_status.corruption_count == 0) ? "true" : "false") << ",\n";
-            f << "  \"indirect_dispatch_valid\": " << ((dbg_status.error_count == 0 && dbg_status.corruption_count == 0) ? "true" : "false") << ",\n";
-            f << "  \"status\": \"" << ((dbg_status.error_count == 0 && dbg_status.corruption_count == 0) ? "PASS" : "FAIL") << "\"\n";
+            const bool debug_clean = dbg_status.is_active && dbg_status.error_count == 0 && dbg_status.corruption_count == 0;
+            f << "  \"resource_transitions_valid\": " << (dbg_status.is_active ? (debug_clean ? "true" : "false") : "null") << ",\n";
+            f << "  \"uav_barriers_valid\": " << (dbg_status.is_active ? (debug_clean ? "true" : "false") : "null") << ",\n";
+            f << "  \"indirect_dispatch_valid\": " << (dbg_status.is_active ? (debug_clean ? "true" : "false") : "null") << ",\n";
+            f << "  \"status\": \"" << (dbg_status.is_active ? (debug_clean ? "PASS" : "FAIL") : "NOT_MEASURED") << "\"\n";
             f << "}\n";
         }
 
