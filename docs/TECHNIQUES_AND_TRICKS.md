@@ -11,12 +11,13 @@
 5. [SM 6.5 Wave-Aggregated Atomics (Zero-Contention GPU Telemetry)](#5-sm-65-wave-aggregated-atomics-zero-contention-gpu-telemetry)
 6. [Part J: Continuous Source-Local Angular B0 Transport & Cone BVHs](#6-part-j-continuous-source-local-angular-b0-transport--cone-bvhs)
 7. [Part K: Three-Tier Dynamic Receiver Hierarchy & Bone-Anchored Probes](#7-part-k-three-tier-dynamic-receiver-hierarchy--bone-anchored-probes)
-8. [Sub-Linear Destruction & Reverse Dependency Graph Surgery](#8-sub-linear-destruction--reverse-dependency-graph-surgery)
-9. [Path Stitching: Reusing Downstream Light Transport Subgraphs](#9-path-stitching-reusing-downstream-light-transport-subgraphs)
-10. [Dynamic Lights on the ASTG Highway & The Ray Count Upscaler](#10-dynamic-lights-on-the-astg-highway--the-ray-count-upscaler)
-11. [Massive Stationary Light Decoupling & Bounded Probe Fan-In (128k Lights)](#11-massive-stationary-light-decoupling--bounded-probe-fan-in-128k-lights)
-12. [Inline DXR 1.1 RayQuery & Compact Changed-State Return Ring](#12-inline-dxr-11-rayquery--compact-changed-state-return-ring)
-13. [Summary of Reusable Architectural Patterns ("Tricks to Steal")](#13-summary-of-reusable-architectural-patterns-tricks-to-steal)
+8. [Moving Objects in a Scene: Dynamic Occluders, Swept Bounds & GPU Spatial Discovery](#8-moving-objects-in-a-scene-dynamic-occluders-swept-bounds--gpu-spatial-discovery)
+9. [Sub-Linear Destruction & Reverse Dependency Graph Surgery](#9-sub-linear-destruction--reverse-dependency-graph-surgery)
+10. [Path Stitching: Reusing Downstream Light Transport Subgraphs](#10-path-stitching-reusing-downstream-light-transport-subgraphs)
+11. [Dynamic Lights on the ASTG Highway & The Ray Count Upscaler](#11-dynamic-lights-on-the-astg-highway--the-ray-count-upscaler)
+12. [Massive Stationary Light Decoupling & Bounded Probe Fan-In (128k Lights)](#12-massive-stationary-light-decoupling--bounded-probe-fan-in-128k-lights)
+13. [Inline DXR 1.1 RayQuery & Compact Changed-State Return Ring](#13-inline-dxr-11-rayquery--compact-changed-state-return-ring)
+14. [Summary of Reusable Architectural Patterns ("Tricks to Steal")](#14-summary-of-reusable-architectural-patterns-tricks-to-steal)
 
 ---
 
@@ -461,7 +462,98 @@ A major challenge with dynamic characters is preventing self-intersection (acne)
 
 ---
 
-## 8. Sub-Linear Destruction & Reverse Dependency Graph Surgery
+## 8. Moving Objects in a Scene: Dynamic Occluders, Swept Bounds & GPU Spatial Discovery
+
+A critical question for any transport cache is: **What happens when an object moves through the scene?**
+In traditional ray tracing, moving an object requires updating or rebuilding the top-level BVH (TLAS) and re-casting rays across every pixel. In RayLess, moving objects interact with the graph through an ultra-fast, two-tier dynamic occlusion pipeline:
+
+```
+[Moving Object / Character Moves from Frame t-1 to t]
+                         │
+                         ├─ Compute Swept Bounds: B_swept = B_(t-1) ∪ B_t
+                         ▼
+┌────────────────────────────────────────────────────────┐
+│ CPU: Spatial Grid Range Query (ASTGGPUCellRange)       │ ──> Upload only overlapping cell ranges (bytes!)
+└────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌────────────────────────────────────────────────────────┐
+│ GPU: Spatial Edge Index Discovery (VRAM-resident)      │ ──> Discovers candidate edges inside swept corridor
+└────────────────────────────────────────────────────────┘
+                         │
+        ┌────────────────┴────────────────┐
+        ▼                                 ▼
+   [Direct B0 Visibility]            [Indirect B1+ Transport]
+   - Light B0 Angular Footprint      - Segment vs AABB Slab Test
+   - Blocker Count Updates (0 ↔ 1)   - Mutated Edge State Bitmask
+        │                                 │
+        └────────────────┬────────────────┘
+                         ▼
+   [Dependency-Scheduled Receiver Updates]
+   - Moving occluder casts dynamic shadows on stationary receivers!
+   - Vacated shadow regions are cleaned up with zero stale trails.
+```
+
+### 1. Dynamic Occluder Groups (`ASTGDynamicOccluderGroup`)
+Objects moving in the scene (crates, vehicles, articulated characters) register as **Dynamic Groups**:
+- **Rigid Groups**: Possess a single transform and one or more bounding boxes (`bounds`).
+- **Skeletal Groups**: Possess dynamic bone matrices and per-bone bounding boxes.
+- **Never Mutates Static Topology**: Dynamic occluders do not delete or splice static transport nodes. Instead, dynamic occlusion is tracked via persistent auxiliary state buffers (`ASTGPersistentVisibilityState`).
+
+### 2. Swept Bounds: Detecting Both Occlusion and Disocclusion
+When an object moves from position $P_{t-1}$ to $P_t$, testing only its current bounding box $B_t$ would discover edges that are *currently* blocked, but would completely miss edges that *used to be blocked* and are now uncovered!
+
+RayLess computes a **Swept AABB**:
+$$\mathbf{B}_{\text{swept}} = \mathbf{B}_{t-1} \cup \mathbf{B}_t$$
+$$\mathbf{B}_{\text{swept}}.\text{expand}(r_{\text{corridor}})$$
+By querying the transport graph with the swept bounds, the engine simultaneously tests:
+1. **Newly Occluded Edges** ($0 \to 1$): Now intersected by $B_t$.
+2. **Newly Disoccluded Edges** ($1 \to 0$): Vacated by $B_{t-1}$ and clear in $B_t$.
+This ensures dynamic shadows both appear immediately and dissolve without ghosting or stale lingering trails.
+
+### 3. GPU Spatial Discovery via Cell Ranges (`ASTGGPUCellRange`)
+Rather than having the CPU iterate through tens of thousands of DAG edges to find which ones intersect $\mathbf{B}_{\text{swept}}$, RayLess offloads spatial discovery to the GPU ([`astg_transport_engine.h:2582-2650`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h#L2582-L2650)):
+- All scene edges are indexed into uniform 3D spatial cells resident in GPU memory (`g_spatial_edge_indices`).
+- The CPU only identifies which cell indices overlap $\mathbf{B}_{\text{swept}}$ and uploads compact **Cell Range Descriptors**:
+  ```cpp
+  struct ASTGGPUCellRange {
+      uint32_t edge_index_offset; // Offset into g_spatial_edge_indices
+      uint32_t edge_index_count;  // Number of edges in this cell
+      uint32_t dispatch_offset;   // Thread prefix offset
+  };
+  ```
+- The compute shader reads the range descriptors and iterates through edge indices directly in high-bandwidth VRAM, eliminating CPU edge traversal entirely.
+
+### 4. Three Distinct Occlusion Modes
+RayLess provides fine-grained control over dynamic occlusion fidelity:
+- **Mode A (`ASTG_OCCLUSION_DAG_EDGES_ALL_BOUNCES`)**: General segment-vs-AABB testing across all transport edges ($B_0, B_1, \dots, B_N$).
+- **Mode B (`ASTG_OCCLUSION_ANGULAR_B0_DAG_B1_PLUS`)**: Two-tier specialized execution:
+  - Direct light occlusion ($B_0$) uses continuous light-local angular footprints and Angular BVHs (Part J).
+  - Indirect scattering edges ($B_1+$) use the spatial edge grid and segment-AABB slab tests.
+- **Mode C (`ASTG_OCCLUSION_ANGULAR_B0_ONLY`)**: Evaluates direct shadowing only; indirect bounce paths remain cached, offering maximum throughput for mobile/laptop GPUs.
+
+### 5. Moving Occluders Shadowing Stationary Receivers
+A common trap in caching systems is updating lighting only when a receiver moves. If a stationary player stands under a stationary lamp, and an enemy walks between them, **the stationary player must be shadowed**.
+
+RayLess enforces **dependency-based dirty scheduling** ([`astg_transport_engine.h:3690`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h#L3690)):
+- When an occluder moves, its swept volume is tested against active light influence volumes.
+- Any stationary surface probes whose sightlines to those lights intersect the occluder's swept volume are scheduled for GPU re-evaluation.
+- Stationary probes outside the shadow corridor are preserved in place with zero recomputation.
+
+### 6. Dynamic Slot Modulo Recycling & ABA Generation Safety
+Persistent visibility states on the GPU are scoped to a stable dynamic-object slot:
+$$\text{state\_index} = \text{slot} \times 524,288 + \text{edge\_id}$$
+Slots are recycled using modulo wrapping (`slot % MAX_SLOTS`) to support indefinite gameplay without memory exhaustion. To prevent ABA race conditions (where an edge ID is reused by a mutated object), every state entry records the edge mutation generation:
+```hlsl
+ASTGPersistentVisibilityState prior = g_visibility_states[state_index];
+if (prior.edge_generation == generation && prior.visibility_state == visibility_state) {
+    return; // Already current; no state mutation
+}
+```
+
+---
+
+## 9. Sub-Linear Destruction & Reverse Dependency Graph Surgery
 
 ### The Problem with Geometry Destruction in GI
 In destructible games (e.g. walls breaking, cover blowing up), standard GI engines have two poor choices:
@@ -503,7 +595,7 @@ When chunk $A$ is destroyed:
 
 ---
 
-## 9. Path Stitching: Reusing Downstream Light Transport Subgraphs
+## 10. Path Stitching: Reusing Downstream Light Transport Subgraphs
 
 ### The Concept
 When an object is destroyed or a new light turns on, new repair rays are traced into the scene.
@@ -550,7 +642,7 @@ $$\text{Score} = 0.4 \left(1 - \frac{d}{\tau_{pos}}\right) + 0.4 \left(\frac{\ma
 
 ---
 
-## 10. Dynamic Lights on the ASTG Highway & The Ray Count Upscaler
+## 11. Dynamic Lights on the ASTG Highway & The Ray Count Upscaler
 
 ### The Dynamic Light Dilemma
 Stationary lights can be pre-analyzed into persistent transport graphs. But video games require **fully dynamic lights**:
@@ -617,7 +709,7 @@ It emits an **`ASTGContinuationFrontier`**, tracing a single continuation ray to
 
 ---
 
-## 11. Massive Stationary Light Decoupling & Bounded Probe Fan-In (128k Lights)
+## 12. Massive Stationary Light Decoupling & Bounded Probe Fan-In (128k Lights)
 
 ### The $O(M \times N)$ Light Scaling Problem
 If a scene contains 128,000 stationary light sources (street lamps, neon signs, interior bulbs, candles) and 1,200 probes:
@@ -654,7 +746,7 @@ By strictly capping probe fan-in to the top $K = 32$ or $64$ energy-contributing
 
 ---
 
-## 12. Inline DXR 1.1 RayQuery & Compact Changed-State Return Ring
+## 13. Inline DXR 1.1 RayQuery & Compact Changed-State Return Ring
 
 ### RayGen Shaders vs. Inline RayQuery
 Traditional DXR uses full ray-tracing pipelines (`DispatchRays`) with Ray Generation, Closest Hit, Any Hit, and Miss shaders.
@@ -703,7 +795,7 @@ g_results[output_index] = changed_result;
 
 ---
 
-## 13. Summary of Reusable Architectural Patterns ("Tricks to Steal")
+## 14. Summary of Reusable Architectural Patterns ("Tricks to Steal")
 
 | # | Technique / Pattern | Key Shader / Source File | Core Insight / Formulation |
 |---|---|---|---|
@@ -719,10 +811,12 @@ g_results[output_index] = changed_result;
 | **10**| **GPU Work Queue Indirect Dispatch** | [`rtx_dynamic_receiver_runtime.hlsl`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/rtx/rtx_dynamic_receiver_runtime.hlsl) | Cluster culling writes compact probe work items; Pass K4.5 drives `DispatchIndirect` with 0 CPU sync. |
 | **11**| **Atomic Float Irradiance Superposition**| [`rtx_dynamic_receiver_runtime.hlsl`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/rtx/rtx_dynamic_receiver_runtime.hlsl) | Accumulate multi-light energy directly into ByteAddressBuffers using `InterlockedCompareExchange` float CAS loops. |
 | **12**| **Skeletal Bone Self-Occlusion** | [`rtx_dynamic_receiver_runtime.hlsl`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/rtx/rtx_dynamic_receiver_runtime.hlsl) | Skip same-bone tests (prevent acne), allow cross-bone tests (arm casts shadow on torso). |
-| **13**| **Surface-Attached Barycentric Probes**| [`adaptive_surface_probe_allocator.gd`](file:///c:/Users/Brand/Documents/hermes/Rayless/scripts/core/precompute/adaptive_surface_probe_allocator.gd)| Bind probes to triangle meshes $(u, v)$; eliminate wall and ceiling light leaking completely. |
-| **14**| **Reverse Dependency Graph Surgery** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Chunk destruction invalidates only $0.12\%$ of graph; localized priority repair converges in 1 frame. |
-| **15**| **Path Stitching Subgraph Reuse** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Connect repair rays onto existing valid downstream nodes; eliminate 80–95% of multi-bounce rays. |
-| **16**| **Dynamic Light ASTG Highway** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Moving lights cast 16–64 ingress rays and ride precomputed transport highways; zero full path tracing. |
-| **17**| **ASTG Ray Count Upscaler** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Precomputed graph amplifies 64 ingress rays into 4,000+ effective multi-bounce paths ($60\times$ to $100\times$ multiplier). |
-| **18**| **Bounded Fan-In CSR Matrix** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Cap probe-light couplings to top 32/64 lights; evaluate 128,000 stationary lights in <0.8 ms. |
-| **19**| **Compact Changed-State Readback Ring** | [`rtx_gpu_transport.hlsl`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/rtx/rtx_gpu_transport.hlsl) | Shader checks prior state cache; writes only mutated edges to ring buffer, cutting readback by >98%. |
+| **13**| **Swept Bounds Occlusion Discovery**| [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Query $\mathbf{B}_{t-1} \cup \mathbf{B}_t$ to discover both newly occluded and newly unblocked edges in 1 pass. |
+| **14**| **GPU Spatial Edge Range Uploads** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Upload tiny cell range descriptors (`ASTGGPUCellRange`); GPU discovers candidate edges in device VRAM. |
+| **15**| **Surface-Attached Barycentric Probes**| [`adaptive_surface_probe_allocator.gd`](file:///c:/Users/Brand/Documents/hermes/Rayless/scripts/core/precompute/adaptive_surface_probe_allocator.gd)| Bind probes to triangle meshes $(u, v)$; eliminate wall and ceiling light leaking completely. |
+| **16**| **Reverse Dependency Graph Surgery** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Chunk destruction invalidates only $0.12\%$ of graph; localized priority repair converges in 1 frame. |
+| **17**| **Path Stitching Subgraph Reuse** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Connect repair rays onto existing valid downstream nodes; eliminate 80–95% of multi-bounce rays. |
+| **18**| **Dynamic Light ASTG Highway** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Moving lights cast 16–64 ingress rays and ride precomputed transport highways; zero full path tracing. |
+| **19**| **ASTG Ray Count Upscaler** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Precomputed graph amplifies 64 ingress rays into 4,000+ effective multi-bounce paths ($60\times$ to $100\times$ multiplier). |
+| **20**| **Bounded Fan-In CSR Matrix** | [`astg_transport_engine.h`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/astg/astg_transport_engine.h) | Cap probe-light couplings to top 32/64 lights; evaluate 128,000 stationary lights in <0.8 ms. |
+| **21**| **Compact Changed-State Readback Ring** | [`rtx_gpu_transport.hlsl`](file:///c:/Users/Brand/Documents/hermes/Rayless/src/rtx/rtx_gpu_transport.hlsl) | Shader checks prior state cache; writes only mutated edges to ring buffer, cutting readback by >98%. |
